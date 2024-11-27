@@ -1,0 +1,49 @@
+{
+  "name": "playarr",
+  "private": true,
+  "version": "0.0.0",
+  "description": "A alternative interface for interacting with plex, sonarr and radarr.",
+  "author": "Drew Chase",
+  "license": "GPL-3.0-or-later",
+  "repository": "",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.js",
+    "build-api": "cargo build --release",
+    "run-api": "cargo run --bin playarr",
+    "build-frontend": "tsc && vite build",
+    "watch-api": "cargo watch -x \"run --bin playarr\" -C target/dev-env -N --why -w ../../src-actix"
+  },
+  "dependencies": {
+    "@nextui-org/react": "^2.4.6",
+    "framer-motion": "^11.3.27",
+    "jquery": "^3.7.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.0",
+    "@fortawesome/react-fontawesome": "^0.2.2",
+    "@fortawesome/fontawesome-free": "^6.6.0",
+    "@fortawesome/fontawesome-svg-core": "^6.6.0",
+    "@fortawesome/free-solid-svg-icons": "^6.6.0",
+    "@fortawesome/free-brands-svg-icons": "^6.6.0",
+    "@fortawesome/free-regular-svg-icons": "^6.6.0"
+  },
+  "devDependencies": {
+    "@types/jquery": "^3.5.30",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@typescript-eslint/eslint-plugin": "^8.1.0",
+    "@typescript-eslint/parser": "^8.1.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.20",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "eslint-plugin-react-refresh": "^0.4.9",
+    "postcss": "^8.4.41",
+    "postcss-import": "^16.1.0",
+    "sass": "^1.77.8",
+    "sass-loader": "^16.0.0",
+    "tailwindcss": "^3.4.10",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.0"
+  }
+}
