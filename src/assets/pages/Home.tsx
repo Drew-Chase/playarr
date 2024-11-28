@@ -10,13 +10,12 @@ export default function Home()
             <PCarousel
                 title={"Popular"}
                 subtitle={"Popular media"}
-                action={() =>
-                {
-                    alert("hi");
-                }}
+                href={"/movies/categories/popular"}
+                showControls
+                showIndicators
             >
-                {Array.from({length: 100}).map((_) => (
-                    <PMediaCard/>
+                {Array.from({length: 100}).map((_, i) => (
+                    <PMediaCard key={`${i}`}/>
                 ))}
             </PCarousel>
         </div>
