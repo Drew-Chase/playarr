@@ -1,0 +1,19 @@
+meta {
+  name: Get Search Results
+  type: http
+  seq: 3
+}
+
+get {
+  url: https:/10.10.10.47:32400//search
+  body: none
+  auth: none
+}
+
+params:query {
+  query: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

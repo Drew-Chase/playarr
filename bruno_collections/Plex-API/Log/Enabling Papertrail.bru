@@ -1,0 +1,15 @@
+meta {
+  name: Enabling Papertrail
+  type: http
+  seq: 3
+}
+
+get {
+  url: https:/10.10.10.47:32400//log/networked
+  body: none
+  auth: none
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

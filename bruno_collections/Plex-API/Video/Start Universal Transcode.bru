@@ -1,0 +1,34 @@
+meta {
+  name: Start Universal Transcode
+  type: http
+  seq: 2
+}
+
+get {
+  url: https:/10.10.10.47:32400//video/:/transcode/universal/start.mpd
+  body: none
+  auth: none
+}
+
+params:query {
+  hasMDE: 
+  path: 
+  mediaIndex: 
+  partIndex: 
+  protocol: 
+  ~fastSeek: 
+  ~directPlay: 
+  ~directStream: 
+  ~subtitleSize: 
+  ~subtites: 
+  ~audioBoost: 
+  ~location: 
+  ~mediaBufferSize: 
+  ~session: 
+  ~addDebugOverlay: 
+  ~autoAdjustQuality: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

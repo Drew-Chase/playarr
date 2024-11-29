@@ -1,0 +1,15 @@
+meta {
+  name: Get Devices
+  type: http
+  seq: 4
+}
+
+get {
+  url: https:/10.10.10.47:32400//devices
+  body: none
+  auth: none
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

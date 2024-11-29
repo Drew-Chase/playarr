@@ -1,0 +1,15 @@
+meta {
+  name: Get Server List
+  type: http
+  seq: 9
+}
+
+get {
+  url: https:/10.10.10.47:32400//servers
+  body: none
+  auth: none
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

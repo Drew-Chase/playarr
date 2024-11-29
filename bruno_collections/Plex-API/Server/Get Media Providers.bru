@@ -1,0 +1,17 @@
+meta {
+  name: Get Media Providers
+  type: http
+  seq: 8
+}
+
+get {
+  url: https:/10.10.10.47:32400//media/providers
+  body: none
+  auth: none
+}
+
+headers {
+  X-Plex-Token: 
+  X-Plex-Token: {{apiKey}}
+  ~Accept: 
+}

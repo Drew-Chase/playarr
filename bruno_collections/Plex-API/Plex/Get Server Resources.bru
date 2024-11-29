@@ -1,0 +1,22 @@
+meta {
+  name: Get Server Resources
+  type: http
+  seq: 5
+}
+
+get {
+  url: https:/10.10.10.47:32400//resources
+  body: none
+  auth: none
+}
+
+params:query {
+  ~includeHttps: 
+  ~includeRelay: 
+  ~includeIPv6: 
+}
+
+headers {
+  X-Plex-Client-Identifier: 
+  X-Plex-Token: {{apiKey}}
+}

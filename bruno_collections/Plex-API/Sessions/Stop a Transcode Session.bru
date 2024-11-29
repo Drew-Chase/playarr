@@ -1,0 +1,19 @@
+meta {
+  name: Stop a Transcode Session
+  type: http
+  seq: 4
+}
+
+delete {
+  url: https:/10.10.10.47:32400//transcode/sessions/:sessionKey
+  body: none
+  auth: none
+}
+
+params:path {
+  sessionKey: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

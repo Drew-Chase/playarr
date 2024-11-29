@@ -1,0 +1,24 @@
+meta {
+  name: Adding to a Playlist
+  type: http
+  seq: 8
+}
+
+put {
+  url: https:/10.10.10.47:32400//playlists/:playlistID/items
+  body: none
+  auth: none
+}
+
+params:query {
+  uri: 
+  ~playQueueID: 
+}
+
+params:path {
+  playlistID: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

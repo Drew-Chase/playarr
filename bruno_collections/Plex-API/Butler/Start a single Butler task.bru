@@ -1,0 +1,19 @@
+meta {
+  name: Start a single Butler task
+  type: http
+  seq: 4
+}
+
+post {
+  url: https:/10.10.10.47:32400//butler/:taskName
+  body: none
+  auth: none
+}
+
+params:path {
+  taskName: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

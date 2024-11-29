@@ -1,0 +1,19 @@
+meta {
+  name: Get Bandwidth Statistics
+  type: http
+  seq: 3
+}
+
+get {
+  url: https:/10.10.10.47:32400//statistics/bandwidth
+  body: none
+  auth: none
+}
+
+params:query {
+  ~timespan: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

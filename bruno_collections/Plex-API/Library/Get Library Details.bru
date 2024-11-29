@@ -1,0 +1,23 @@
+meta {
+  name: Get Library Details
+  type: http
+  seq: 4
+}
+
+get {
+  url: https:/10.10.10.47:32400//library/sections/:sectionKey
+  body: none
+  auth: none
+}
+
+params:query {
+  ~includeDetails: 
+}
+
+params:path {
+  sectionKey: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

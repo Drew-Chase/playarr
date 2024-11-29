@@ -1,0 +1,19 @@
+meta {
+  name: Get Metadata by RatingKey
+  type: http
+  seq: 10
+}
+
+get {
+  url: https:/10.10.10.47:32400//library/metadata/:ratingKey
+  body: none
+  auth: none
+}
+
+params:path {
+  ratingKey: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

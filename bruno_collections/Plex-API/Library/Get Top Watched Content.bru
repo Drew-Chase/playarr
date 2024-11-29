@@ -1,0 +1,20 @@
+meta {
+  name: Get Top Watched Content
+  type: http
+  seq: 12
+}
+
+get {
+  url: https:/10.10.10.47:32400//library/all/top
+  body: none
+  auth: none
+}
+
+params:query {
+  type: 
+  ~includeGuids: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

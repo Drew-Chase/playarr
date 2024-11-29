@@ -1,0 +1,19 @@
+meta {
+  name: Get Media Statistics
+  type: http
+  seq: 1
+}
+
+get {
+  url: https:/10.10.10.47:32400//statistics/media
+  body: none
+  auth: none
+}
+
+params:query {
+  ~timespan: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

@@ -1,0 +1,19 @@
+meta {
+  name: Delete Library Section
+  type: http
+  seq: 5
+}
+
+delete {
+  url: https:/10.10.10.47:32400//library/sections/:sectionKey
+  body: none
+  auth: none
+}
+
+params:path {
+  sectionKey: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

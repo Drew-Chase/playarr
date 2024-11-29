@@ -1,0 +1,23 @@
+meta {
+  name: Get Items Children
+  type: http
+  seq: 11
+}
+
+get {
+  url: https:/10.10.10.47:32400//library/metadata/:ratingKey/children
+  body: none
+  auth: none
+}
+
+params:query {
+  ~includeElements: 
+}
+
+params:path {
+  ratingKey: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

@@ -1,0 +1,21 @@
+meta {
+  name: Upload Playlist
+  type: http
+  seq: 9
+}
+
+post {
+  url: https:/10.10.10.47:32400//playlists/upload
+  body: none
+  auth: none
+}
+
+params:query {
+  path: 
+  force: 
+  sectionID: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

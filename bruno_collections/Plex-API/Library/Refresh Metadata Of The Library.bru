@@ -1,0 +1,23 @@
+meta {
+  name: Refresh Metadata Of The Library
+  type: http
+  seq: 7
+}
+
+get {
+  url: https:/10.10.10.47:32400//library/sections/:sectionKey/refresh
+  body: none
+  auth: none
+}
+
+params:query {
+  ~force: 
+}
+
+params:path {
+  sectionKey: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

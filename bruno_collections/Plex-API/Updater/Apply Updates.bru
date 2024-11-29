@@ -1,0 +1,20 @@
+meta {
+  name: Apply Updates
+  type: http
+  seq: 3
+}
+
+put {
+  url: https:/10.10.10.47:32400//updater/apply
+  body: none
+  auth: none
+}
+
+params:query {
+  ~tonight: 
+  ~skip: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

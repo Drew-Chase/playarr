@@ -1,0 +1,21 @@
+meta {
+  name: Perform a voice search
+  type: http
+  seq: 2
+}
+
+get {
+  url: https:/10.10.10.47:32400//hubs/search/voice
+  body: none
+  auth: none
+}
+
+params:query {
+  query: 
+  ~sectionId: 
+  ~limit: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

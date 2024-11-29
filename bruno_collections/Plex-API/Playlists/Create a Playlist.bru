@@ -1,0 +1,23 @@
+meta {
+  name: Create a Playlist
+  type: http
+  seq: 1
+}
+
+post {
+  url: https:/10.10.10.47:32400//playlists
+  body: none
+  auth: none
+}
+
+params:query {
+  title: 
+  type: 
+  smart: 
+  uri: 
+  ~playQueueID: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

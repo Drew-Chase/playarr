@@ -1,0 +1,25 @@
+meta {
+  name: Get a Resized Photo
+  type: http
+  seq: 7
+}
+
+get {
+  url: https:/10.10.10.47:32400//photo/:/transcode
+  body: none
+  auth: none
+}
+
+params:query {
+  width: 
+  height: 
+  opacity: 
+  blur: 
+  minSize: 
+  upscale: 
+  url: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

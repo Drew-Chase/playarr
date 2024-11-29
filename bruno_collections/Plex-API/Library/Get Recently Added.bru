@@ -1,0 +1,25 @@
+meta {
+  name: Get Recently Added
+  type: http
+  seq: 2
+}
+
+get {
+  url: https:/10.10.10.47:32400//library/recentlyAdded
+  body: none
+  auth: none
+}
+
+params:query {
+  type: 
+  ~contentDirectoryID: 
+  ~pinnedContentDirectoryID: 
+  ~sectionID: 
+  ~includeMeta: 
+  ~X-Plex-Container-Start: 
+  ~X-Plex-Container-Size: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

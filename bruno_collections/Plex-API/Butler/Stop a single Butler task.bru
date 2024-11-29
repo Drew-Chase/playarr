@@ -1,0 +1,19 @@
+meta {
+  name: Stop a single Butler task
+  type: http
+  seq: 5
+}
+
+delete {
+  url: https:/10.10.10.47:32400//butler/:taskName
+  body: none
+  auth: none
+}
+
+params:path {
+  taskName: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

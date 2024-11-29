@@ -1,0 +1,27 @@
+meta {
+  name: Get Banner Image
+  type: http
+  seq: 4
+}
+
+get {
+  url: https:/10.10.10.47:32400//library/metadata/:ratingKey/banner
+  body: none
+  auth: none
+}
+
+params:query {
+  width: 
+  height: 
+  minSize: 
+  upscale: 
+}
+
+params:path {
+  ratingKey: 
+}
+
+headers {
+  X-Plex-Token: 
+  X-Plex-Token: {{apiKey}}
+}

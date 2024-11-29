@@ -1,0 +1,24 @@
+meta {
+  name: Get library specific hubs
+  type: http
+  seq: 3
+}
+
+get {
+  url: https:/10.10.10.47:32400//hubs/sections/:sectionId
+  body: none
+  auth: none
+}
+
+params:query {
+  ~count: 
+  ~onlyTransient: 
+}
+
+params:path {
+  sectionId: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

@@ -1,0 +1,22 @@
+meta {
+  name: Get Session History
+  type: http
+  seq: 2
+}
+
+get {
+  url: https:/10.10.10.47:32400//status/sessions/history/all
+  body: none
+  auth: none
+}
+
+params:query {
+  ~sort: 
+  ~accountId: 
+  ~filter: 
+  ~librarySectionID: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

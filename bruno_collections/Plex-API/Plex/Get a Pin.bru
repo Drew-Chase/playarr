@@ -1,0 +1,24 @@
+meta {
+  name: Get a Pin
+  type: http
+  seq: 6
+}
+
+post {
+  url: https:/10.10.10.47:32400//pins
+  body: none
+  auth: none
+}
+
+params:query {
+  ~strong: 
+}
+
+headers {
+  X-Plex-Client-Identifier: 
+  X-Plex-Token: {{apiKey}}
+  ~X-Plex-Product: 
+  ~X-Plex-Device: 
+  ~X-Plex-Version: 
+  ~X-Plex-Platform: 
+}

@@ -1,0 +1,24 @@
+meta {
+  name: Update a Playlist
+  type: http
+  seq: 5
+}
+
+put {
+  url: https:/10.10.10.47:32400//playlists/:playlistID
+  body: none
+  auth: none
+}
+
+params:query {
+  ~title: 
+  ~summary: 
+}
+
+params:path {
+  playlistID: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

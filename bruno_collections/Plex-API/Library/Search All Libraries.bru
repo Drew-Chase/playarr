@@ -1,0 +1,24 @@
+meta {
+  name: Search All Libraries
+  type: http
+  seq: 9
+}
+
+get {
+  url: https:/10.10.10.47:32400//library/search
+  body: none
+  auth: none
+}
+
+params:query {
+  query: 
+  ~limit: 
+  ~searchTypes: 
+  ~includeCollections: 
+  ~includeExternalMedia: 
+}
+
+headers {
+  X-Plex-Client-Identifier: 
+  X-Plex-Token: {{apiKey}}
+}

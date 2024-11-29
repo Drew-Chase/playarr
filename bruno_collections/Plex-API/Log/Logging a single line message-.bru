@@ -1,0 +1,21 @@
+meta {
+  name: Logging a single line message-
+  type: http
+  seq: 1
+}
+
+get {
+  url: https:/10.10.10.47:32400//log
+  body: none
+  auth: none
+}
+
+params:query {
+  level: 
+  message: 
+  source: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

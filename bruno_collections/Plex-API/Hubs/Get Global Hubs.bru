@@ -1,0 +1,20 @@
+meta {
+  name: Get Global Hubs
+  type: http
+  seq: 1
+}
+
+get {
+  url: https:/10.10.10.47:32400//hubs
+  body: none
+  auth: none
+}
+
+params:query {
+  ~count: 
+  ~onlyTransient: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

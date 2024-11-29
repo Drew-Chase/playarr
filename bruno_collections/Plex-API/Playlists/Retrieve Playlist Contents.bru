@@ -1,0 +1,23 @@
+meta {
+  name: Retrieve Playlist Contents
+  type: http
+  seq: 6
+}
+
+get {
+  url: https:/10.10.10.47:32400//playlists/:playlistID/items
+  body: none
+  auth: none
+}
+
+params:query {
+  type: 
+}
+
+params:path {
+  playlistID: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

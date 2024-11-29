@@ -1,0 +1,28 @@
+meta {
+  name: Get the timeline for a media item
+  type: http
+  seq: 1
+}
+
+get {
+  url: https:/10.10.10.47:32400//:/timeline
+  body: none
+  auth: none
+}
+
+params:query {
+  ratingKey: 
+  key: 
+  state: 
+  hasMDE: 
+  time: 
+  duration: 
+  context: 
+  playQueueItemID: 
+  playBackTime: 
+  row: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

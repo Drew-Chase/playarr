@@ -1,0 +1,19 @@
+meta {
+  name: Cancel Server Activities
+  type: http
+  seq: 2
+}
+
+delete {
+  url: https:/10.10.10.47:32400//activities/:activityUUID
+  body: none
+  auth: none
+}
+
+params:path {
+  activityUUID: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

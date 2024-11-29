@@ -1,0 +1,27 @@
+meta {
+  name: Get User Sign In Data
+  type: http
+  seq: 4
+}
+
+post {
+  url: https:/10.10.10.47:32400//users/signin
+  body: formUrlEncoded
+  auth: none
+}
+
+headers {
+  X-Plex-Client-Identifier: 
+  X-Plex-Token: {{apiKey}}
+  ~X-Plex-Product: 
+  ~X-Plex-Device: 
+  ~X-Plex-Version: 
+  ~X-Plex-Platform: 
+}
+
+body:form-urlencoded {
+  login: 
+  password: 
+  rememberMe: 
+  verificationCode: 
+}

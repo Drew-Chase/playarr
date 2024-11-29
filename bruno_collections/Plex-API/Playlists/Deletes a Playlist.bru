@@ -1,0 +1,19 @@
+meta {
+  name: Deletes a Playlist
+  type: http
+  seq: 4
+}
+
+delete {
+  url: https:/10.10.10.47:32400//playlists/:playlistID
+  body: none
+  auth: none
+}
+
+params:path {
+  playlistID: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

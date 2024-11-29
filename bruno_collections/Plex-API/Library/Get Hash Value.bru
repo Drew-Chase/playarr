@@ -1,0 +1,20 @@
+meta {
+  name: Get Hash Value
+  type: http
+  seq: 1
+}
+
+get {
+  url: https:/10.10.10.47:32400//library/hashes
+  body: none
+  auth: none
+}
+
+params:query {
+  url: 
+  ~type: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}

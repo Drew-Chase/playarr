@@ -1,0 +1,24 @@
+meta {
+  name: Get Access Token by PinId
+  type: http
+  seq: 7
+}
+
+get {
+  url: https:/10.10.10.47:32400//pins/:pinID
+  body: none
+  auth: none
+}
+
+params:path {
+  pinID: 
+}
+
+headers {
+  X-Plex-Client-Identifier: 
+  X-Plex-Token: {{apiKey}}
+  ~X-Plex-Product: 
+  ~X-Plex-Device: 
+  ~X-Plex-Version: 
+  ~X-Plex-Platform: 
+}

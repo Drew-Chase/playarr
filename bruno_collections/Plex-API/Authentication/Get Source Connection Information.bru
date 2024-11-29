@@ -1,0 +1,19 @@
+meta {
+  name: Get Source Connection Information
+  type: http
+  seq: 2
+}
+
+get {
+  url: https:/10.10.10.47:32400//security/resources
+  body: none
+  auth: none
+}
+
+params:query {
+  source: 
+}
+
+headers {
+  X-Plex-Token: {{apiKey}}
+}
