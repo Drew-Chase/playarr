@@ -83,7 +83,7 @@ export default function Home()
                 {watching.length > 0 && (
                     <ContentRow title="Continue Watching">
                         {watching.map((item) => (
-                            <MediaCard key={item.ratingKey} item={item} showProgress variant="landscape"/>
+                            <MediaCard key={item.ratingKey} item={item} showProgress variant="landscape" width={480}/>
                         ))}
                     </ContentRow>
                 )}

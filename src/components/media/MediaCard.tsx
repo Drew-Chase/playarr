@@ -5,17 +5,20 @@ import {Icon} from "@iconify-icon/react";
 import type {PlexMediaItem} from "../../lib/types.ts";
 import {plexImage} from "../../lib/utils.ts";
 
-interface MediaCardProps {
+interface MediaCardProps
+{
     item: PlexMediaItem;
     showProgress?: boolean;
     variant?: "portrait" | "landscape";
     width?: number;
 }
 
-export default function MediaCard({item, showProgress, width, variant = "portrait"}: MediaCardProps) {
+export default function MediaCard({item, showProgress, width, variant = "portrait"}: MediaCardProps)
+{
     const navigate = useNavigate();
 
-    const handleClick = () => {
+    const handleClick = () =>
+    {
         navigate(`/detail/${item.ratingKey}`);
     };
 
@@ -31,17 +34,18 @@ export default function MediaCard({item, showProgress, width, variant = "portrai
         ? `S${item.parentIndex?.toString().padStart(2, "0")}E${item.index?.toString().padStart(2, "0")} ${item.title}`
         : item.year?.toString() || "";
 
-    if (variant === "landscape") {
+    if (variant === "landscape")
+    {
         const artUrl = plexImage(item.art, 560, 316) || plexImage(item.thumb, 560, 316);
 
         return (
             <motion.div
                 whileHover={{scale: 1.05}}
                 transition={{type: "tween", duration: 0.2}}
-                className="shrink-0 w-[280px] cursor-pointer group scroll-snap-start"
+                className="shrink-0 cursor-pointer group scroll-snap-start"
                 onClick={handleClick}
             >
-                <div className="relative w-[280px] h-[158px] rounded-lg overflow-hidden bg-content2">
+                <div className="relative aspect-[3/1.5] rounded-lg overflow-hidden bg-content2" style={{width: width ?? "280px"}}>
                     <img
                         alt={item.title}
                         className="object-cover w-full h-full"
@@ -68,7 +72,7 @@ export default function MediaCard({item, showProgress, width, variant = "portrai
                                 className="rounded-none"
                                 classNames={{
                                     indicator: "bg-primary",
-                                    track: "bg-black/50 rounded-none",
+                                    track: "bg-black/50 rounded-none"
                                 }}
                             />
                         </div>
@@ -112,7 +116,7 @@ export default function MediaCard({item, showProgress, width, variant = "portrai
                             className="rounded-none"
                             classNames={{
                                 indicator: "bg-primary",
-                                track: "bg-black/50 rounded-none",
+                                track: "bg-black/50 rounded-none"
                             }}
                         />
                     </div>
