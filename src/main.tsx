@@ -4,20 +4,20 @@ import ReactDOM from "react-dom/client";
 import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
 import {Toaster} from "sonner";
 
-import "./assets/css/index.css";
-import Home from "./assets/pages/Home.tsx";
-import Library from "./assets/pages/Library.tsx";
-import Detail from "./assets/pages/Detail.tsx";
-import Player from "./assets/pages/Player.tsx";
-import Search from "./assets/pages/Search.tsx";
-import Discover from "./assets/pages/Discover.tsx";
-import Downloads from "./assets/pages/Downloads.tsx";
-import WatchParty from "./assets/pages/WatchParty.tsx";
-import Settings from "./assets/pages/Settings.tsx";
-import AppLayout from "./assets/components/layout/AppLayout.tsx";
-import {ThemeProvider} from "./assets/providers/ThemeProvider.tsx";
-import {AuthProvider} from "./assets/providers/AuthProvider.tsx";
-import {PlayerProvider} from "./assets/providers/PlayerProvider.tsx";
+import "./css/index.css";
+import Home from "./pages/Home.tsx";
+import Library from "./pages/Library.tsx";
+import Detail from "./pages/Detail.tsx";
+import Player from "./pages/Player.tsx";
+import Search from "./pages/Search.tsx";
+import Discover from "./pages/Discover.tsx";
+import Downloads from "./pages/Downloads.tsx";
+import WatchParty from "./pages/WatchParty.tsx";
+import Settings from "./pages/Settings.tsx";
+import AppLayout from "./components/layout/AppLayout.tsx";
+import {ThemeProvider} from "./providers/ThemeProvider.tsx";
+import {AuthProvider} from "./providers/AuthProvider.tsx";
+import {PlayerProvider} from "./providers/PlayerProvider.tsx";
 import {HeroUIProvider} from "@heroui/react";
 
 const queryClient = new QueryClient({
