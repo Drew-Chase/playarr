@@ -1,0 +1,1812 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Playarr API",
+    "description": "Alternative Plex player web interface with Sonarr, Radarr, TMDB, download client, and Watch Together support.",
+    "version": "0.1.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080/api",
+      "description": "Local development server"
+    }
+  ],
+  "tags": [
+    { "name": "Auth", "description": "Plex authentication flow" },
+    { "name": "Libraries", "description": "Plex library browsing" },
+    { "name": "Media", "description": "Plex media metadata and streaming" },
+    { "name": "Hubs", "description": "Plex content hubs (continue watching, on deck, etc.)" },
+    { "name": "Search", "description": "Plex search" },
+    { "name": "Player", "description": "Playback timeline reporting and scrobble" },
+    { "name": "Sonarr", "description": "Sonarr TV series management" },
+    { "name": "Radarr", "description": "Radarr movie management" },
+    { "name": "Discover", "description": "TMDB trending, upcoming, and recent content" },
+    { "name": "Downloads", "description": "Aggregated download client monitoring" },
+    { "name": "Watch Party", "description": "Synchronized group viewing rooms" },
+    { "name": "Settings", "description": "Application configuration" }
+  ],
+  "paths": {
+    "/auth/pin": {
+      "post": {
+        "tags": ["Auth"],
+        "operationId": "requestPin",
+        "summary": "Request a Plex PIN for user authentication",
+        "description": "Requests a 4-character PIN from plex.tv. The user enters this PIN at https://plex.tv/link to authorize the app.",
+        "responses": {
+          "200": {
+            "description": "PIN created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PinResponse"
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/auth/pin/{id}": {
+      "get": {
+        "tags": ["Auth"],
+        "operationId": "pollPin",
+        "summary": "Poll PIN claim status",
+        "description": "Polls plex.tv to check if the user has entered the PIN. Once claimed, the auth token is stored in config.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The PIN ID returned from POST /auth/pin",
+            "schema": { "type": "integer", "format": "uint64" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PIN poll result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PinPollResponse"
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/auth/user": {
+      "get": {
+        "tags": ["Auth"],
+        "operationId": "getUser",
+        "summary": "Get current Plex user info",
+        "description": "Fetches user information from plex.tv using the stored auth token.",
+        "responses": {
+          "200": {
+            "description": "User info from plex.tv",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": ["Auth"],
+        "operationId": "logout",
+        "summary": "Clear stored Plex auth token",
+        "responses": {
+          "200": {
+            "description": "Logout successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuccessResponse"
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/libraries": {
+      "get": {
+        "tags": ["Libraries"],
+        "operationId": "listLibraries",
+        "summary": "List all Plex library sections",
+        "responses": {
+          "200": {
+            "description": "Array of Plex library sections",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "type": "object" }
+                }
+              }
+            }
+          },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/libraries/{key}/items": {
+      "get": {
+        "tags": ["Libraries"],
+        "operationId": "libraryItems",
+        "summary": "List items in a library section",
+        "description": "Returns paginated items from a Plex library section with optional sorting.",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "description": "Library section key",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "description": "Pagination offset (default: 0)",
+            "schema": { "type": "integer", "format": "uint32", "default": 0 }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "Page size (default: 50)",
+            "schema": { "type": "integer", "format": "uint32", "default": 50 }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Sort field (e.g. 'titleSort', 'addedAt:desc')",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated library items",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedItems"
+                }
+              }
+            }
+          },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/libraries/{key}/recent": {
+      "get": {
+        "tags": ["Libraries"],
+        "operationId": "libraryRecent",
+        "summary": "Recently added items in a library",
+        "description": "Returns the 20 most recently added items in a library section.",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "description": "Library section key",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of recently added metadata items",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "type": "object" }
+                }
+              }
+            }
+          },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/libraries/{key}/folders": {
+      "get": {
+        "tags": ["Libraries"],
+        "operationId": "libraryFolders",
+        "summary": "Browse library by folder structure",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "description": "Library section key",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of folder metadata items",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "type": "object" }
+                }
+              }
+            }
+          },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/media/{id}": {
+      "get": {
+        "tags": ["Media"],
+        "operationId": "getMetadata",
+        "summary": "Get full metadata for a media item",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Plex rating key (media ID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Media metadata object",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object" }
+              }
+            }
+          },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/media/{id}/children": {
+      "get": {
+        "tags": ["Media"],
+        "operationId": "getChildren",
+        "summary": "Get children of a media item",
+        "description": "Returns seasons for a show, or episodes for a season.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Plex rating key (media ID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of child metadata items",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "type": "object" }
+                }
+              }
+            }
+          },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/media/{id}/related": {
+      "get": {
+        "tags": ["Media"],
+        "operationId": "getRelated",
+        "summary": "Get related content for a media item",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Plex rating key (media ID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of related metadata items",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "type": "object" }
+                }
+              }
+            }
+          },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/media/{id}/stream": {
+      "get": {
+        "tags": ["Media"],
+        "operationId": "getStreamUrl",
+        "summary": "Get stream URL for a media item",
+        "description": "Returns a direct play or HLS transcode URL depending on the direct_play parameter. Also returns media and part info.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Plex rating key (media ID)",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "quality",
+            "in": "query",
+            "description": "Transcode quality preset",
+            "schema": {
+              "type": "string",
+              "enum": ["4k", "1080p", "1080", "720p", "720", "480p", "480", "original"]
+            }
+          },
+          {
+            "name": "direct_play",
+            "in": "query",
+            "description": "Whether to use direct play (true) or HLS transcode (false). Default: true.",
+            "schema": { "type": "boolean", "default": true }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Stream URL and media info",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreamResponse"
+                }
+              }
+            }
+          },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/hubs/continue-watching": {
+      "get": {
+        "tags": ["Hubs"],
+        "operationId": "continueWatching",
+        "summary": "Get continue watching list",
+        "description": "Returns up to 20 items the user is currently in the middle of watching.",
+        "responses": {
+          "200": {
+            "description": "Array of metadata items, or empty array",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "type": "object" }
+                }
+              }
+            }
+          },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/hubs/on-deck": {
+      "get": {
+        "tags": ["Hubs"],
+        "operationId": "onDeck",
+        "summary": "Get on deck items",
+        "description": "Returns up to 20 items that are next up to watch (e.g. next episode of a show).",
+        "responses": {
+          "200": {
+            "description": "Array of on-deck metadata items",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "type": "object" }
+                }
+              }
+            }
+          },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/hubs/recently-added": {
+      "get": {
+        "tags": ["Hubs"],
+        "operationId": "recentlyAdded",
+        "summary": "Get recently added items across all libraries",
+        "responses": {
+          "200": {
+            "description": "Array of recently added metadata items",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "type": "object" }
+                }
+              }
+            }
+          },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/search": {
+      "get": {
+        "tags": ["Search"],
+        "operationId": "search",
+        "summary": "Search Plex library",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Search query string",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of search result hubs (grouped by type)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "type": "object" }
+                }
+              }
+            }
+          },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/player/timeline": {
+      "put": {
+        "tags": ["Player"],
+        "operationId": "updateTimeline",
+        "summary": "Report playback progress to Plex",
+        "description": "Sends a timeline update to the Plex server to track playback position. Should be called every ~10 seconds during playback.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimelineUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Timeline update result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelineResponse"
+                }
+              }
+            }
+          },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/player/scrobble/{id}": {
+      "put": {
+        "tags": ["Player"],
+        "operationId": "scrobble",
+        "summary": "Mark item as watched",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Plex rating key (media ID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scrobble result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelineResponse"
+                }
+              }
+            }
+          },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/player/unscrobble/{id}": {
+      "put": {
+        "tags": ["Player"],
+        "operationId": "unscrobble",
+        "summary": "Mark item as unwatched",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Plex rating key (media ID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Unscrobble result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelineResponse"
+                }
+              }
+            }
+          },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/sonarr/lookup": {
+      "get": {
+        "tags": ["Sonarr"],
+        "operationId": "sonarrLookup",
+        "summary": "Search for TV shows in Sonarr",
+        "parameters": [
+          {
+            "name": "term",
+            "in": "query",
+            "required": true,
+            "description": "Search term (title or TVDB ID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of series search results from Sonarr",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "type": "object" }
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/sonarr/series": {
+      "post": {
+        "tags": ["Sonarr"],
+        "operationId": "sonarrAddSeries",
+        "summary": "Add/request a TV show in Sonarr",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "Sonarr series resource object (see Sonarr API v3 docs)"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Series added successfully",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object" }
+              }
+            }
+          },
+          "400": {
+            "description": "Sonarr rejected the request",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object" }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/sonarr/episodes": {
+      "get": {
+        "tags": ["Sonarr"],
+        "operationId": "sonarrListEpisodes",
+        "summary": "List episodes for a Sonarr series",
+        "parameters": [
+          {
+            "name": "seriesId",
+            "in": "query",
+            "required": true,
+            "description": "Sonarr series ID",
+            "schema": { "type": "integer", "format": "uint64" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of episode objects from Sonarr",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "type": "object" }
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/sonarr/calendar": {
+      "get": {
+        "tags": ["Sonarr"],
+        "operationId": "sonarrCalendar",
+        "summary": "Get upcoming episodes from Sonarr",
+        "description": "Returns episodes airing in the next 14 days.",
+        "responses": {
+          "200": {
+            "description": "Array of upcoming episode objects",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "type": "object" }
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/sonarr/queue": {
+      "get": {
+        "tags": ["Sonarr"],
+        "operationId": "sonarrQueue",
+        "summary": "Get Sonarr download queue",
+        "description": "Returns up to 50 items currently in the Sonarr download queue with series and episode info.",
+        "responses": {
+          "200": {
+            "description": "Sonarr queue page object",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object" }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/radarr/lookup": {
+      "get": {
+        "tags": ["Radarr"],
+        "operationId": "radarrLookup",
+        "summary": "Search for movies in Radarr",
+        "parameters": [
+          {
+            "name": "term",
+            "in": "query",
+            "required": true,
+            "description": "Search term (title or TMDB ID)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of movie search results from Radarr",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "type": "object" }
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/radarr/movie": {
+      "post": {
+        "tags": ["Radarr"],
+        "operationId": "radarrAddMovie",
+        "summary": "Add/request a movie in Radarr",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "Radarr movie resource object (see Radarr API v3 docs)"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Movie added successfully",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object" }
+              }
+            }
+          },
+          "400": {
+            "description": "Radarr rejected the request",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object" }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/radarr/calendar": {
+      "get": {
+        "tags": ["Radarr"],
+        "operationId": "radarrCalendar",
+        "summary": "Get upcoming movies from Radarr",
+        "description": "Returns movies releasing in the next 30 days.",
+        "responses": {
+          "200": {
+            "description": "Array of upcoming movie objects",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "type": "object" }
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/radarr/queue": {
+      "get": {
+        "tags": ["Radarr"],
+        "operationId": "radarrQueue",
+        "summary": "Get Radarr download queue",
+        "description": "Returns up to 50 items currently in the Radarr download queue with movie info.",
+        "responses": {
+          "200": {
+            "description": "Radarr queue page object",
+            "content": {
+              "application/json": {
+                "schema": { "type": "object" }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/discover/trending": {
+      "get": {
+        "tags": ["Discover"],
+        "operationId": "discoverTrending",
+        "summary": "Get trending movies and TV shows from TMDB",
+        "description": "Returns the weekly trending movies and TV shows from The Movie Database.",
+        "responses": {
+          "200": {
+            "description": "Trending movies and TV",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoverResults"
+                }
+              }
+            }
+          },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/discover/upcoming": {
+      "get": {
+        "tags": ["Discover"],
+        "operationId": "discoverUpcoming",
+        "summary": "Get upcoming movie releases from TMDB",
+        "responses": {
+          "200": {
+            "description": "Upcoming movies",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "movies": {
+                      "type": "array",
+                      "items": { "type": "object" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/discover/recent": {
+      "get": {
+        "tags": ["Discover"],
+        "operationId": "discoverRecent",
+        "summary": "Get recently released movies and TV from TMDB",
+        "description": "Returns popular movies and TV shows released in the last 30 days.",
+        "responses": {
+          "200": {
+            "description": "Recent movies and TV",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoverResults"
+                }
+              }
+            }
+          },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/downloads": {
+      "get": {
+        "tags": ["Downloads"],
+        "operationId": "getDownloads",
+        "summary": "Get aggregated downloads from all configured clients",
+        "description": "Polls all enabled download clients (SABnzbd, NZBGet, qBittorrent, Transmission) and returns a unified list of active downloads.",
+        "responses": {
+          "200": {
+            "description": "Download status with all items",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadStatus"
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/downloads/status": {
+      "get": {
+        "tags": ["Downloads"],
+        "operationId": "getDownloadStatus",
+        "summary": "Get lightweight download status",
+        "description": "Returns the number of configured and enabled download clients without polling them.",
+        "responses": {
+          "200": {
+            "description": "Download client status summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "configured_clients": {
+                      "type": "integer",
+                      "description": "Number of enabled download clients"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/watch-party/rooms": {
+      "post": {
+        "tags": ["Watch Party"],
+        "operationId": "createRoom",
+        "summary": "Create a Watch Together room",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRoomRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Room created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomState"
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/watch-party/rooms/{id}": {
+      "get": {
+        "tags": ["Watch Party"],
+        "operationId": "getRoom",
+        "summary": "Get Watch Together room state",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Room UUID",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Room state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoomState"
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/watch-party/rooms/{id}/ws": {
+      "get": {
+        "tags": ["Watch Party"],
+        "operationId": "roomWebSocket",
+        "summary": "WebSocket connection for real-time room sync",
+        "description": "Upgrades to a WebSocket connection for synchronized playback. Messages use JSON with a `type` discriminator field. Supported types: play, pause, seek, sync_request, sync_response, next_episode, queue_add, queue_remove, chat, join, leave, media_change.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Room UUID",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "101": {
+            "description": "WebSocket upgrade successful"
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" }
+        }
+      }
+    },
+    "/settings": {
+      "get": {
+        "tags": ["Settings"],
+        "operationId": "getSettings",
+        "summary": "Get all application settings",
+        "description": "Returns all settings with secrets redacted (shows has_token/has_api_key booleans instead of actual values).",
+        "responses": {
+          "200": {
+            "description": "Redacted application settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RedactedAppConfig"
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/settings/plex": {
+      "put": {
+        "tags": ["Settings"],
+        "operationId": "updatePlex",
+        "summary": "Update Plex server configuration",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlexConfig"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated settings (redacted)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RedactedAppConfig"
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/settings/sonarr": {
+      "put": {
+        "tags": ["Settings"],
+        "operationId": "updateSonarr",
+        "summary": "Update Sonarr configuration",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SonarrConfig"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated settings (redacted)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RedactedAppConfig"
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/settings/radarr": {
+      "put": {
+        "tags": ["Settings"],
+        "operationId": "updateRadarr",
+        "summary": "Update Radarr configuration",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RadarrConfig"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated settings (redacted)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RedactedAppConfig"
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/settings/tmdb": {
+      "put": {
+        "tags": ["Settings"],
+        "operationId": "updateTmdb",
+        "summary": "Update TMDB configuration",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TmdbConfig"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated settings (redacted)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RedactedAppConfig"
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/settings/download-clients": {
+      "put": {
+        "tags": ["Settings"],
+        "operationId": "updateDownloadClients",
+        "summary": "Update download client configurations",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/DownloadClientConfig"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated settings (redacted)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RedactedAppConfig"
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/settings/test/{service}": {
+      "post": {
+        "tags": ["Settings"],
+        "operationId": "testConnection",
+        "summary": "Test connection to an external service",
+        "parameters": [
+          {
+            "name": "service",
+            "in": "path",
+            "required": true,
+            "description": "Service to test",
+            "schema": {
+              "type": "string",
+              "enum": ["plex", "sonarr", "radarr", "tmdb"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Connection test result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionTestResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Service not configured or unknown service",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionTestResult"
+                }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "PinResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "uint64",
+            "description": "PIN ID for polling"
+          },
+          "code": {
+            "type": "string",
+            "description": "4-character PIN code to enter at plex.tv/link"
+          }
+        },
+        "required": ["id", "code"]
+      },
+      "PinPollResponse": {
+        "type": "object",
+        "properties": {
+          "claimed": {
+            "type": "boolean",
+            "description": "Whether the PIN has been claimed by the user"
+          },
+          "auth_token": {
+            "type": "string",
+            "description": "The Plex auth token (only present when claimed is true)"
+          }
+        },
+        "required": ["claimed"]
+      },
+      "SuccessResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" }
+        },
+        "required": ["success"]
+      },
+      "PaginatedItems": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": { "type": "object" },
+            "description": "Array of Plex metadata items"
+          },
+          "totalSize": {
+            "description": "Total number of items in the library"
+          },
+          "offset": {
+            "description": "Current offset"
+          },
+          "size": {
+            "description": "Number of items returned"
+          }
+        }
+      },
+      "StreamResponse": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Direct play or HLS transcode URL"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["direct", "hls"],
+            "description": "Stream type"
+          },
+          "media": {
+            "type": "object",
+            "description": "Plex Media object with codec, resolution, bitrate info"
+          },
+          "part": {
+            "type": "object",
+            "description": "Plex Part object with file path, size, streams"
+          }
+        },
+        "required": ["url", "type", "media", "part"]
+      },
+      "TimelineUpdate": {
+        "type": "object",
+        "properties": {
+          "ratingKey": {
+            "type": "string",
+            "description": "Plex rating key (media ID)"
+          },
+          "key": {
+            "type": "string",
+            "description": "Plex metadata key path"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["playing", "paused", "stopped"],
+            "description": "Playback state"
+          },
+          "time": {
+            "type": "integer",
+            "format": "uint64",
+            "description": "Current playback position in milliseconds"
+          },
+          "duration": {
+            "type": "integer",
+            "format": "uint64",
+            "description": "Total media duration in milliseconds"
+          }
+        },
+        "required": ["ratingKey", "key", "state", "time", "duration"]
+      },
+      "TimelineResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "status": {
+            "type": "integer",
+            "description": "HTTP status from Plex (only present when success is false)"
+          }
+        },
+        "required": ["success"]
+      },
+      "DownloadStatus": {
+        "type": "object",
+        "properties": {
+          "total_speed": {
+            "type": "integer",
+            "format": "uint64",
+            "description": "Combined download speed in bytes/sec across all clients"
+          },
+          "queue_size": {
+            "type": "integer",
+            "description": "Total number of active downloads"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DownloadItem"
+            }
+          }
+        },
+        "required": ["total_speed", "queue_size", "items"]
+      },
+      "DownloadItem": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Download name/title"
+          },
+          "progress": {
+            "type": "number",
+            "format": "double",
+            "description": "Progress percentage (0.0 - 100.0)"
+          },
+          "speed": {
+            "type": "integer",
+            "format": "uint64",
+            "description": "Download speed in bytes/sec"
+          },
+          "eta": {
+            "type": "string",
+            "nullable": true,
+            "description": "Estimated time remaining"
+          },
+          "status": {
+            "type": "string",
+            "description": "Download status (e.g. Downloading, Paused, Queued, Extracting)"
+          },
+          "size": {
+            "type": "integer",
+            "format": "uint64",
+            "description": "Total size in bytes"
+          },
+          "downloaded": {
+            "type": "integer",
+            "format": "uint64",
+            "description": "Bytes downloaded so far"
+          },
+          "client_name": {
+            "type": "string",
+            "description": "Name of the download client"
+          },
+          "client_type": {
+            "type": "string",
+            "description": "Type of download client (sabnzbd, nzbget, qbittorrent, transmission)"
+          }
+        },
+        "required": ["name", "progress", "speed", "status", "size", "downloaded", "client_name", "client_type"]
+      },
+      "DiscoverResults": {
+        "type": "object",
+        "properties": {
+          "movies": {
+            "type": "array",
+            "items": { "type": "object" },
+            "description": "Array of TMDB movie objects"
+          },
+          "tv": {
+            "type": "array",
+            "items": { "type": "object" },
+            "description": "Array of TMDB TV show objects"
+          }
+        }
+      },
+      "CreateRoomRequest": {
+        "type": "object",
+        "properties": {
+          "mediaId": {
+            "type": "string",
+            "description": "Plex rating key of the media to watch"
+          },
+          "hostName": {
+            "type": "string",
+            "description": "Display name of the room host",
+            "default": "Host"
+          }
+        }
+      },
+      "RoomState": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Room UUID"
+          },
+          "host_name": {
+            "type": "string",
+            "description": "Display name of the room host"
+          },
+          "media_id": {
+            "type": "string",
+            "description": "Plex rating key of the current media"
+          },
+          "position_ms": {
+            "type": "integer",
+            "format": "uint64",
+            "description": "Current playback position in milliseconds"
+          },
+          "is_paused": {
+            "type": "boolean",
+            "description": "Whether playback is currently paused"
+          },
+          "participants": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "List of participant display names"
+          },
+          "episode_queue": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Queue of media IDs to play next"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Room creation timestamp"
+          }
+        },
+        "required": ["id", "host_name", "media_id", "position_ms", "is_paused", "participants", "episode_queue", "created_at"]
+      },
+      "WsMessage": {
+        "description": "WebSocket message format. All messages are JSON with a `type` discriminator.",
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "play" },
+              "position_ms": { "type": "integer", "format": "uint64" }
+            },
+            "required": ["type", "position_ms"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "pause" },
+              "position_ms": { "type": "integer", "format": "uint64" }
+            },
+            "required": ["type", "position_ms"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "seek" },
+              "position_ms": { "type": "integer", "format": "uint64" }
+            },
+            "required": ["type", "position_ms"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "sync_request" }
+            },
+            "required": ["type"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "sync_response" },
+              "position_ms": { "type": "integer", "format": "uint64" },
+              "is_paused": { "type": "boolean" },
+              "media_id": { "type": "string" }
+            },
+            "required": ["type", "position_ms", "is_paused", "media_id"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "next_episode" }
+            },
+            "required": ["type"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "queue_add" },
+              "media_id": { "type": "string" }
+            },
+            "required": ["type", "media_id"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "queue_remove" },
+              "index": { "type": "integer" }
+            },
+            "required": ["type", "index"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "chat" },
+              "from": { "type": "string" },
+              "message": { "type": "string" }
+            },
+            "required": ["type", "from", "message"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "join" },
+              "name": { "type": "string" }
+            },
+            "required": ["type", "name"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "leave" },
+              "name": { "type": "string" }
+            },
+            "required": ["type", "name"]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "const": "media_change" },
+              "media_id": { "type": "string" }
+            },
+            "required": ["type", "media_id"]
+          }
+        ]
+      },
+      "PlexConfig": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Plex server URL (e.g. http://192.168.1.100:32400)"
+          },
+          "token": {
+            "type": "string",
+            "description": "Plex auth token"
+          }
+        }
+      },
+      "SonarrConfig": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Sonarr server URL (e.g. http://localhost:8989)"
+          },
+          "api_key": {
+            "type": "string",
+            "description": "Sonarr API key"
+          }
+        }
+      },
+      "RadarrConfig": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Radarr server URL (e.g. http://localhost:7878)"
+          },
+          "api_key": {
+            "type": "string",
+            "description": "Radarr API key"
+          }
+        }
+      },
+      "TmdbConfig": {
+        "type": "object",
+        "properties": {
+          "api_key": {
+            "type": "string",
+            "description": "TMDB API key"
+          }
+        }
+      },
+      "DownloadClientConfig": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Display name for this client"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["sabnzbd", "nzbget", "qbittorrent", "transmission"],
+            "description": "Client type"
+          },
+          "url": {
+            "type": "string",
+            "description": "Client URL"
+          },
+          "api_key": {
+            "type": "string",
+            "description": "API key (SABnzbd)"
+          },
+          "username": {
+            "type": "string",
+            "description": "Username (NZBGet, Transmission)"
+          },
+          "password": {
+            "type": "string",
+            "description": "Password (NZBGet, Transmission)"
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether this client is enabled"
+          }
+        },
+        "required": ["name", "type"]
+      },
+      "RedactedAppConfig": {
+        "type": "object",
+        "properties": {
+          "plex": {
+            "type": "object",
+            "properties": {
+              "url": { "type": "string" },
+              "has_token": { "type": "boolean" }
+            }
+          },
+          "sonarr": {
+            "type": "object",
+            "properties": {
+              "url": { "type": "string" },
+              "has_api_key": { "type": "boolean" }
+            }
+          },
+          "radarr": {
+            "type": "object",
+            "properties": {
+              "url": { "type": "string" },
+              "has_api_key": { "type": "boolean" }
+            }
+          },
+          "tmdb": {
+            "type": "object",
+            "properties": {
+              "has_api_key": { "type": "boolean" }
+            }
+          },
+          "download_clients": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "type": { "type": "string", "enum": ["sabnzbd", "nzbget", "qbittorrent", "transmission"] },
+                "url": { "type": "string" },
+                "has_api_key": { "type": "boolean" },
+                "has_credentials": { "type": "boolean" },
+                "enabled": { "type": "boolean" }
+              }
+            }
+          }
+        }
+      },
+      "ConnectionTestResult": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the connection test succeeded"
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable result message"
+          }
+        },
+        "required": ["success", "message"]
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Error message"
+          },
+          "status": {
+            "type": "integer",
+            "description": "HTTP status code"
+          }
+        },
+        "required": ["error", "status"]
+      }
+    },
+    "responses": {
+      "InternalError": {
+        "description": "Internal server error",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+          }
+        }
+      },
+      "BadRequest": {
+        "description": "Bad request",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Resource not found",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Authentication required",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+          }
+        }
+      },
+      "ServiceUnavailable": {
+        "description": "External service not configured or unreachable",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+          }
+        }
+      }
+    }
+  }
+}

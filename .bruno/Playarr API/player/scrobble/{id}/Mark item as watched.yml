@@ -1,0 +1,88 @@
+info:
+  name: Mark item as watched
+  type: http
+  seq: 1
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/player/scrobble/:id"
+  params:
+    - name: id
+      value: ""
+      type: path
+      description: Plex rating key (media ID)
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+examples:
+  - name: 200 Response
+    description: Scrobble result
+    request:
+      url: "{{baseUrl}}/player/scrobble/:id"
+      method: PUT
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Plex rating key (media ID)
+    response:
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "success": false,
+            "status": 0
+          }
+  - name: 500 Response
+    description: Internal server error
+    request:
+      url: "{{baseUrl}}/player/scrobble/:id"
+      method: PUT
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Plex rating key (media ID)
+    response:
+      statusText: Internal Server Error
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "",
+            "status": 0
+          }
+  - name: 503 Response
+    description: External service not configured or unreachable
+    request:
+      url: "{{baseUrl}}/player/scrobble/:id"
+      method: PUT
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Plex rating key (media ID)
+    response:
+      statusText: Service Unavailable
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "",
+            "status": 0
+          }

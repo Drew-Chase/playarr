@@ -1,0 +1,59 @@
+info:
+  name: WebSocket connection for real-time room sync
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{baseUrl}}/watch-party/rooms/:id/ws"
+  params:
+    - name: id
+      value: ""
+      type: path
+      description: Room UUID
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+examples:
+  - name: 101 Response
+    description: WebSocket upgrade successful
+    request:
+      url: "{{baseUrl}}/watch-party/rooms/:id/ws"
+      method: GET
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Room UUID
+    response:
+      statusText: Switching Protocols
+      body:
+        type: text
+        data: ""
+  - name: 400 Response
+    description: Bad request
+    request:
+      url: "{{baseUrl}}/watch-party/rooms/:id/ws"
+      method: GET
+      params:
+        - name: id
+          value: ""
+          type: path
+          description: Room UUID
+    response:
+      statusText: Bad Request
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "",
+            "status": 0
+          }

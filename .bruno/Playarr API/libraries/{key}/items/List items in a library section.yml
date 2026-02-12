@@ -1,0 +1,140 @@
+info:
+  name: List items in a library section
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{baseUrl}}/libraries/:key/items"
+  params:
+    - name: key
+      value: ""
+      type: path
+      description: Library section key
+    - name: start
+      value: ""
+      type: query
+      description: "Pagination offset (default: 0)"
+    - name: size
+      value: ""
+      type: query
+      description: "Page size (default: 50)"
+    - name: sort
+      value: ""
+      type: query
+      description: Sort field (e.g. 'titleSort', 'addedAt:desc')
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+examples:
+  - name: 200 Response
+    description: Paginated library items
+    request:
+      url: "{{baseUrl}}/libraries/:key/items"
+      method: GET
+      params:
+        - name: key
+          value: ""
+          type: path
+          description: Library section key
+        - name: start
+          value: ""
+          type: query
+          description: "Pagination offset (default: 0)"
+        - name: size
+          value: ""
+          type: query
+          description: "Page size (default: 50)"
+        - name: sort
+          value: ""
+          type: query
+          description: Sort field (e.g. 'titleSort', 'addedAt:desc')
+    response:
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "items": [
+              {}
+            ],
+            "totalSize": "",
+            "offset": "",
+            "size": ""
+          }
+  - name: 500 Response
+    description: Internal server error
+    request:
+      url: "{{baseUrl}}/libraries/:key/items"
+      method: GET
+      params:
+        - name: key
+          value: ""
+          type: path
+          description: Library section key
+        - name: start
+          value: ""
+          type: query
+          description: "Pagination offset (default: 0)"
+        - name: size
+          value: ""
+          type: query
+          description: "Page size (default: 50)"
+        - name: sort
+          value: ""
+          type: query
+          description: Sort field (e.g. 'titleSort', 'addedAt:desc')
+    response:
+      statusText: Internal Server Error
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "",
+            "status": 0
+          }
+  - name: 503 Response
+    description: External service not configured or unreachable
+    request:
+      url: "{{baseUrl}}/libraries/:key/items"
+      method: GET
+      params:
+        - name: key
+          value: ""
+          type: path
+          description: Library section key
+        - name: start
+          value: ""
+          type: query
+          description: "Pagination offset (default: 0)"
+        - name: size
+          value: ""
+          type: query
+          description: "Page size (default: 50)"
+        - name: sort
+          value: ""
+          type: query
+          description: Sort field (e.g. 'titleSort', 'addedAt:desc')
+    response:
+      statusText: Service Unavailable
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "",
+            "status": 0
+          }

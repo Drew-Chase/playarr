@@ -1,0 +1,108 @@
+info:
+  name: Report playback progress to Plex
+  type: http
+  seq: 1
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/player/timeline"
+  body:
+    type: json
+    data: |-
+      {
+        "ratingKey": "",
+        "key": "",
+        "state": "",
+        "time": 0,
+        "duration": 0
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+examples:
+  - name: 200 Response
+    description: Timeline update result
+    request:
+      url: "{{baseUrl}}/player/timeline"
+      method: PUT
+      body:
+        type: json
+        data: |-
+          {
+            "ratingKey": "",
+            "key": "",
+            "state": "",
+            "time": 0,
+            "duration": 0
+          }
+    response:
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "success": false,
+            "status": 0
+          }
+  - name: 500 Response
+    description: Internal server error
+    request:
+      url: "{{baseUrl}}/player/timeline"
+      method: PUT
+      body:
+        type: json
+        data: |-
+          {
+            "ratingKey": "",
+            "key": "",
+            "state": "",
+            "time": 0,
+            "duration": 0
+          }
+    response:
+      statusText: Internal Server Error
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "",
+            "status": 0
+          }
+  - name: 503 Response
+    description: External service not configured or unreachable
+    request:
+      url: "{{baseUrl}}/player/timeline"
+      method: PUT
+      body:
+        type: json
+        data: |-
+          {
+            "ratingKey": "",
+            "key": "",
+            "state": "",
+            "time": 0,
+            "duration": 0
+          }
+    response:
+      statusText: Service Unavailable
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "",
+            "status": 0
+          }

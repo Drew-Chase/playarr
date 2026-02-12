@@ -1,0 +1,95 @@
+info:
+  name: Update Radarr configuration
+  type: http
+  seq: 1
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/settings/radarr"
+  body:
+    type: json
+    data: |-
+      {
+        "url": "",
+        "api_key": ""
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+
+examples:
+  - name: 200 Response
+    description: Updated settings (redacted)
+    request:
+      url: "{{baseUrl}}/settings/radarr"
+      method: PUT
+      body:
+        type: json
+        data: |-
+          {
+            "url": "",
+            "api_key": ""
+          }
+    response:
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "plex": {
+              "url": "",
+              "has_token": false
+            },
+            "sonarr": {
+              "url": "",
+              "has_api_key": false
+            },
+            "radarr": {
+              "url": "",
+              "has_api_key": false
+            },
+            "tmdb": {
+              "has_api_key": false
+            },
+            "download_clients": [
+              {
+                "name": "",
+                "type": "",
+                "url": "",
+                "has_api_key": false,
+                "has_credentials": false,
+                "enabled": false
+              }
+            ]
+          }
+  - name: 500 Response
+    description: Internal server error
+    request:
+      url: "{{baseUrl}}/settings/radarr"
+      method: PUT
+      body:
+        type: json
+        data: |-
+          {
+            "url": "",
+            "api_key": ""
+          }
+    response:
+      statusText: Internal Server Error
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "",
+            "status": 0
+          }
