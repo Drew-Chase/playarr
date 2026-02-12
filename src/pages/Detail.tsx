@@ -1,5 +1,6 @@
 import {useParams, useNavigate, Link} from "react-router-dom";
-import {Button, Spinner, Tabs, Tab, Progress} from "@heroui/react";
+import {useRef} from "react";
+import {Button, Spinner, Progress, Chip} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {useMetadata, useChildren} from "../hooks/usePlex.ts";
 import MetadataInfo from "../components/media/MetadataInfo.tsx";
@@ -57,7 +58,6 @@ function SeasonsGrid({showId}: { showId: string }) {
     if (isLoading) return <Spinner size="sm"/>;
     if (!seasons || seasons.length === 0) return null;
 
-    // Single season — skip grid, show episodes directly
     if (seasons.length === 1) {
         return <EpisodeList seasonId={seasons[0].ratingKey}/>;
     }
@@ -86,7 +86,8 @@ function SeasonsGrid({showId}: { showId: string }) {
                                     <Icon icon="mdi:folder" width="48" className="text-default-400"/>
                                 </div>
                             )}
-                            <div className="absolute inset-0 rounded-lg ring-0 group-hover:ring-2 ring-primary/50 transition-all"/>
+                            <div
+                                className="absolute inset-0 rounded-lg ring-0 group-hover:ring-2 ring-primary/50 transition-all"/>
                         </div>
                         <div className="mt-2 px-1">
                             <p className="text-sm font-semibold truncate">{season.title}</p>
@@ -101,12 +102,6 @@ function SeasonsGrid({showId}: { showId: string }) {
     );
 }
 
-function EpisodeDetail({item}: { item: PlexMediaItem }) {
-    const navigate = useNavigate();
-    const thumbUrl = item.thumb ? `/api/media/${item.ratingKey}/thumb` : "";
-    const progress = item.viewOffset && item.duration
-        ? (item.viewOffset / item.duration) * 100
-        : 0;
 
     return (
         <div>
@@ -163,19 +158,51 @@ function EpisodeDetail({item}: { item: PlexMediaItem }) {
                         Mark Watched
                     </Button>
                 )}
+
+function EpisodeDetail({item}: { item: PlexMediaItem }) {
+    const thumbUrl = item.thumb ? `/api/media/${item.ratingKey}/thumb` : "";
+    const progress = item.viewOffset && item.duration
+        ? (item.viewOffset / item.duration) * 100
+        : 0;
+
+    return (
+        <div>
+            <div className="flex flex-col md:flex-row gap-6">
+                {/* Episode thumbnail */}
+                {thumbUrl && (
+                    <div className="shrink-0 relative max-w-2xl rounded-lg overflow-hidden aspect-video">
+                        <img
+                            src={thumbUrl}
+                            alt={item.title}
+                            className="object-cover w-full h-full"
+                        />
+                    </div>
+                )}
+
+                {/* Info */}
+                <div className="flex-1">
+                    <MetadataInfo item={item}/>
+                    <CrewInfo item={item}/>
+                    <MediaInfo item={item}/>
+                    <ActionButtons item={item} progress={progress}/>
+                </div>
             </div>
+
+            {/* Cast & Crew */}
+            {item.Role && item.Role.length > 0 && (
+                <CastSection roles={item.Role}/>
+            )}
         </div>
     );
 }
 
 export default function Detail() {
     const {id} = useParams<{ id: string }>();
-    const navigate = useNavigate();
     const {data: item, isLoading} = useMetadata(id || "");
     const {data: related} = useQuery({
         queryKey: ["plex", "related", id],
         queryFn: () => plexApi.getRelated(id!),
-        enabled: !!id && item?.type !== "season" && item?.type !== "episode",
+        enabled: !!id && item?.type !== "season",
     });
 
     if (isLoading) {
@@ -213,28 +240,24 @@ export default function Detail() {
             </div>
 
             {/* Content area */}
-            <div className="relative z-10 -mt-40 px-6 md:px-12 lg:px-16">
+            <div className="relative z-10 -mt-64 px-6 md:px-12 lg:px-16">
                 <Breadcrumbs item={item}/>
 
                 {item.type === "episode" ? (
-                    /* Episode detail — no poster column, full-width episode view */
                     <EpisodeDetail item={item}/>
                 ) : (
                     /* Movie / Show / Season — poster + metadata layout */
-                    <div className="flex flex-col md:flex-row gap-6">
-                        {/* Poster */}
-                        <div className="shrink-0">
-                            <img
-                                src={item.thumb ? `/api/media/${item.ratingKey}/thumb` : ""}
-                                alt={item.title}
-                                className="w-[200px] h-[300px] object-cover rounded-lg shadow-2xl"
-                            />
-                        </div>
+                    <div>
+                        <div className="flex flex-col md:flex-row gap-6 -mt-96">
+                            {/* Poster */}
+                            <div className="shrink-0">
+                                <img
+                                    src={item.thumb ? `/api/media/${item.ratingKey}/thumb` : ""}
+                                    alt={item.title}
+                                    className="h-[600px] object-cover rounded-lg shadow-2xl"
+                                />
+                            </div>
 
-                        {/* Info */}
-                        <div className="flex-1 pt-4 md:pt-12">
-                            <MetadataInfo item={item}/>
-                            {(item.type === "movie" || item.type === "season") && (
                                 <div className="flex flex-wrap gap-3 mt-5">
                                     <Button
                                         color="primary"
@@ -277,7 +300,30 @@ export default function Detail() {
                                     )}
                                 </div>
                             )}
+                            {/* Info */}
+                            <div className="flex-1 pt-4 md:pt-12">
+                                <MetadataInfo item={item}/>
+                                {item.studio && (
+                                    <p className="text-sm text-default-400 mt-1">{item.studio}</p>
+                                )}
+                                <CrewInfo item={item}/>
+                                <GenreTags item={item}/>
+                                <MediaInfo item={item}/>
+                                {(item.type === "movie" || item.type === "season") && (
+                                    <ActionButtons item={item} progress={progress}/>
+                                )}
+                            </div>
                         </div>
+
+                        {/* Cast & Crew */}
+                        {item.Role && item.Role.length > 0 && (
+                            <CastSection roles={item.Role}/>
+                        )}
+
+                        {/* Reviews */}
+                        {item.Review && item.Review.length > 0 && (
+                            <ReviewsSection reviews={item.Review}/>
+                        )}
                     </div>
                 )}
 
@@ -316,57 +362,22 @@ export default function Detail() {
                             <EpisodeList seasonId={item.ratingKey}/>
                         </div>
                     )}
-
-                    {item.type === "movie" && (
-                        <Tabs
-                            aria-label="Movie sections"
-                            variant="underlined"
-                            classNames={{
-                                panel: "pt-6",
-                                tabList: "border-b border-default-200/50",
-                            }}
-                        >
-                            {related && related.length > 0 && (
-                                <Tab key="related" title="You May Also Like">
-                                    <ContentRow title="">
-                                        {related.map((r: PlexMediaItem) => (
-                                            <MediaCard key={r.ratingKey} item={r}/>
-                                        ))}
-                                    </ContentRow>
-                                </Tab>
-                            )}
-                            <Tab key="details" title="Details">
-                                <DetailsSummary item={item}/>
-                            </Tab>
-                        </Tabs>
-                    )}
                 </div>
+
+                {/* You May Also Like — always shown below all content */}
+                {related && related.length > 0 && (
+                    <section className="mt-10 -mx-6 md:-mx-12 lg:-mx-16">
+                        <ContentRow title="You May Also Like">
+                            {related.map((r: PlexMediaItem) => (
+                                <MediaCard key={r.ratingKey} item={r} width={256}/>
+                            ))}
+                        </ContentRow>
+                    </section>
+                )}
+
+                {/* Bottom spacer */}
+                <div className="h-8"/>
             </div>
-        </div>
-    );
-}
-
-function DetailsSummary({item}: { item: PlexMediaItem }) {
-    return (
-        <div className="max-w-2xl space-y-4">
-            {item.summary && (
-                <div>
-                    <h3 className="text-sm font-semibold text-default-400 mb-1">Summary</h3>
-                    <p className="text-sm text-default-300 leading-relaxed">{item.summary}</p>
-                </div>
-            )}
-            {item.contentRating && (
-                <div>
-                    <h3 className="text-sm font-semibold text-default-400 mb-1">Rating</h3>
-                    <p className="text-sm">{item.contentRating}</p>
-                </div>
-            )}
-            {item.year && (
-                <div>
-                    <h3 className="text-sm font-semibold text-default-400 mb-1">Year</h3>
-                    <p className="text-sm">{item.year}</p>
-                </div>
-            )}
         </div>
     );
 }
