@@ -76,6 +76,9 @@ export interface PlexMediaItem {
     grandparentTitle?: string;
     parentIndex?: number;
     index?: number;
+    Guid?: Array<{ id: string }>;
+    grandparentRatingKey?: string;
+    parentRatingKey?: string;
     Media?: PlexMedia[];
 }
 

@@ -42,13 +42,6 @@ export default function Navigation() {
     const movieLibraries = libraries?.filter(l => l.type === "movie") || [];
     const tvLibraries = libraries?.filter(l => l.type === "show") || [];
 
-    const navLinks = [
-        {label: "Home", path: "/"},
-        {label: "Discover", path: "/discover"},
-        {label: "Downloads", path: "/downloads"},
-        {label: "Watch Party", path: "/watch-party"},
-    ];
-
     return (
         <Navbar
             onMenuOpenChange={setIsMenuOpen}
@@ -67,20 +60,29 @@ export default function Navigation() {
             </NavbarContent>
 
             <NavbarContent className="hidden md:flex gap-6" justify="center">
-                {navLinks.map(({label, path}) => (
-                    <NavbarItem key={path}>
+                <NavbarItem>
+                    <Link
+                        to="/"
+                        className={`text-sm font-medium transition-colors ${
+                            isActive("/") ? "text-primary" : "text-foreground/70 hover:text-foreground"
+                        }`}
+                    >
+                        Home
+                    </Link>
+                </NavbarItem>
+
+                {movieLibraries.length === 1 ? (
+                    <NavbarItem>
                         <Link
-                            to={path}
+                            to={`/library/${movieLibraries[0].key}`}
                             className={`text-sm font-medium transition-colors ${
-                                isActive(path) ? "text-primary" : "text-foreground/70 hover:text-foreground"
+                                location.pathname === `/library/${movieLibraries[0].key}` ? "text-primary" : "text-foreground/70 hover:text-foreground"
                             }`}
                         >
-                            {label}
+                            {movieLibraries[0].title}
                         </Link>
                     </NavbarItem>
-                ))}
-
-                {movieLibraries.length > 0 && (
+                ) : movieLibraries.length > 1 ? (
                     <Dropdown>
                         <NavbarItem>
                             <DropdownTrigger>
@@ -104,9 +106,20 @@ export default function Navigation() {
                             ))}
                         </DropdownMenu>
                     </Dropdown>
-                )}
+                ) : null}
 
-                {tvLibraries.length > 0 && (
+                {tvLibraries.length === 1 ? (
+                    <NavbarItem>
+                        <Link
+                            to={`/library/${tvLibraries[0].key}`}
+                            className={`text-sm font-medium transition-colors ${
+                                location.pathname === `/library/${tvLibraries[0].key}` ? "text-primary" : "text-foreground/70 hover:text-foreground"
+                            }`}
+                        >
+                            {tvLibraries[0].title}
+                        </Link>
+                    </NavbarItem>
+                ) : tvLibraries.length > 1 ? (
                     <Dropdown>
                         <NavbarItem>
                             <DropdownTrigger>
@@ -130,7 +143,18 @@ export default function Navigation() {
                             ))}
                         </DropdownMenu>
                     </Dropdown>
-                )}
+                ) : null}
+
+                <NavbarItem>
+                    <Link
+                        to="/discover"
+                        className={`text-sm font-medium transition-colors ${
+                            isActive("/discover") ? "text-primary" : "text-foreground/70 hover:text-foreground"
+                        }`}
+                    >
+                        Discover
+                    </Link>
+                </NavbarItem>
             </NavbarContent>
 
             <NavbarContent justify="end">
@@ -177,6 +201,14 @@ export default function Navigation() {
                             </Button>
                         </DropdownTrigger>
                         <DropdownMenu aria-label="User menu">
+                            <DropdownItem key="downloads" onPress={() => navigate("/downloads")}
+                                          startContent={<Icon icon="mdi:download" width="18"/>}>
+                                Downloads
+                            </DropdownItem>
+                            <DropdownItem key="watch-party" onPress={() => navigate("/watch-party")}
+                                          startContent={<Icon icon="mdi:account-group" width="18"/>}>
+                                Watch Party
+                            </DropdownItem>
                             <DropdownItem key="settings" onPress={() => navigate("/settings")}
                                           startContent={<Icon icon="mdi:cog" width="18"/>}>
                                 Settings
@@ -187,19 +219,17 @@ export default function Navigation() {
             </NavbarContent>
 
             <NavbarMenu className="bg-background/95 backdrop-blur-md pt-4">
-                {navLinks.map(({label, path}) => (
-                    <NavbarMenuItem key={path}>
-                        <Link
-                            to={path}
-                            className={`flex items-center gap-3 w-full py-2 ${
-                                isActive(path) ? "text-primary" : "text-foreground"
-                            }`}
-                            onClick={() => setIsMenuOpen(false)}
-                        >
-                            {label}
-                        </Link>
-                    </NavbarMenuItem>
-                ))}
+                <NavbarMenuItem>
+                    <Link
+                        to="/"
+                        className={`flex items-center gap-3 w-full py-2 ${
+                            isActive("/") ? "text-primary" : "text-foreground"
+                        }`}
+                        onClick={() => setIsMenuOpen(false)}
+                    >
+                        Home
+                    </Link>
+                </NavbarMenuItem>
                 {libraries?.map((lib) => (
                     <NavbarMenuItem key={lib.key}>
                         <Link
@@ -215,6 +245,42 @@ export default function Navigation() {
                         </Link>
                     </NavbarMenuItem>
                 ))}
+                <NavbarMenuItem>
+                    <Link
+                        to="/discover"
+                        className={`flex items-center gap-3 w-full py-2 ${
+                            isActive("/discover") ? "text-primary" : "text-foreground"
+                        }`}
+                        onClick={() => setIsMenuOpen(false)}
+                    >
+                        <Icon icon="mdi:compass" width="18"/>
+                        Discover
+                    </Link>
+                </NavbarMenuItem>
+                <NavbarMenuItem>
+                    <Link
+                        to="/downloads"
+                        className={`flex items-center gap-3 w-full py-2 ${
+                            isActive("/downloads") ? "text-primary" : "text-foreground"
+                        }`}
+                        onClick={() => setIsMenuOpen(false)}
+                    >
+                        <Icon icon="mdi:download" width="18"/>
+                        Downloads
+                    </Link>
+                </NavbarMenuItem>
+                <NavbarMenuItem>
+                    <Link
+                        to="/watch-party"
+                        className={`flex items-center gap-3 w-full py-2 ${
+                            isActive("/watch-party") ? "text-primary" : "text-foreground"
+                        }`}
+                        onClick={() => setIsMenuOpen(false)}
+                    >
+                        <Icon icon="mdi:account-group" width="18"/>
+                        Watch Party
+                    </Link>
+                </NavbarMenuItem>
                 <NavbarMenuItem>
                     <Link
                         to="/settings"

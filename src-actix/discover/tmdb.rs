@@ -128,11 +128,88 @@ async fn recent(
     })))
 }
 
+#[derive(serde::Deserialize)]
+struct LogoQuery {
+    tmdb_id: u64,
+    #[serde(rename = "type")]
+    media_type: String,
+}
+
+#[get("/logo")]
+async fn logo(
+    config: web::Data<SharedConfig>,
+    query: web::Query<LogoQuery>,
+) -> Result<impl Responder> {
+    let cfg = config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+    if cfg.tmdb.api_key.is_empty() {
+        return Err(crate::http_error::Error::ServiceUnavailable(
+            "TMDB API key not configured".to_string(),
+        ));
+    }
+
+    let media_type = match query.media_type.as_str() {
+        "movie" => "movie",
+        "tv" => "tv",
+        _ => return Err(crate::http_error::Error::BadRequest(
+            "type must be 'movie' or 'tv'".to_string(),
+        )),
+    };
+
+    let client = tmdb_client();
+    let api_key = cfg.tmdb.api_key.clone();
+    drop(cfg);
+
+    // Try the requested type first, fall back to the other on 404
+    let types_to_try = if media_type == "movie" {
+        &["movie", "tv"]
+    } else {
+        &["tv", "movie"]
+    };
+
+    for mt in types_to_try {
+        let resp = client
+            .get(format!("{}/{}/{}/images", TMDB_BASE, mt, query.tmdb_id))
+            .query(&[
+                ("api_key", api_key.as_str()),
+                ("include_image_languages", "en,null"),
+            ])
+            .send()
+            .await
+            .map_err(|e| anyhow::anyhow!("TMDB request failed: {}", e))?;
+
+        if resp.status() == reqwest::StatusCode::NOT_FOUND {
+            continue;
+        }
+
+        let body = resp
+            .json::<serde_json::Value>()
+            .await
+            .map_err(|e| anyhow::anyhow!("TMDB parse failed: {}", e))?;
+
+        let logo_path = body["logos"]
+            .as_array()
+            .and_then(|logos| logos.first())
+            .and_then(|logo| logo["file_path"].as_str())
+            .map(|s| s.to_string());
+
+        if logo_path.is_some() {
+            return Ok(HttpResponse::Ok().json(serde_json::json!({
+                "logo_path": logo_path
+            })));
+        }
+    }
+
+    Ok(HttpResponse::Ok().json(serde_json::json!({
+        "logo_path": null
+    })))
+}
+
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/discover")
             .service(trending)
             .service(upcoming)
-            .service(recent),
+            .service(recent)
+            .service(logo),
     );
 }

@@ -5,6 +5,7 @@ import {useNavigate} from "react-router-dom";
 import {AnimatePresence, motion} from "framer-motion";
 import type {PlexMediaItem} from "../../lib/types.ts";
 import {formatDuration, plexImage} from "../../lib/utils.ts";
+import {useTmdbLogo} from "../../hooks/useTmdbLogo.ts";
 
 interface HeroCarouselProps {
     items: PlexMediaItem[];
@@ -32,6 +33,7 @@ export default function HeroCarousel({items}: HeroCarouselProps) {
     if (items.length === 0) return null;
 
     const item = items[current];
+    const {logoUrl} = useTmdbLogo(item);
     const progress = item.viewOffset && item.duration
         ? (item.viewOffset / item.duration) * 100
         : 0;
@@ -82,13 +84,31 @@ export default function HeroCarousel({items}: HeroCarouselProps) {
                         exit={{opacity: 0, y: -150}}
                         transition={{duration: 0.4}}
                     >
-                        <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-3">
-                            {item.type === "episode" && item.grandparentTitle
-                                ? item.grandparentTitle
-                                : item.title}
-                        </h1>
+                        {logoUrl ? (
+                            <img
+                                src={logoUrl}
+                                alt={item.title}
+                                className="max-h-24 md:max-h-32 w-auto object-contain mb-3"
+                            />
+                        ) : (
+                            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-3">
+                                {item.type === "season" && item.parentTitle
+                                    ? item.parentTitle
+                                    : item.type === "episode" && item.grandparentTitle
+                                        ? item.grandparentTitle
+                                        : item.title}
+                            </h1>
+                        )}
+                        {item.type === "season" && (
+                            <p className="text-lg text-default-300 mb-1">
+                                {item.parentTitle && `${item.parentTitle} — `}{item.title}
+                            </p>
+                        )}
 
                         <div className="flex flex-wrap items-center gap-3 text-sm text-default-400 mb-3">
+                            {item.type === "episode" && item.grandparentTitle && (
+                                <span className="font-medium text-default-300">{item.grandparentTitle}</span>
+                            )}
                             {item.year && <span>{item.year}</span>}
                             {item.contentRating && (
                                 <span className="px-2 py-0.5 border border-default-400 rounded text-xs">
