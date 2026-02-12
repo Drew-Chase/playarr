@@ -3,7 +3,6 @@ use crate::config::SharedConfig;
 use crate::http_error;
 
 const PLEX_PRODUCT: &str = "Playarr";
-const PLEX_CLIENT_ID: &str = "playarr-web-client";
 
 /// Shared Plex HTTP client that adds standard headers to all requests.
 pub struct PlexClient {
@@ -38,7 +37,14 @@ impl PlexClient {
         cfg.plex.token.clone()
     }
 
+    /// Get the persistent client identifier from config.
+    fn client_id(&self) -> String {
+        let cfg = self.config.read().unwrap();
+        cfg.plex.client_id.clone()
+    }
+
     /// Build a GET request with standard Plex headers.
+    /// Token is sent as a query parameter for local Plex Media Server compatibility.
     pub fn get(&self, path: &str) -> http_error::Result<reqwest::RequestBuilder> {
         let token = self.token();
         if token.is_empty() {
@@ -49,13 +55,14 @@ impl PlexClient {
         let url = format!("{}{}", self.base_url()?, path);
         Ok(self.http
             .get(&url)
-            .header("X-Plex-Token", &token)
+            .query(&[("X-Plex-Token", &token)])
             .header("X-Plex-Product", PLEX_PRODUCT)
-            .header("X-Plex-Client-Identifier", PLEX_CLIENT_ID)
+            .header("X-Plex-Client-Identifier", self.client_id())
             .header("Accept", "application/json"))
     }
 
     /// Build a PUT request with standard Plex headers.
+    /// Token is sent as a query parameter for local Plex Media Server compatibility.
     pub fn put(&self, path: &str) -> http_error::Result<reqwest::RequestBuilder> {
         let token = self.token();
         if token.is_empty() {
@@ -66,9 +73,9 @@ impl PlexClient {
         let url = format!("{}{}", self.base_url()?, path);
         Ok(self.http
             .put(&url)
-            .header("X-Plex-Token", &token)
+            .query(&[("X-Plex-Token", &token)])
             .header("X-Plex-Product", PLEX_PRODUCT)
-            .header("X-Plex-Client-Identifier", PLEX_CLIENT_ID)
+            .header("X-Plex-Client-Identifier", self.client_id())
             .header("Accept", "application/json"))
     }
 
@@ -99,13 +106,29 @@ impl PlexClient {
         Ok(body)
     }
 
+    /// Build a GET request for binary content (images, etc.) — no Accept: application/json.
+    pub fn get_image(&self, path: &str) -> http_error::Result<reqwest::RequestBuilder> {
+        let token = self.token();
+        if token.is_empty() {
+            return Err(http_error::Error::Unauthorized(
+                "Not authenticated with Plex. Please sign in first.".to_string(),
+            ));
+        }
+        let url = format!("{}{}", self.base_url()?, path);
+        Ok(self.http
+            .get(&url)
+            .query(&[("X-Plex-Token", &token)])
+            .header("X-Plex-Product", PLEX_PRODUCT)
+            .header("X-Plex-Client-Identifier", self.client_id()))
+    }
+
     /// Build a request to plex.tv (for auth).
     pub fn plex_tv_post(&self, path: &str) -> reqwest::RequestBuilder {
         let url = format!("https://plex.tv{}", path);
         self.http
             .post(&url)
             .header("X-Plex-Product", PLEX_PRODUCT)
-            .header("X-Plex-Client-Identifier", PLEX_CLIENT_ID)
+            .header("X-Plex-Client-Identifier", self.client_id())
             .header("Accept", "application/json")
     }
 
@@ -115,7 +138,7 @@ impl PlexClient {
         self.http
             .get(&url)
             .header("X-Plex-Product", PLEX_PRODUCT)
-            .header("X-Plex-Client-Identifier", PLEX_CLIENT_ID)
+            .header("X-Plex-Client-Identifier", self.client_id())
             .header("Accept", "application/json")
     }
 }

@@ -16,6 +16,7 @@ fn mock_config(plex_url: &str, plex_token: &str) -> SharedConfig {
         plex: PlexConfig {
             url: plex_url.to_string(),
             token: plex_token.to_string(),
+            client_id: "test-client-id".to_string(),
         },
         sonarr: SonarrConfig::default(),
         radarr: RadarrConfig::default(),
@@ -29,6 +30,7 @@ fn full_mock_config(plex_url: &str, sonarr_url: &str, radarr_url: &str, tmdb_key
         plex: PlexConfig {
             url: plex_url.to_string(),
             token: "test-token-abc123".to_string(),
+            client_id: "test-client-id".to_string(),
         },
         sonarr: SonarrConfig {
             url: sonarr_url.to_string(),
@@ -114,21 +116,154 @@ async fn settings_get_returns_redacted_config() {
     assert!(body["plex"].get("token").is_none());
 }
 
+// Frontend sends {url, token: token || undefined} — when token input is empty,
+// JS `"" || undefined` = `undefined`, which JSON.stringify drops entirely.
+// So the real payload is just {"url": "..."} with NO token field.
 #[actix_rt::test]
-async fn settings_update_plex_saves_config() {
-    let config = mock_config("", "");
+async fn settings_update_plex_frontend_save_url_only() {
+    let config = mock_config("http://192.168.1.75:32400/", "valid-plex-auth-token");
     let app = test_app!(config.clone());
 
+    // Exactly what the frontend sends: only the URL, no token field
     let req = test::TestRequest::put()
         .uri("/api/settings/plex")
-        .set_json(json!({ "url": "http://new-plex:32400", "token": "new-token" }))
+        .set_json(json!({ "url": "http://192.168.1.75:32400/" }))
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
 
     let cfg = config.read().unwrap();
-    assert_eq!(cfg.plex.url, "http://new-plex:32400");
-    assert_eq!(cfg.plex.token, "new-token");
+    assert_eq!(cfg.plex.url, "http://192.168.1.75:32400/");
+    assert_eq!(cfg.plex.token, "valid-plex-auth-token", "Token must be preserved when not included in request");
+}
+
+// When the user explicitly types both URL and token in the settings form
+#[actix_rt::test]
+async fn settings_update_plex_with_url_and_token() {
+    let config = mock_config("", "");
+    let app = test_app!(config.clone());
+
+    let req = test::TestRequest::put()
+        .uri("/api/settings/plex")
+        .set_json(json!({ "url": "http://192.168.1.75:32400/", "token": "manually-entered-token" }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+
+    let cfg = config.read().unwrap();
+    assert_eq!(cfg.plex.url, "http://192.168.1.75:32400/");
+    assert_eq!(cfg.plex.token, "manually-entered-token");
+}
+
+// Simulate the real bug scenario:
+// 1. Token exists (from PIN auth)
+// 2. User saves settings (URL only) — token must survive
+// 3. Plex API call must use the surviving token (verified via header match)
+#[actix_rt::test]
+async fn settings_save_preserves_token_for_plex_api_calls() {
+    let mock_server = MockServer::start().await;
+
+    // Plex mock that REQUIRES the correct token as query parameter
+    Mock::given(method("GET"))
+        .and(path("/library/sections"))
+        .and(query_param("X-Plex-Token", "my-secret-plex-token"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "MediaContainer": {
+                "Directory": [
+                    {"key": "1", "title": "Movies", "type": "movie"}
+                ]
+            }
+        })))
+        .mount(&mock_server).await;
+
+    // Also mount a catch-all that returns 401 for wrong/missing token
+    Mock::given(method("GET"))
+        .and(path("/library/sections"))
+        .respond_with(ResponseTemplate::new(401).set_body_string("Unauthorized"))
+        .mount(&mock_server).await;
+
+    let config = mock_config(&mock_server.uri(), "my-secret-plex-token");
+    let app = test_app!(config.clone());
+
+    // Step 1: Verify libraries work BEFORE settings save
+    let req = test::TestRequest::get().uri("/api/libraries").to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200, "Libraries should work before settings save");
+
+    // Step 2: Save settings with URL only (no token) — mimics frontend
+    let req = test::TestRequest::put()
+        .uri("/api/settings/plex")
+        .set_json(json!({ "url": mock_server.uri() }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+
+    // Step 3: Verify token is still in config
+    {
+        let cfg = config.read().unwrap();
+        assert_eq!(cfg.plex.token, "my-secret-plex-token", "Token must survive settings save");
+    }
+
+    // Step 4: Verify libraries STILL work AFTER settings save (token sent correctly)
+    let req = test::TestRequest::get().uri("/api/libraries").to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200, "Libraries must still work after settings save — token must be sent in X-Plex-Token header");
+}
+
+// Simulate PIN auth writing token, then settings save, then Plex API
+#[actix_rt::test]
+async fn pin_auth_then_settings_save_then_plex_api() {
+    let mock_server = MockServer::start().await;
+
+    // Plex mock requires the auth token as query parameter
+    Mock::given(method("GET"))
+        .and(path("/library/sections"))
+        .and(query_param("X-Plex-Token", "token-from-pin-auth"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "MediaContainer": {
+                "Directory": [{"key": "1", "title": "Movies", "type": "movie"}]
+            }
+        })))
+        .mount(&mock_server).await;
+
+    // 401 for wrong token
+    Mock::given(method("GET"))
+        .and(path("/library/sections"))
+        .respond_with(ResponseTemplate::new(401).set_body_string("Unauthorized"))
+        .mount(&mock_server).await;
+
+    // Start with URL set but NO token (user hasn't authenticated yet)
+    let config = mock_config(&mock_server.uri(), "");
+    let app = test_app!(config.clone());
+
+    // Step 1: Libraries should fail (no token)
+    let req = test::TestRequest::get().uri("/api/libraries").to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 401, "Should fail without token");
+
+    // Step 2: Simulate what poll_pin does — write token directly to shared config
+    {
+        let mut cfg = config.write().unwrap();
+        cfg.plex.token = "token-from-pin-auth".to_string();
+    }
+
+    // Step 3: Libraries should now work
+    let req = test::TestRequest::get().uri("/api/libraries").to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200, "Should work after PIN auth sets token");
+
+    // Step 4: Frontend saves settings (URL only) — this is the bug scenario
+    let req = test::TestRequest::put()
+        .uri("/api/settings/plex")
+        .set_json(json!({ "url": mock_server.uri() }))
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+
+    // Step 5: Libraries must STILL work after settings save
+    let req = test::TestRequest::get().uri("/api/libraries").to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200, "BUG: Settings save wiped the auth token — libraries return 401 after saving URL");
 }
 
 #[actix_rt::test]

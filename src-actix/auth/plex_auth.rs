@@ -1,4 +1,5 @@
 use actix_web::{get, post, web, HttpResponse, Responder};
+use log::debug;
 use serde::{Deserialize, Serialize};
 use crate::config::{save_config, SharedConfig};
 use crate::http_error::Result;
@@ -26,6 +27,8 @@ async fn request_pin(
         .await
         .map_err(|e| anyhow::anyhow!("Failed to parse PIN response: {}", e))?;
 
+    debug!("PIN created: id={}, code={}", body["id"], body["code"]);
+
     Ok(HttpResponse::Ok().json(serde_json::json!({
         "id": body["id"],
         "code": body["code"]
@@ -51,6 +54,7 @@ async fn poll_pin(
         .map_err(|e| anyhow::anyhow!("Failed to parse PIN poll response: {}", e))?;
 
     let auth_token = body["authToken"].as_str().unwrap_or("");
+    debug!("PIN {} poll: claimed={}", pin_id, !auth_token.is_empty());
 
     if !auth_token.is_empty() {
         // Store the token in config
@@ -59,6 +63,7 @@ async fn poll_pin(
             .map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
         cfg.plex.token = auth_token.to_string();
         save_config(&cfg)?;
+        debug!("Plex auth token saved to config");
 
         Ok(HttpResponse::Ok().json(serde_json::json!({
             "claimed": true,

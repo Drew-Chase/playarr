@@ -14,12 +14,28 @@ pub struct AppConfig {
     pub download_clients: Vec<DownloadClientConfig>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlexConfig {
     #[serde(default)]
     pub url: String,
     #[serde(default)]
     pub token: String,
+    #[serde(default = "generate_client_id")]
+    pub client_id: String,
+}
+
+fn generate_client_id() -> String {
+    uuid::Uuid::new_v4().to_string()
+}
+
+impl Default for PlexConfig {
+    fn default() -> Self {
+        Self {
+            url: String::new(),
+            token: String::new(),
+            client_id: generate_client_id(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

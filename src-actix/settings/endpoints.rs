@@ -13,10 +13,16 @@ async fn get_settings(config: web::Data<SharedConfig>) -> Result<impl Responder>
 #[put("/plex")]
 async fn update_plex(
     config: web::Data<SharedConfig>,
-    body: web::Json<PlexConfig>,
+    body: web::Json<serde_json::Value>,
 ) -> Result<impl Responder> {
     let mut cfg = config.write().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
-    cfg.plex = body.into_inner();
+    let updates = body.into_inner();
+    if let Some(url) = updates["url"].as_str() {
+        cfg.plex.url = url.to_string();
+    }
+    if let Some(token) = updates["token"].as_str() {
+        cfg.plex.token = token.to_string();
+    }
     save_config(&cfg)?;
     Ok(HttpResponse::Ok().json(cfg.redacted()))
 }

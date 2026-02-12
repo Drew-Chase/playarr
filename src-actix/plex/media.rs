@@ -111,6 +111,73 @@ async fn get_stream_url(
     }
 }
 
+#[get("/{id}/thumb")]
+async fn get_thumb(
+    plex: web::Data<PlexClient>,
+    path: web::Path<String>,
+) -> Result<impl Responder> {
+    let id = path.into_inner();
+    proxy_image(&plex, &format!("/library/metadata/{}/thumb", id)).await
+}
+
+#[get("/{id}/art")]
+async fn get_art(
+    plex: web::Data<PlexClient>,
+    path: web::Path<String>,
+) -> Result<impl Responder> {
+    let id = path.into_inner();
+    proxy_image(&plex, &format!("/library/metadata/{}/art", id)).await
+}
+
+#[derive(Deserialize)]
+struct ImageQuery {
+    path: String,
+    width: Option<u32>,
+    height: Option<u32>,
+}
+
+#[get("/image")]
+async fn get_image(
+    plex: web::Data<PlexClient>,
+    query: web::Query<ImageQuery>,
+) -> Result<impl Responder> {
+    let encoded_url = query.path.replace('%', "%25").replace('&', "%26").replace('?', "%3F").replace('=', "%3D").replace(' ', "%20").replace('#', "%23");
+    let mut plex_path = format!("/photo/:/transcode?url={}", encoded_url);
+    if let Some(w) = query.width {
+        plex_path.push_str(&format!("&width={}", w));
+    }
+    if let Some(h) = query.height {
+        plex_path.push_str(&format!("&height={}", h));
+    }
+    plex_path.push_str("&minSize=1&upscale=1");
+    proxy_image(&plex, &plex_path).await
+}
+
+async fn proxy_image(plex: &PlexClient, path: &str) -> Result<HttpResponse> {
+    let req = plex.get_image(path)?;
+    let resp = req.send().await
+        .map_err(|e| anyhow::anyhow!("Plex image request failed: {}", e))?;
+
+    if !resp.status().is_success() {
+        return Ok(HttpResponse::NotFound().finish());
+    }
+
+    let content_type = resp
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("image/jpeg")
+        .to_string();
+
+    let bytes = resp.bytes().await
+        .map_err(|e| anyhow::anyhow!("Failed to read image bytes: {}", e))?;
+
+    Ok(HttpResponse::Ok()
+        .content_type(content_type)
+        .append_header(("Cache-Control", "public, max-age=86400"))
+        .body(bytes))
+}
+
 fn urlencoding_path(path: &str) -> String {
     path.replace('/', "%2F").replace(':', "%3A")
 }
@@ -118,7 +185,10 @@ fn urlencoding_path(path: &str) -> String {
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/media")
+            .service(get_image)
             .service(get_stream_url)
+            .service(get_thumb)
+            .service(get_art)
             .service(get_children)
             .service(get_related)
             .service(get_metadata),
