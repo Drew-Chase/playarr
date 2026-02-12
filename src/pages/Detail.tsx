@@ -102,21 +102,221 @@ function SeasonsGrid({showId}: { showId: string }) {
     );
 }
 
+function CrewInfo({item}: { item: PlexMediaItem }) {
+    const directors = item.Director;
+    const writers = item.Writer;
+
+    if (!directors?.length && !writers?.length) return null;
 
     return (
-        <div>
-            {/* Episode thumbnail */}
-            {thumbUrl && (
-                <div className="relative max-w-2xl rounded-lg overflow-hidden mb-6 aspect-video">
-                    <img
-                        src={thumbUrl}
-                        alt={item.title}
-                        className="object-cover w-full h-full"
-                    />
+        <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm mt-3">
+            {directors && directors.length > 0 && (
+                <div className="flex gap-2">
+                    <span className="text-default-400">Directed by</span>
+                    <span className="text-default-200">{directors.map(d => d.tag).join(", ")}</span>
                 </div>
             )}
+            {writers && writers.length > 0 && (
+                <div className="flex gap-2">
+                    <span className="text-default-400">Written by</span>
+                    <span className="text-default-200">{writers.map(w => w.tag).join(", ")}</span>
+                </div>
+            )}
+        </div>
+    );
+}
 
-            <MetadataInfo item={item}/>
+function GenreTags({item}: { item: PlexMediaItem }) {
+    if (!item.Genre?.length) return null;
+
+    return (
+        <div className="flex flex-wrap gap-2 mt-3">
+            {item.Genre.map((genre, i) => (
+                <Chip key={i} size="sm" variant="flat" className="text-xs">
+                    {genre.tag}
+                </Chip>
+            ))}
+        </div>
+    );
+}
+
+function MediaInfo({item}: { item: PlexMediaItem }) {
+    const media = item.Media?.[0];
+    if (!media) return null;
+
+    const resolution = media.height >= 2160 ? "4K" :
+        media.height >= 1080 ? "1080p" :
+            media.height >= 720 ? "720p" :
+                media.height ? `${media.height}p` : null;
+
+    const videoCodec = media.videoCodec?.toUpperCase();
+    const audioCodec = media.audioCodec?.toUpperCase();
+    const audioStream = media.Part?.[0]?.Stream?.find(s => s.streamType === 2);
+    const audioTitle = audioStream?.displayTitle;
+
+    return (
+        <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm mt-4">
+            {resolution && (
+                <div className="flex gap-2">
+                    <span className="text-default-400">Video</span>
+                    <span className="text-default-200">{resolution} ({videoCodec})</span>
+                </div>
+            )}
+            {(audioTitle || audioCodec) && (
+                <div className="flex gap-2">
+                    <span className="text-default-400">Audio</span>
+                    <span className="text-default-200">{audioTitle || audioCodec}</span>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function CastSection({roles}: { roles: PlexRole[] }) {
+    const scrollRef = useRef<HTMLDivElement>(null);
+
+    if (!roles || roles.length === 0) return null;
+
+    const scroll = (direction: "left" | "right") => {
+        if (!scrollRef.current) return;
+        const amount = scrollRef.current.clientWidth * 0.8;
+        scrollRef.current.scrollBy({
+            left: direction === "left" ? -amount : amount,
+            behavior: "smooth",
+        });
+    };
+
+    return (
+        <section className="mt-10">
+            <h2 className="text-xl font-semibold mb-4">Cast & Crew</h2>
+            <div className="relative group/cast">
+                <button
+                    onClick={() => scroll("left")}
+                    className="absolute -left-4 top-1/3 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/60 flex items-center justify-center opacity-0 group-hover/cast:opacity-100 transition-opacity hover:bg-black/80"
+                >
+                    <Icon icon="mdi:chevron-left" width="28" className="text-white"/>
+                </button>
+
+                <div
+                    ref={scrollRef}
+                    className="flex gap-5 overflow-x-auto pb-2"
+                    style={{scrollbarWidth: "none"}}
+                >
+                    {roles.map((role) => (
+                        <div key={`${role.tag}-${role.role}`} className="flex-shrink-0 w-[120px] text-center">
+                            <div className="w-[120px] h-[120px] rounded-full overflow-hidden bg-content2 mx-auto">
+                                {role.thumb ? (
+                                    <img
+                                        src={plexImage(role.thumb, 240, 240)}
+                                        alt={role.tag}
+                                        className="w-full h-full object-cover"
+                                        loading="lazy"
+                                    />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                        <Icon icon="mdi:account" width="48" className="text-default-400"/>
+                                    </div>
+                                )}
+                            </div>
+                            <p className="text-sm font-medium mt-2 truncate">{role.tag}</p>
+                            <p className="text-xs text-default-400 truncate">{role.role}</p>
+                        </div>
+                    ))}
+                </div>
+
+                <button
+                    onClick={() => scroll("right")}
+                    className="absolute -right-4 top-1/3 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/60 flex items-center justify-center opacity-0 group-hover/cast:opacity-100 transition-opacity hover:bg-black/80"
+                >
+                    <Icon icon="mdi:chevron-right" width="28" className="text-white"/>
+                </button>
+            </div>
+        </section>
+    );
+}
+
+function ReviewsSection({reviews}: { reviews: PlexReview[] }) {
+    const scrollRef = useRef<HTMLDivElement>(null);
+
+    if (!reviews || reviews.length === 0) return null;
+
+    const scroll = (direction: "left" | "right") => {
+        if (!scrollRef.current) return;
+        const amount = scrollRef.current.clientWidth * 0.8;
+        scrollRef.current.scrollBy({
+            left: direction === "left" ? -amount : amount,
+            behavior: "smooth",
+        });
+    };
+
+    return (
+        <section className="mt-10">
+            <h2 className="text-xl font-semibold mb-4">Ratings & Reviews</h2>
+            <div className="relative group/reviews">
+                <button
+                    onClick={() => scroll("left")}
+                    className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/60 flex items-center justify-center opacity-0 group-hover/reviews:opacity-100 transition-opacity hover:bg-black/80"
+                >
+                    <Icon icon="mdi:chevron-left" width="28" className="text-white"/>
+                </button>
+
+                <div
+                    ref={scrollRef}
+                    className="flex gap-4 overflow-x-auto pb-2"
+                    style={{scrollbarWidth: "none"}}
+                >
+                    {reviews.map((review, i) => (
+                        <div
+                            key={i}
+                            className="flex-shrink-0 w-[300px] bg-content2 rounded-lg p-4"
+                        >
+                            <div className="flex items-center gap-3 mb-3">
+                                {review.image ? (
+                                    <img
+                                        src={review.image}
+                                        alt={review.source}
+                                        className="w-8 h-8 rounded-full object-cover"
+                                    />
+                                ) : (
+                                    <div
+                                        className="w-8 h-8 rounded-full bg-content3 flex items-center justify-center text-xs font-bold">
+                                        {review.tag?.[0]?.toUpperCase() || "?"}
+                                    </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium truncate">{review.tag}</p>
+                                    {review.source && (
+                                        <p className="text-xs text-default-400">{review.source}</p>
+                                    )}
+                                </div>
+                            </div>
+                            <p className="text-sm text-default-300 line-clamp-4 leading-relaxed">
+                                {review.text}
+                            </p>
+                            {review.link && (
+                                <a
+                                    href={review.link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-primary hover:text-primary/80 mt-2 inline-block transition-colors"
+                                >
+                                    Read full review
+                                </a>
+                            )}
+                        </div>
+                    ))}
+                </div>
+
+                <button
+                    onClick={() => scroll("right")}
+                    className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/60 flex items-center justify-center opacity-0 group-hover/reviews:opacity-100 transition-opacity hover:bg-black/80"
+                >
+                    <Icon icon="mdi:chevron-right" width="28" className="text-white"/>
+                </button>
+            </div>
+        </section>
+    );
+}
 
             <div className="flex flex-wrap gap-3 mt-5">
                 <Button
@@ -158,6 +358,58 @@ function SeasonsGrid({showId}: { showId: string }) {
                         Mark Watched
                     </Button>
                 )}
+    const navigate = useNavigate();
+
+    return (
+        <div className="flex flex-wrap gap-3 mt-5">
+            <Button
+                color="primary"
+                radius="sm"
+                size="lg"
+                startContent={<Icon icon="mdi:play" width="24"/>}
+                onPress={() => navigate(`/player/${item.ratingKey}`)}
+                className="font-semibold"
+            >
+                {item.viewOffset ? "Resume" : "Play"}
+            </Button>
+            {progress > 0 && (
+                <div className="flex items-center">
+                    <Progress
+                        size="sm"
+                        value={progress}
+                        className="w-32"
+                        classNames={{indicator: "bg-primary"}}
+                    />
+                    <span className="text-xs text-default-400 ml-2">{Math.round(progress)}%</span>
+                </div>
+            )}
+            {item.viewCount ? (
+                <Button
+                    variant="ghost"
+                    radius="sm"
+                    color={"secondary"}
+                    size="lg"
+                    startContent={<Icon icon="mdi:eye-off" width="20"/>}
+                    onPress={() => plexApi.unscrobble(item.ratingKey)}
+                >
+                    Mark Unwatched
+                </Button>
+            ) : (
+                <Button
+                    variant="ghost"
+                    radius="sm"
+                    color={"secondary"}
+                    size="lg"
+                    startContent={<Icon icon="mdi:eye" width="20"/>}
+                    onPress={() => plexApi.scrobble(item.ratingKey)}
+                    className="border-2 border-white/90"
+                >
+                    Mark Watched
+                </Button>
+            )}
+        </div>
+    );
+}
 
 function EpisodeDetail({item}: { item: PlexMediaItem }) {
     const thumbUrl = item.thumb ? `/api/media/${item.ratingKey}/thumb` : "";
