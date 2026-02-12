@@ -2,6 +2,7 @@ use actix_web::{middleware, web, App, HttpResponse, HttpServer};
 use serde_json::json;
 use log::*;
 use anyhow::Result;
+use vite_actix::proxy_vite_options::ProxyViteOptions;
 use crate::asset_endpoint::AssetsAppConfig;
 use vite_actix::start_vite_server;
 
