@@ -146,6 +146,7 @@ export default function HeroCarousel({items}: HeroCarouselProps) {
                         <div className="flex gap-3">
                             <Button
                                 color="primary"
+                                radius="sm"
                                 size="lg"
                                 startContent={<Icon icon="mdi:play" width="24"/>}
                                 onPress={handlePlay}
@@ -154,11 +155,12 @@ export default function HeroCarousel({items}: HeroCarouselProps) {
                                 {item.viewOffset ? "Resume" : "Play"}
                             </Button>
                             <Button
-                                variant="bordered"
+                                variant="ghost"
+                                color={"secondary"}
+                                radius="sm"
                                 size="lg"
                                 startContent={<Icon icon="mdi:information-outline" width="22"/>}
                                 onPress={() => navigate(`/detail/${item.ratingKey}`)}
-                                className="border-white/30 text-white"
                             >
                                 More Info
                             </Button>

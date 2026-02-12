@@ -318,46 +318,7 @@ function ReviewsSection({reviews}: { reviews: PlexReview[] }) {
     );
 }
 
-            <div className="flex flex-wrap gap-3 mt-5">
-                <Button
-                    color="primary"
-                    size="lg"
-                    startContent={<Icon icon="mdi:play" width="24"/>}
-                    onPress={() => navigate(`/player/${item.ratingKey}`)}
-                    className="font-semibold"
-                >
-                    {item.viewOffset ? "Resume" : "Play"}
-                </Button>
-                {progress > 0 && (
-                    <div className="flex items-center">
-                        <Progress
-                            size="sm"
-                            value={progress}
-                            className="w-32"
-                            classNames={{indicator: "bg-primary"}}
-                        />
-                        <span className="text-xs text-default-400 ml-2">{Math.round(progress)}%</span>
-                    </div>
-                )}
-                {item.viewCount ? (
-                    <Button
-                        variant="bordered"
-                        size="lg"
-                        startContent={<Icon icon="mdi:eye-off" width="20"/>}
-                        onPress={() => plexApi.unscrobble(item.ratingKey)}
-                    >
-                        Mark Unwatched
-                    </Button>
-                ) : (
-                    <Button
-                        variant="bordered"
-                        size="lg"
-                        startContent={<Icon icon="mdi:eye" width="20"/>}
-                        onPress={() => plexApi.scrobble(item.ratingKey)}
-                    >
-                        Mark Watched
-                    </Button>
-                )}
+function ActionButtons({item, progress}: { item: PlexMediaItem; progress: number }) {
     const navigate = useNavigate();
 
     return (
@@ -510,48 +471,6 @@ export default function Detail() {
                                 />
                             </div>
 
-                                <div className="flex flex-wrap gap-3 mt-5">
-                                    <Button
-                                        color="primary"
-                                        size="lg"
-                                        startContent={<Icon icon="mdi:play" width="24"/>}
-                                        onPress={() => navigate(`/player/${item.ratingKey}`)}
-                                        className="font-semibold"
-                                    >
-                                        {item.viewOffset ? "Resume" : "Play"}
-                                    </Button>
-                                    {progress > 0 && (
-                                        <div className="flex items-center">
-                                            <Progress
-                                                size="sm"
-                                                value={progress}
-                                                className="w-32"
-                                                classNames={{indicator: "bg-primary"}}
-                                            />
-                                            <span className="text-xs text-default-400 ml-2">{Math.round(progress)}%</span>
-                                        </div>
-                                    )}
-                                    {item.viewCount ? (
-                                        <Button
-                                            variant="bordered"
-                                            size="lg"
-                                            startContent={<Icon icon="mdi:eye-off" width="20"/>}
-                                            onPress={() => plexApi.unscrobble(item.ratingKey)}
-                                        >
-                                            Mark Unwatched
-                                        </Button>
-                                    ) : (
-                                        <Button
-                                            variant="bordered"
-                                            size="lg"
-                                            startContent={<Icon icon="mdi:eye" width="20"/>}
-                                            onPress={() => plexApi.scrobble(item.ratingKey)}
-                                        >
-                                            Mark Watched
-                                        </Button>
-                                    )}
-                                </div>
-                            )}
                             {/* Info */}
                             <div className="flex-1 pt-4 md:pt-12">
                                 <MetadataInfo item={item}/>
@@ -582,30 +501,10 @@ export default function Detail() {
                 {/* Type-specific content sections */}
                 <div className="mt-8">
                     {item.type === "show" && (
-                        <Tabs
-                            aria-label="Show sections"
-                            variant="underlined"
-                            classNames={{
-                                panel: "pt-6",
-                                tabList: "border-b border-default-200/50",
-                            }}
-                        >
-                            <Tab key="seasons" title="Seasons">
-                                <SeasonsGrid showId={item.ratingKey}/>
-                            </Tab>
-                            {related && related.length > 0 && (
-                                <Tab key="related" title="You May Also Like">
-                                    <ContentRow title="">
-                                        {related.map((r: PlexMediaItem) => (
-                                            <MediaCard key={r.ratingKey} item={r}/>
-                                        ))}
-                                    </ContentRow>
-                                </Tab>
-                            )}
-                            <Tab key="details" title="Details">
-                                <DetailsSummary item={item}/>
-                            </Tab>
-                        </Tabs>
+                        <div>
+                            <h2 className="text-xl font-semibold mb-4">Seasons</h2>
+                            <SeasonsGrid showId={item.ratingKey}/>
+                        </div>
                     )}
 
                     {item.type === "season" && (
