@@ -201,7 +201,7 @@ export default function Detail() {
     return (
         <div>
             {/* Full-bleed art background */}
-            <div className="relative w-full h-[50vh]">
+            <div className="relative w-full h-[50vh] -mt-16">
                 <div
                     className="absolute inset-0 bg-cover bg-center"
                     style={{
