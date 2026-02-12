@@ -38,7 +38,7 @@ export default function Home() {
         <div>
             {featured.length > 0 && <HeroCarousel items={featured}/>}
 
-            <div className="-mt-16 relative z-10">
+            <div className="-mt-32 relative z-10">
                 {continueWatching && continueWatching.length > 0 && (
                     <ContentRow title="Continue Watching">
                         {continueWatching.map((item) => (

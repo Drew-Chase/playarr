@@ -46,7 +46,7 @@ export default function HeroCarousel({items}: HeroCarouselProps) {
 
     return (
         <div
-            className="relative w-full h-[70vh] overflow-hidden group"
+            className="relative w-full h-[70vh] -mt-16 overflow-hidden group"
             onMouseEnter={() => setIsPaused(true)}
             onMouseLeave={() => setIsPaused(false)}
         >
@@ -73,13 +73,13 @@ export default function HeroCarousel({items}: HeroCarouselProps) {
             </AnimatePresence>
 
             {/* Content */}
-            <div className="absolute bottom-0 left-0 right-0 p-8 md:p-12 lg:p-16 z-10">
+            <div className="absolute bottom-24 left-0 right-0 px-8 md:px-12 lg:px-16 z-10">
                 <AnimatePresence mode="wait">
                     <motion.div
                         key={item.ratingKey + "-content"}
-                        initial={{opacity: 0, y: 20}}
-                        animate={{opacity: 1, y: 0}}
-                        exit={{opacity: 0, y: -20}}
+                        initial={{opacity: 0, y: -150}}
+                        animate={{opacity: 1, y: -200}}
+                        exit={{opacity: 0, y: -150}}
                         transition={{duration: 0.4}}
                     >
                         <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-3">
@@ -167,7 +167,7 @@ export default function HeroCarousel({items}: HeroCarouselProps) {
 
             {/* Dot indicators */}
             {items.length > 1 && (
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex gap-2">
+                <div className="absolute bottom-48 left-1/2 -translate-x-1/2 z-20 flex gap-2">
                     {items.map((_, i) => (
                         <button
                             key={i}
