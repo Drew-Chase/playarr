@@ -9,9 +9,10 @@ interface MediaCardProps {
     item: PlexMediaItem;
     showProgress?: boolean;
     variant?: "portrait" | "landscape";
+    width?: number;
 }
 
-export default function MediaCard({item, showProgress, variant = "portrait"}: MediaCardProps) {
+export default function MediaCard({item, showProgress, width, variant = "portrait"}: MediaCardProps) {
     const navigate = useNavigate();
 
     const handleClick = () => {
@@ -84,10 +85,10 @@ export default function MediaCard({item, showProgress, variant = "portrait"}: Me
         <motion.div
             whileHover={{scale: 1.05}}
             transition={{type: "tween", duration: 0.2}}
-            className="shrink-0 w-[185px] cursor-pointer group scroll-snap-start"
+            className="cursor-pointer group"
             onClick={handleClick}
         >
-            <div className="relative w-[185px] h-[278px] rounded-lg overflow-hidden bg-content2">
+            <div className="relative rounded-lg overflow-hidden bg-content2 aspect-[2/3]" style={{width: width ?? "unset"}}>
                 <img
                     alt={item.title}
                     className="object-cover w-full h-full"
@@ -117,7 +118,7 @@ export default function MediaCard({item, showProgress, variant = "portrait"}: Me
                     </div>
                 )}
             </div>
-            <div className="mt-2 px-1">
+            <div className="mt-2 px-1" style={{maxWidth: width ?? "unset"}}>
                 <p className="text-sm font-semibold truncate">{title}</p>
                 <p className="text-xs text-default-400 truncate">{subtitle}</p>
             </div>

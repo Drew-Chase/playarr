@@ -8,24 +8,26 @@ import MediaCard from "../components/media/MediaCard.tsx";
 import HeroCarousel from "../components/media/HeroCarousel.tsx";
 import DiscoverCard from "../components/media/DiscoverCard.tsx";
 
-export default function Home() {
+export default function Home()
+{
     const {data: continueWatching, isLoading: cwLoading} = useContinueWatching();
     const {data: onDeck, isLoading: odLoading} = useOnDeck();
     const {data: recentlyAdded, isLoading: raLoading} = useRecentlyAdded();
 
     const {data: trending} = useQuery({
         queryKey: ["discover", "trending"],
-        queryFn: () => api.get<DiscoverResults>("/discover/trending"),
+        queryFn: () => api.get<DiscoverResults>("/discover/trending")
     });
 
     const {data: upcoming} = useQuery({
         queryKey: ["discover", "upcoming"],
-        queryFn: () => api.get<DiscoverResults>("/discover/upcoming"),
+        queryFn: () => api.get<DiscoverResults>("/discover/upcoming")
     });
 
     const isLoading = cwLoading && odLoading && raLoading;
 
-    if (isLoading) {
+    if (isLoading)
+    {
         return (
             <div className="flex justify-center items-center h-64">
                 <Spinner size="lg"/>
@@ -36,10 +38,14 @@ export default function Home() {
     // Merge continue watching + on deck, deduplicate by ratingKey
     const watching: PlexMediaItem[] = [];
     const seenKeys = new Set<string>();
-    for (const source of [continueWatching, onDeck]) {
-        if (source) {
-            for (const item of source) {
-                if (!seenKeys.has(item.ratingKey)) {
+    for (const source of [continueWatching, onDeck])
+    {
+        if (source)
+        {
+            for (const item of source)
+            {
+                if (!seenKeys.has(item.ratingKey))
+                {
                     seenKeys.add(item.ratingKey);
                     watching.push(item);
                 }
@@ -54,11 +60,15 @@ export default function Home() {
     // Collect featured items for the hero carousel (up to 5)
     const featured: PlexMediaItem[] = [];
     const sources = [continueWatching, onDeck, recentlyAdded];
-    for (const source of sources) {
-        if (source) {
-            for (const item of source) {
+    for (const source of sources)
+    {
+        if (source)
+        {
+            for (const item of source)
+            {
                 if (featured.length >= 5) break;
-                if (!featured.find(f => f.ratingKey === item.ratingKey)) {
+                if (!featured.find(f => f.ratingKey === item.ratingKey))
+                {
                     featured.push(item);
                 }
             }
@@ -81,7 +91,7 @@ export default function Home() {
                 {recentMovies.length > 0 && (
                     <ContentRow title="Recently Added Movies">
                         {recentMovies.map((item) => (
-                            <MediaCard key={item.ratingKey} item={item} variant="portrait"/>
+                            <MediaCard key={item.ratingKey} item={item} variant="portrait" width={250}/>
                         ))}
                     </ContentRow>
                 )}
@@ -89,7 +99,7 @@ export default function Home() {
                 {recentTV.length > 0 && (
                     <ContentRow title="Recently Added TV Shows">
                         {recentTV.map((item) => (
-                            <MediaCard key={item.ratingKey} item={item} variant="portrait"/>
+                            <MediaCard key={item.ratingKey} item={item} variant="portrait" width={250}/>
                         ))}
                     </ContentRow>
                 )}
