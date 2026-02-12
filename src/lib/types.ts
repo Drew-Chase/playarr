@@ -57,6 +57,30 @@ export interface PlexLibrary {
     art: string;
 }
 
+export interface PlexRole {
+    id: number;
+    filter: string;
+    tag: string;
+    role: string;
+    thumb?: string;
+}
+
+export interface PlexTag {
+    id?: number;
+    filter?: string;
+    tag: string;
+}
+
+export interface PlexReview {
+    id: number;
+    filter: string;
+    tag: string;
+    text: string;
+    image: string;
+    link: string;
+    source: string;
+}
+
 export interface PlexMediaItem {
     ratingKey: string;
     key: string;
@@ -68,8 +92,14 @@ export interface PlexMediaItem {
     art: string;
     duration: number;
     rating: number;
+    audienceRating?: number;
+    ratingImage?: string;
+    audienceRatingImage?: string;
     contentRating: string;
+    studio?: string;
+    tagline?: string;
     addedAt: number;
+    originallyAvailableAt?: string;
     viewOffset?: number;
     viewCount?: number;
     parentTitle?: string;
@@ -82,6 +112,11 @@ export interface PlexMediaItem {
     leafCount?: number;
     childCount?: number;
     Media?: PlexMedia[];
+    Role?: PlexRole[];
+    Director?: PlexTag[];
+    Writer?: PlexTag[];
+    Genre?: PlexTag[];
+    Review?: PlexReview[];
 }
 
 export interface PlexMedia {
