@@ -72,3 +72,25 @@ video::-webkit-media-controls {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Hero overlay gradients */
+.hero-gradient-bottom {
+  background: linear-gradient(to top, hsl(var(--heroui-background)) 0%, transparent 100%);
+}
+.hero-gradient-left {
+  background: linear-gradient(to right, hsl(var(--heroui-background)) 0%, transparent 70%);
+}
+
+/* Scroll snap for content rows */
+.scroll-snap-x {
+  scroll-snap-type: x mandatory;
+}
+.scroll-snap-start {
+  scroll-snap-align: start;
+}

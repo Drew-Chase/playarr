@@ -1,5 +1,4 @@
 import {ReactNode, useRef} from "react";
-import {Button} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 
 interface ContentRowProps {
@@ -21,29 +20,44 @@ export default function ContentRow({title, children, onSeeAll}: ContentRowProps)
     };
 
     return (
-        <section className="mb-8">
-            <div className="flex items-center justify-between mb-3">
-                <h2 className="text-xl font-semibold">{title}</h2>
-                <div className="flex gap-1">
+        <section className="mb-8 group/row px-6 md:px-12 lg:px-16">
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                    <h2 className="text-xl font-semibold">{title}</h2>
                     {onSeeAll && (
-                        <Button size="sm" variant="light" onPress={onSeeAll}>
-                            See All
-                        </Button>
+                        <button
+                            onClick={onSeeAll}
+                            className="text-sm text-primary hover:text-primary/80 flex items-center gap-1 transition-colors"
+                        >
+                            MORE <Icon icon="mdi:chevron-right" width="16"/>
+                        </button>
                     )}
-                    <Button isIconOnly size="sm" variant="light" onPress={() => scroll("left")}>
-                        <Icon icon="mdi:chevron-left" width="20"/>
-                    </Button>
-                    <Button isIconOnly size="sm" variant="light" onPress={() => scroll("right")}>
-                        <Icon icon="mdi:chevron-right" width="20"/>
-                    </Button>
                 </div>
             </div>
-            <div
-                ref={scrollRef}
-                className="flex gap-3 overflow-x-auto scrollbar-hide pb-2"
-                style={{scrollbarWidth: "none"}}
-            >
-                {children}
+            <div className="relative">
+                {/* Left scroll button */}
+                <button
+                    onClick={() => scroll("left")}
+                    className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/60 flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition-opacity hover:bg-black/80"
+                >
+                    <Icon icon="mdi:chevron-left" width="28" className="text-white"/>
+                </button>
+
+                <div
+                    ref={scrollRef}
+                    className="flex gap-4 overflow-x-auto scrollbar-hide pb-2 scroll-snap-x"
+                    style={{scrollbarWidth: "none"}}
+                >
+                    {children}
+                </div>
+
+                {/* Right scroll button */}
+                <button
+                    onClick={() => scroll("right")}
+                    className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/60 flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition-opacity hover:bg-black/80"
+                >
+                    <Icon icon="mdi:chevron-right" width="28" className="text-white"/>
+                </button>
             </div>
         </section>
     );

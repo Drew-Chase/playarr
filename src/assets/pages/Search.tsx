@@ -11,14 +11,14 @@ export default function Search() {
     const {data: hubs, isLoading} = useSearch(debouncedQuery);
 
     return (
-        <div>
+        <div className="px-6 md:px-12 lg:px-16 py-6">
             <Input
                 placeholder="Search movies, TV shows, and more..."
                 value={query}
                 onValueChange={setQuery}
                 startContent={<Icon icon="mdi:magnify" width="20"/>}
                 size="lg"
-                className="mb-6"
+                className="mb-8"
                 isClearable
                 onClear={() => setQuery("")}
             />
@@ -33,15 +33,25 @@ export default function Search() {
                 hubs.map((hub) =>
                     hub.Metadata && hub.Metadata.length > 0 ? (
                         <div key={hub.hubIdentifier} className="mb-8">
-                            <h2 className="text-lg font-semibold mb-3">{hub.title}</h2>
+                            <h2 className="text-lg font-semibold mb-4">{hub.title}</h2>
                             <MediaGrid items={hub.Metadata}/>
                         </div>
                     ) : null
                 )
             ) : debouncedQuery.length >= 2 && !isLoading ? (
-                <p className="text-center text-default-400 py-12">
-                    No results found for "{debouncedQuery}"
-                </p>
+                <div className="text-center py-16">
+                    <Icon icon="mdi:magnify" width="48" className="text-default-300 mx-auto mb-3"/>
+                    <p className="text-default-400">
+                        No results found for "{debouncedQuery}"
+                    </p>
+                </div>
+            ) : !debouncedQuery ? (
+                <div className="text-center py-16">
+                    <Icon icon="mdi:magnify" width="48" className="text-default-300 mx-auto mb-3"/>
+                    <p className="text-default-400">
+                        Start typing to search your library
+                    </p>
+                </div>
             ) : null}
         </div>
     );

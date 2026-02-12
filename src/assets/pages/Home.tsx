@@ -2,7 +2,8 @@ import {Spinner} from "@heroui/react";
 import {useContinueWatching, useOnDeck, useRecentlyAdded} from "../hooks/usePlex";
 import ContentRow from "../components/layout/ContentRow";
 import MediaCard from "../components/media/MediaCard";
-import MediaBanner from "../components/media/MediaBanner";
+import HeroCarousel from "../components/media/HeroCarousel";
+import type {PlexMediaItem} from "../lib/types";
 
 export default function Home() {
     const {data: continueWatching, isLoading: cwLoading} = useContinueWatching();
@@ -19,36 +20,49 @@ export default function Home() {
         );
     }
 
-    // Pick a featured item for the banner
-    const featured = continueWatching?.[0] || onDeck?.[0] || recentlyAdded?.[0];
+    // Collect featured items for the hero carousel (up to 5)
+    const featured: PlexMediaItem[] = [];
+    const sources = [continueWatching, onDeck, recentlyAdded];
+    for (const source of sources) {
+        if (source) {
+            for (const item of source) {
+                if (featured.length >= 5) break;
+                if (!featured.find(f => f.ratingKey === item.ratingKey)) {
+                    featured.push(item);
+                }
+            }
+        }
+    }
 
     return (
         <div>
-            {featured && <MediaBanner item={featured}/>}
+            {featured.length > 0 && <HeroCarousel items={featured}/>}
 
-            {continueWatching && continueWatching.length > 0 && (
-                <ContentRow title="Continue Watching">
-                    {continueWatching.map((item) => (
-                        <MediaCard key={item.ratingKey} item={item} showProgress/>
-                    ))}
-                </ContentRow>
-            )}
+            <div className="-mt-16 relative z-10">
+                {continueWatching && continueWatching.length > 0 && (
+                    <ContentRow title="Continue Watching">
+                        {continueWatching.map((item) => (
+                            <MediaCard key={item.ratingKey} item={item} showProgress variant="landscape"/>
+                        ))}
+                    </ContentRow>
+                )}
 
-            {onDeck && onDeck.length > 0 && (
-                <ContentRow title="On Deck">
-                    {onDeck.map((item) => (
-                        <MediaCard key={item.ratingKey} item={item} showProgress/>
-                    ))}
-                </ContentRow>
-            )}
+                {onDeck && onDeck.length > 0 && (
+                    <ContentRow title="On Deck">
+                        {onDeck.map((item) => (
+                            <MediaCard key={item.ratingKey} item={item} showProgress variant="landscape"/>
+                        ))}
+                    </ContentRow>
+                )}
 
-            {recentlyAdded && recentlyAdded.length > 0 && (
-                <ContentRow title="Recently Added">
-                    {recentlyAdded.map((item) => (
-                        <MediaCard key={item.ratingKey} item={item}/>
-                    ))}
-                </ContentRow>
-            )}
+                {recentlyAdded && recentlyAdded.length > 0 && (
+                    <ContentRow title="Recently Added">
+                        {recentlyAdded.map((item) => (
+                            <MediaCard key={item.ratingKey} item={item} variant="portrait"/>
+                        ))}
+                    </ContentRow>
+                )}
+            </div>
         </div>
     );
 }

@@ -1,5 +1,5 @@
 import {useParams, useNavigate} from "react-router-dom";
-import {Button, Spinner} from "@heroui/react";
+import {Button, Spinner, Tabs, Tab, Progress} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {useMetadata} from "../hooks/usePlex";
 import MetadataInfo from "../components/media/MetadataInfo";
@@ -31,82 +31,132 @@ export default function Detail() {
         return <p className="text-center text-default-400 py-12">Item not found</p>;
     }
 
+    const progress = item.viewOffset && item.duration
+        ? (item.viewOffset / item.duration) * 100
+        : 0;
+
     return (
         <div>
-            {/* Background art */}
-            <div className="relative -mx-4 md:-mx-6 -mt-4 md:-mt-6 mb-6">
+            {/* Full-bleed art background */}
+            <div className="relative w-full h-[50vh]">
                 <div
-                    className="h-[250px] md:h-[350px] bg-cover bg-center"
+                    className="absolute inset-0 bg-cover bg-center"
                     style={{
                         backgroundImage: item.art ? `url(/api/media/${item.ratingKey}/art)` : undefined,
                     }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent"/>
+                <div className="absolute inset-0 hero-gradient-bottom"/>
+                <div className="absolute inset-0 hero-gradient-left opacity-40"/>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-6 -mt-32 relative z-10">
-                {/* Poster */}
-                <div className="shrink-0">
-                    <img
-                        src={item.thumb ? `/api/media/${item.ratingKey}/thumb` : ""}
-                        alt={item.title}
-                        className="w-[200px] h-[300px] object-cover rounded-lg shadow-lg"
-                    />
-                </div>
+            {/* Poster + metadata overlapping art boundary */}
+            <div className="relative z-10 -mt-40 px-6 md:px-12 lg:px-16">
+                <div className="flex flex-col md:flex-row gap-6">
+                    {/* Poster */}
+                    <div className="shrink-0">
+                        <img
+                            src={item.thumb ? `/api/media/${item.ratingKey}/thumb` : ""}
+                            alt={item.title}
+                            className="w-[200px] h-[300px] object-cover rounded-lg shadow-2xl"
+                        />
+                    </div>
 
-                {/* Info */}
-                <div className="flex-1">
-                    <MetadataInfo item={item}/>
-                    <div className="flex gap-2 mt-4">
-                        <Button
-                            color="primary"
-                            size="lg"
-                            startContent={<Icon icon="mdi:play" width="24"/>}
-                            onPress={() => navigate(`/player/${item.ratingKey}`)}
-                        >
-                            {item.viewOffset ? "Resume" : "Play"}
-                        </Button>
-                        {item.viewCount ? (
+                    {/* Info */}
+                    <div className="flex-1 pt-4 md:pt-12">
+                        <MetadataInfo item={item}/>
+                        <div className="flex flex-wrap gap-3 mt-5">
                             <Button
-                                variant="bordered"
+                                color="primary"
                                 size="lg"
-                                startContent={<Icon icon="mdi:eye-off" width="20"/>}
-                                onPress={() => plexApi.unscrobble(item.ratingKey)}
+                                startContent={<Icon icon="mdi:play" width="24"/>}
+                                onPress={() => navigate(`/player/${item.ratingKey}`)}
+                                className="font-semibold"
                             >
-                                Mark Unwatched
+                                {item.viewOffset ? "Resume" : "Play"}
                             </Button>
-                        ) : (
-                            <Button
-                                variant="bordered"
-                                size="lg"
-                                startContent={<Icon icon="mdi:eye" width="20"/>}
-                                onPress={() => plexApi.scrobble(item.ratingKey)}
-                            >
-                                Mark Watched
-                            </Button>
-                        )}
+                            {progress > 0 && (
+                                <div className="flex items-center">
+                                    <Progress
+                                        size="sm"
+                                        value={progress}
+                                        className="w-32"
+                                        classNames={{indicator: "bg-primary"}}
+                                    />
+                                    <span className="text-xs text-default-400 ml-2">{Math.round(progress)}%</span>
+                                </div>
+                            )}
+                            {item.viewCount ? (
+                                <Button
+                                    variant="bordered"
+                                    size="lg"
+                                    startContent={<Icon icon="mdi:eye-off" width="20"/>}
+                                    onPress={() => plexApi.unscrobble(item.ratingKey)}
+                                >
+                                    Mark Unwatched
+                                </Button>
+                            ) : (
+                                <Button
+                                    variant="bordered"
+                                    size="lg"
+                                    startContent={<Icon icon="mdi:eye" width="20"/>}
+                                    onPress={() => plexApi.scrobble(item.ratingKey)}
+                                >
+                                    Mark Watched
+                                </Button>
+                            )}
+                        </div>
                     </div>
                 </div>
+
+                {/* Tabbed sections */}
+                <div className="mt-8">
+                    <Tabs
+                        aria-label="Detail sections"
+                        variant="underlined"
+                        classNames={{
+                            panel: "pt-6",
+                            tabList: "border-b border-default-200/50",
+                        }}
+                    >
+                        {item.type === "show" && (
+                            <Tab key="episodes" title="Episodes">
+                                <EpisodeList showId={item.ratingKey}/>
+                            </Tab>
+                        )}
+                        {related && related.length > 0 && (
+                            <Tab key="related" title="You May Also Like">
+                                <ContentRow title="">
+                                    {related.map((r) => (
+                                        <MediaCard key={r.ratingKey} item={r}/>
+                                    ))}
+                                </ContentRow>
+                            </Tab>
+                        )}
+                        <Tab key="details" title="Details">
+                            <div className="max-w-2xl space-y-4">
+                                {item.summary && (
+                                    <div>
+                                        <h3 className="text-sm font-semibold text-default-400 mb-1">Summary</h3>
+                                        <p className="text-sm text-default-300 leading-relaxed">{item.summary}</p>
+                                    </div>
+                                )}
+                                {item.contentRating && (
+                                    <div>
+                                        <h3 className="text-sm font-semibold text-default-400 mb-1">Rating</h3>
+                                        <p className="text-sm">{item.contentRating}</p>
+                                    </div>
+                                )}
+                                {item.year && (
+                                    <div>
+                                        <h3 className="text-sm font-semibold text-default-400 mb-1">Year</h3>
+                                        <p className="text-sm">{item.year}</p>
+                                    </div>
+                                )}
+                            </div>
+                        </Tab>
+                    </Tabs>
+                </div>
             </div>
-
-            {/* Episodes for TV shows */}
-            {item.type === "show" && (
-                <div className="mt-8">
-                    <h2 className="text-xl font-semibold mb-4">Episodes</h2>
-                    <EpisodeList showId={item.ratingKey}/>
-                </div>
-            )}
-
-            {/* Related content */}
-            {related && related.length > 0 && (
-                <div className="mt-8">
-                    <ContentRow title="Related">
-                        {related.map((r) => (
-                            <MediaCard key={r.ratingKey} item={r}/>
-                        ))}
-                    </ContentRow>
-                </div>
-            )}
         </div>
     );
 }

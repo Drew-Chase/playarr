@@ -1,13 +1,16 @@
-import {Card, CardFooter, Image, Progress} from "@heroui/react";
+import {Progress} from "@heroui/react";
 import {useNavigate} from "react-router-dom";
+import {motion} from "framer-motion";
+import {Icon} from "@iconify-icon/react";
 import type {PlexMediaItem} from "../../lib/types";
 
 interface MediaCardProps {
     item: PlexMediaItem;
     showProgress?: boolean;
+    variant?: "portrait" | "landscape";
 }
 
-export default function MediaCard({item, showProgress}: MediaCardProps) {
+export default function MediaCard({item, showProgress, variant = "portrait"}: MediaCardProps) {
     const navigate = useNavigate();
 
     const handleClick = () => {
@@ -23,42 +26,104 @@ export default function MediaCard({item, showProgress}: MediaCardProps) {
         : 0;
 
     const title = item.type === "episode" && item.grandparentTitle
-        ? `${item.grandparentTitle}`
+        ? item.grandparentTitle
         : item.title;
 
     const subtitle = item.type === "episode"
         ? `S${item.parentIndex?.toString().padStart(2, "0")}E${item.index?.toString().padStart(2, "0")} ${item.title}`
         : item.year?.toString() || "";
 
-    // Build the image URL - proxy through our API
+    if (variant === "landscape") {
+        const artUrl = item.art ? `/api/media/${item.ratingKey}/art` : (item.thumb ? `/api/media/${item.ratingKey}/thumb` : "");
+
+        return (
+            <motion.div
+                whileHover={{scale: 1.05}}
+                transition={{type: "tween", duration: 0.2}}
+                className="shrink-0 w-[280px] cursor-pointer group scroll-snap-start"
+                onClick={handleClick}
+            >
+                <div className="relative w-[280px] h-[158px] rounded-lg overflow-hidden bg-content2">
+                    <img
+                        alt={item.title}
+                        className="object-cover w-full h-full"
+                        src={artUrl}
+                        loading="lazy"
+                    />
+                    {/* Hover play overlay */}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Icon icon="mdi:play-circle" width="48" className="text-white"/>
+                        </div>
+                    </div>
+                    {/* Bottom gradient for title */}
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+                        <p className="text-sm font-semibold text-white truncate">{title}</p>
+                        {subtitle && <p className="text-xs text-white/70 truncate">{subtitle}</p>}
+                    </div>
+                    {/* Progress bar */}
+                    {showProgress && progress > 0 && (
+                        <div className="absolute bottom-0 left-0 right-0">
+                            <Progress
+                                size="sm"
+                                value={progress}
+                                className="rounded-none"
+                                classNames={{
+                                    indicator: "bg-primary",
+                                    track: "bg-black/50 rounded-none",
+                                }}
+                            />
+                        </div>
+                    )}
+                </div>
+            </motion.div>
+        );
+    }
+
+    // Portrait variant (default)
     const thumbUrl = item.thumb ? `/api/media/${item.ratingKey}/thumb` : "";
 
     return (
-        <Card
-            isPressable
-            onPress={handleClick}
-            className="shrink-0 w-[150px] bg-content2 border-none"
+        <motion.div
+            whileHover={{scale: 1.05}}
+            transition={{type: "tween", duration: 0.2}}
+            className="shrink-0 w-[185px] cursor-pointer group scroll-snap-start"
+            onClick={handleClick}
         >
-            <Image
-                alt={item.title}
-                className="object-cover w-[150px] h-[225px]"
-                src={thumbUrl}
-                fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='225' fill='%23333'%3E%3Crect width='150' height='225'/%3E%3C/svg%3E"
-                width={150}
-                height={225}
-            />
-            {showProgress && progress > 0 && (
-                <Progress
-                    size="sm"
-                    value={progress}
-                    className="absolute bottom-12 left-0 right-0 z-10"
-                    classNames={{indicator: "bg-primary"}}
+            <div className="relative w-[185px] h-[278px] rounded-lg overflow-hidden bg-content2">
+                <img
+                    alt={item.title}
+                    className="object-cover w-full h-full"
+                    src={thumbUrl}
+                    loading="lazy"
                 />
-            )}
-            <CardFooter className="flex-col items-start p-2 gap-0">
-                <p className="text-xs font-semibold truncate w-full">{title}</p>
-                <p className="text-[10px] text-default-400 truncate w-full">{subtitle}</p>
-            </CardFooter>
-        </Card>
+                {/* Hover play overlay */}
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Icon icon="mdi:play-circle" width="48" className="text-white"/>
+                    </div>
+                </div>
+                {/* Hover ring glow */}
+                <div className="absolute inset-0 rounded-lg ring-0 group-hover:ring-2 ring-primary/50 transition-all"/>
+                {/* Progress bar */}
+                {showProgress && progress > 0 && (
+                    <div className="absolute bottom-0 left-0 right-0">
+                        <Progress
+                            size="sm"
+                            value={progress}
+                            className="rounded-none"
+                            classNames={{
+                                indicator: "bg-primary",
+                                track: "bg-black/50 rounded-none",
+                            }}
+                        />
+                    </div>
+                )}
+            </div>
+            <div className="mt-2 px-1">
+                <p className="text-sm font-semibold truncate">{title}</p>
+                <p className="text-xs text-default-400 truncate">{subtitle}</p>
+            </div>
+        </motion.div>
     );
 }

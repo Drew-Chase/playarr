@@ -19,7 +19,11 @@ export default function WatchParty() {
     });
 
     if (!activeRoomId) {
-        return <RoomCreate onRoomCreated={(id) => setActiveRoomId(id)}/>;
+        return (
+            <div className="px-6 md:px-12 lg:px-16 py-6">
+                <RoomCreate onRoomCreated={(id) => setActiveRoomId(id)}/>
+            </div>
+        );
     }
 
     if (isLoading) {
@@ -32,7 +36,7 @@ export default function WatchParty() {
 
     if (!room) {
         return (
-            <div className="text-center py-12">
+            <div className="px-6 md:px-12 lg:px-16 py-6 text-center py-12">
                 <p className="text-default-400">Room not found</p>
                 <RoomCreate onRoomCreated={(id) => setActiveRoomId(id)}/>
             </div>

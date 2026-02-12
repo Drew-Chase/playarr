@@ -22,7 +22,7 @@ export default function Settings() {
     }
 
     return (
-        <div>
+        <div className="px-6 md:px-12 lg:px-16 py-6">
             <h1 className="text-2xl font-bold mb-6">Settings</h1>
             <Tabs aria-label="Settings sections" variant="underlined" classNames={{panel: "pt-4"}}>
                 <Tab key="plex" title="Plex">

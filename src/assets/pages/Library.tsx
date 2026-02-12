@@ -2,7 +2,7 @@ import {useParams} from "react-router-dom";
 import {Button, Select, SelectItem, Spinner} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {useState} from "react";
-import {useLibraryItems} from "../hooks/usePlex";
+import {useLibraryItems, useLibraries} from "../hooks/usePlex";
 import MediaGrid from "../components/media/MediaGrid";
 
 const SORT_OPTIONS = [
@@ -21,13 +21,15 @@ export default function Library() {
     const [page, setPage] = useState(0);
     const [sort, setSort] = useState("addedAt:desc");
     const {data, isLoading} = useLibraryItems(key || "", page * PAGE_SIZE, PAGE_SIZE, sort);
+    const {data: libraries} = useLibraries();
 
     const totalPages = data ? Math.ceil(data.totalSize / PAGE_SIZE) : 0;
+    const libraryName = libraries?.find(l => l.key === key)?.title || "Library";
 
     return (
-        <div>
+        <div className="px-6 md:px-12 lg:px-16 py-6">
             <div className="flex items-center justify-between mb-6">
-                <h1 className="text-2xl font-bold">Library</h1>
+                <h1 className="text-2xl font-bold">{libraryName}</h1>
                 <Select
                     selectedKeys={[sort]}
                     onChange={(e) => {
@@ -52,7 +54,7 @@ export default function Library() {
                 <>
                     <MediaGrid items={data.items}/>
                     {totalPages > 1 && (
-                        <div className="flex justify-center items-center gap-2 mt-6">
+                        <div className="flex justify-center items-center gap-4 mt-8">
                             <Button
                                 isIconOnly
                                 size="sm"
@@ -78,7 +80,10 @@ export default function Library() {
                     )}
                 </>
             ) : (
-                <p className="text-default-400 text-center py-12">No items found</p>
+                <div className="text-center py-16">
+                    <Icon icon="mdi:movie-open-outline" width="48" className="text-default-300 mx-auto mb-3"/>
+                    <p className="text-default-400">No items found</p>
+                </div>
             )}
         </div>
     );

@@ -1,4 +1,5 @@
 import {Spinner} from "@heroui/react";
+import {Icon} from "@iconify-icon/react";
 import {useDownloads} from "../hooks/useDownloads";
 import DownloadList from "../components/downloads/DownloadList";
 import {formatSpeed} from "../lib/utils";
@@ -15,7 +16,7 @@ export default function Downloads() {
     }
 
     return (
-        <div>
+        <div className="px-6 md:px-12 lg:px-16 py-6">
             <div className="flex items-center justify-between mb-6">
                 <h1 className="text-2xl font-bold">Downloads</h1>
                 {data && data.total_speed > 0 && (
@@ -28,7 +29,10 @@ export default function Downloads() {
             {data?.items && data.items.length > 0 ? (
                 <DownloadList items={data.items}/>
             ) : (
-                <p className="text-center text-default-400 py-12">No active downloads</p>
+                <div className="text-center py-16">
+                    <Icon icon="mdi:download-off" width="48" className="text-default-300 mx-auto mb-3"/>
+                    <p className="text-default-400">No active downloads</p>
+                </div>
             )}
         </div>
     );
