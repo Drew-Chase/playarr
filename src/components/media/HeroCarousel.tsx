@@ -4,7 +4,7 @@ import {Icon} from "@iconify-icon/react";
 import {useNavigate} from "react-router-dom";
 import {AnimatePresence, motion} from "framer-motion";
 import type {PlexMediaItem} from "../../lib/types.ts";
-import {formatDuration} from "../../lib/utils.ts";
+import {formatDuration, plexImage} from "../../lib/utils.ts";
 
 interface HeroCarouselProps {
     items: PlexMediaItem[];
@@ -62,7 +62,7 @@ export default function HeroCarousel({items}: HeroCarouselProps) {
                     <div
                         className="absolute inset-0 bg-cover bg-center"
                         style={{
-                            backgroundImage: item.art ? `url(/api/media/${item.ratingKey}/art)` : undefined,
+                            backgroundImage: item.art ? `url(${plexImage(item.art, 1920, 1080)})` : undefined,
                         }}
                     />
                     {/* Bottom gradient */}
