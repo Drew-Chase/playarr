@@ -15,11 +15,7 @@ export default function MediaCard({item, showProgress, variant = "portrait"}: Me
     const navigate = useNavigate();
 
     const handleClick = () => {
-        if (item.type === "movie" || item.type === "show") {
-            navigate(`/detail/${item.ratingKey}`);
-        } else if (item.type === "episode") {
-            navigate(`/player/${item.ratingKey}`);
-        }
+        navigate(`/detail/${item.ratingKey}`);
     };
 
     const progress = item.viewOffset && item.duration

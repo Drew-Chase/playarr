@@ -79,6 +79,8 @@ export interface PlexMediaItem {
     Guid?: Array<{ id: string }>;
     grandparentRatingKey?: string;
     parentRatingKey?: string;
+    leafCount?: number;
+    childCount?: number;
     Media?: PlexMedia[];
 }
 
