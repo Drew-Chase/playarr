@@ -9,7 +9,7 @@ import MediaCard from "../components/media/MediaCard.tsx";
 import {plexApi} from "../lib/plex.ts";
 import {plexImage} from "../lib/utils.ts";
 import {useQuery} from "@tanstack/react-query";
-import type {PlexMediaItem} from "../lib/types.ts";
+import type {PlexMediaItem, PlexRole, PlexReview} from "../lib/types.ts";
 
 function Breadcrumbs({item}: { item: PlexMediaItem }) {
     const crumbs: { label: string; to: string }[] = [];
