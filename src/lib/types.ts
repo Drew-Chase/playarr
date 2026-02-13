@@ -153,7 +153,7 @@ export interface PlexStream {
 
 export interface StreamInfo {
     url: string;
-    type: "direct" | "hls";
+    type: "direct" | "hls" | "directstream";
     media: PlexMedia;
     part: PlexPart;
 }

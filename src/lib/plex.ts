@@ -41,10 +41,11 @@ export const plexApi = {
 
     getRelated: (id: string) => api.get<PlexMediaItem[]>(`/media/${id}/related`),
 
-    getStreamUrl: (id: string, quality?: string, directPlay = true) =>
+    getStreamUrl: (id: string, quality?: string, directPlay = true, directStream = false) =>
         api.get<StreamInfo>(`/media/${id}/stream`, {
             ...(quality ? { quality } : {}),
             direct_play: directPlay.toString(),
+            ...(directStream ? { direct_stream: "true" } : {}),
         }),
 
     // Hubs

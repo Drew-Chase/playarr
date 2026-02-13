@@ -1,5 +1,6 @@
 use actix_web::{get, web, HttpResponse, Responder};
 use serde::Deserialize;
+use uuid::Uuid;
 use crate::http_error::Result;
 use crate::plex::client::PlexClient;
 
@@ -43,6 +44,7 @@ async fn get_related(
 struct StreamQuery {
     quality: Option<String>,
     direct_play: Option<bool>,
+    direct_stream: Option<bool>,
 }
 
 #[get("/{id}/stream")]
@@ -294,10 +296,6 @@ async fn proxy_image(plex: &PlexClient, path: &str) -> Result<HttpResponse> {
         .content_type(content_type)
         .append_header(("Cache-Control", "public, max-age=86400"))
         .body(bytes))
-}
-
-fn urlencoding_path(path: &str) -> String {
-    path.replace('/', "%2F").replace(':', "%3A")
 }
 
 pub fn configure(cfg: &mut web::ServiceConfig) {
