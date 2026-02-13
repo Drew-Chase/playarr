@@ -148,46 +148,40 @@ async fn get_stream_url(
             _ => "10000",
         };
 
-        // Match Plex Web's profile extra format, pre-URL-encoded:
+        // Plex Web's profile extra format (pre-URL-encoded for query string):
         // Raw: add-limitation(scope=videoCodec&scopeName=*&type=upperBound
         //        &name=video.bitrate&value={bitrate}&replace=true)
         //      +append-transcode-target-codec(type=videoProfile&context=streaming
         //        &videoCodec=h264&audioCodec=aac&protocol=hls)
         let profile_extra_encoded = format!(
-            "add-limitation%28scope%3DvideoCodec%26scopeName%3D%2A%26type%3DupperBound\
+            "add-limitation%28scope%3DvideoCodec%26scopeName%3D*%26type%3DupperBound\
             %26name%3Dvideo.bitrate%26value%3D{bitrate}%26replace%3Dtrue%29\
             %2Bappend-transcode-target-codec%28type%3DvideoProfile%26context%3Dstreaming\
             %26videoCodec%3Dh264%26audioCodec%3Daac%26protocol%3Dhls%29"
         );
 
-        let session_id = Uuid::new_v4().to_string();
-
-        // Build full URL matching Plex Web's format (all params as query string)
+        // URL with profile extra as query param (matching Plex Web)
         let transcode_url = format!(
-            "{base_url}/video/:/transcode/universal/start.m3u8?\
-            hasMDE=1\
-            &path=%2Flibrary%2Fmetadata%2F{id}\
-            &mediaIndex=0&partIndex=0\
+            "{}/video/:/transcode/universal/start.m3u8?\
+            hasMDE=1&path=/library/metadata/{}&mediaIndex=0&partIndex=0\
             &protocol=hls&fastSeek=1\
             &directPlay=0&directStream=0&directStreamAudio=0\
-            &subtitleSize=100&audioBoost=100\
-            &location=lan\
-            &maxVideoBitrate={bitrate}\
-            &addDebugOverlay=0\
+            &maxVideoBitrate={}\
             &autoAdjustQuality=0\
-            &mediaBufferSize=102400\
-            &session={session}\
-            &X-Plex-Session-Identifier={session_id}\
-            &X-Plex-Client-Profile-Extra={profile_extra_encoded}\
-            &X-Plex-Incomplete-Segments=1\
-            &X-Plex-Product=Playarr\
-            &X-Plex-Client-Identifier={client_id}\
-            &X-Plex-Platform=Chrome\
-            &X-Plex-Token={token}"
+            &subtitleSize=100&audioBoost=100\
+            &mediaBufferSize=102400&location=lan\
+            &session={}\
+            &X-Plex-Client-Profile-Extra={}",
+            base_url, id, bitrate, session, profile_extra_encoded
         );
 
+        // Auth as headers, profile extra in query string
         let resp = plex.http
             .get(&transcode_url)
+            .header("X-Plex-Token", &token)
+            .header("X-Plex-Client-Identifier", &client_id)
+            .header("X-Plex-Product", "Playarr")
+            .header("X-Plex-Platform", "Chrome")
             .send()
             .await
             .map_err(|e| anyhow::anyhow!("Transcode request failed: {}", e))?;
