@@ -1,0 +1,6 @@
+info:
+  name: sonarr
+  type: folder
+  seq: 11
+
+request: {}

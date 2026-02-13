@@ -1,0 +1,6 @@
+info:
+  name: settings
+  type: folder
+  seq: 10
+
+request: {}
