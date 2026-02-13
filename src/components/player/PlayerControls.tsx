@@ -1,10 +1,11 @@
 import {Button, Slider} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {formatTimestamp} from "../../lib/utils.ts";
-import type {PlexStream} from "../../lib/types.ts";
+import type {PlexStream, BifData} from "../../lib/types.ts";
 import SubtitleSelector from "./SubtitleSelector.tsx";
 import AudioSelector from "./AudioSelector.tsx";
 import QualitySelector from "./QualitySelector.tsx";
+import SeekBar from "./SeekBar.tsx";
 
 interface PlayerControlsProps {
     isPlaying: boolean;
@@ -17,6 +18,7 @@ interface PlayerControlsProps {
     subtitleStreams: PlexStream[];
     audioStreams: PlexStream[];
     quality: string;
+    bifData: BifData | null;
     onTogglePlay: () => void;
     onSeek: (time: number) => void;
     onVolumeChange: (vol: number) => void;
@@ -36,6 +38,7 @@ export default function PlayerControls({
     subtitleStreams,
     audioStreams,
     quality,
+    bifData,
     onTogglePlay,
     onSeek,
     onVolumeChange,
@@ -49,21 +52,12 @@ export default function PlayerControls({
                 visible ? "opacity-100" : "opacity-0 pointer-events-none"
             }`}
         >
-            {/* Seek bar */}
-            <Slider
-                size="sm"
-                step={0.1}
-                minValue={0}
-                maxValue={duration || 1}
-                value={currentTime}
-                onChange={(val) => onSeek(val as number)}
-                className="mb-2"
-                classNames={{
-                    track: "h-1 hover:h-2 transition-all",
-                    filler: "bg-primary",
-                    thumb: "w-3 h-3 bg-primary",
-                }}
-                aria-label="Seek"
+            {/* Seek bar with hover previews */}
+            <SeekBar
+                currentTime={currentTime}
+                duration={duration}
+                bifData={bifData}
+                onSeek={onSeek}
             />
 
             <div className="flex items-center justify-between">
@@ -100,6 +94,7 @@ export default function PlayerControls({
                     </Button>
                     <Slider
                         size="sm"
+                        color="foreground"
                         step={0.01}
                         minValue={0}
                         maxValue={1}
@@ -108,8 +103,7 @@ export default function PlayerControls({
                         className="w-24"
                         classNames={{
                             track: "h-1",
-                            filler: "bg-white",
-                            thumb: "w-2 h-2 bg-white",
+                            thumb: "w-3 h-3 after:w-2.5 after:h-2.5",
                         }}
                         aria-label="Volume"
                     />
