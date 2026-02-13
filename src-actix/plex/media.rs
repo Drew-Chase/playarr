@@ -231,6 +231,38 @@ async fn get_stream_url(
     }
 }
 
+#[get("/{id}/bif")]
+async fn get_bif(
+    plex: web::Data<PlexClient>,
+    path: web::Path<String>,
+) -> Result<impl Responder> {
+    let id = path.into_inner();
+
+    let req = plex.get(&format!("/library/metadata/{}", id))?;
+    let body = plex.send_json(req).await?;
+
+    let part_id = body["MediaContainer"]["Metadata"][0]["Media"][0]["Part"][0]["id"]
+        .as_i64()
+        .ok_or_else(|| anyhow::anyhow!("No part ID found for media {}", id))?;
+
+    let bif_path = format!("/library/parts/{}/indexes/sd", part_id);
+    let req = plex.get_image(&bif_path)?;
+    let resp = req.send().await
+        .map_err(|e| anyhow::anyhow!("BIF request failed: {}", e))?;
+
+    if !resp.status().is_success() {
+        return Ok(HttpResponse::NotFound().finish());
+    }
+
+    let bytes = resp.bytes().await
+        .map_err(|e| anyhow::anyhow!("Failed to read BIF data: {}", e))?;
+
+    Ok(HttpResponse::Ok()
+        .content_type("application/octet-stream")
+        .append_header(("Cache-Control", "public, max-age=86400"))
+        .body(bytes))
+}
+
 #[get("/{id}/thumb")]
 async fn get_thumb(
     plex: web::Data<PlexClient>,
@@ -303,6 +335,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
         web::scope("/media")
             .service(get_image)
             .service(get_stream_url)
+            .service(get_bif)
             .service(get_thumb)
             .service(get_art)
             .service(get_children)

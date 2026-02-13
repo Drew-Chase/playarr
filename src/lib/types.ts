@@ -158,6 +158,20 @@ export interface StreamInfo {
     part: PlexPart;
 }
 
+export interface BifIndex {
+    timestampMs: number;
+    offset: number;
+    size: number;
+}
+
+export interface BifData {
+    version: number;
+    imageCount: number;
+    timestampMultiplier: number;
+    images: BifIndex[];
+    buffer: ArrayBuffer;
+}
+
 export interface LibraryItems {
     items: PlexMediaItem[];
     totalSize: number;

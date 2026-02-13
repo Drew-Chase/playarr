@@ -48,6 +48,16 @@ export const plexApi = {
             ...(directStream ? { direct_stream: "true" } : {}),
         }),
 
+    getBifData: async (id: string): Promise<ArrayBuffer | null> => {
+        try {
+            const response = await fetch(`/api/media/${id}/bif`);
+            if (!response.ok) return null;
+            return response.arrayBuffer();
+        } catch {
+            return null;
+        }
+    },
+
     // Hubs
     getContinueWatching: () => api.get<PlexMediaItem[]>("/hubs/continue-watching"),
 
