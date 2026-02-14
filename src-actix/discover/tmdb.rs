@@ -133,6 +133,7 @@ struct LogoQuery {
     tmdb_id: u64,
     #[serde(rename = "type")]
     media_type: String,
+    lang: Option<String>,
 }
 
 #[get("/logo")]
@@ -159,48 +160,45 @@ async fn logo(
     let api_key = cfg.tmdb.api_key.clone();
     drop(cfg);
 
-    // Try the requested type first, fall back to the other on 404
-    let types_to_try = if media_type == "movie" {
-        &["movie", "tv"]
-    } else {
-        &["tv", "movie"]
-    };
+    // Use the requested language, default to "en"
+    let lang = query.lang.as_deref().unwrap_or("en");
+    let image_languages = format!("{},null", lang);
 
-    for mt in types_to_try {
-        let resp = client
-            .get(format!("{}/{}/{}/images", TMDB_BASE, mt, query.tmdb_id))
-            .query(&[
-                ("api_key", api_key.as_str()),
-                ("include_image_languages", "en,null"),
-            ])
-            .send()
-            .await
-            .map_err(|e| anyhow::anyhow!("TMDB request failed: {}", e))?;
+    let resp = client
+        .get(format!("{}/{}/{}/images", TMDB_BASE, media_type, query.tmdb_id))
+        .query(&[
+            ("api_key", api_key.as_str()),
+            ("include_image_languages", image_languages.as_str()),
+        ])
+        .send()
+        .await
+        .map_err(|e| anyhow::anyhow!("TMDB request failed: {}", e))?;
 
-        if resp.status() == reqwest::StatusCode::NOT_FOUND {
-            continue;
-        }
-
-        let body = resp
-            .json::<serde_json::Value>()
-            .await
-            .map_err(|e| anyhow::anyhow!("TMDB parse failed: {}", e))?;
-
-        let logo_path = body["logos"]
-            .as_array()
-            .and_then(|logos| logos.first())
-            .and_then(|logo| logo["file_path"].as_str())
-            .map(|s| s.to_string());
-
-        if logo_path.is_some() {
-            return Ok(HttpResponse::Ok().json(serde_json::json!({
-                "logo_path": logo_path
-            })));
-        }
+    if resp.status() == reqwest::StatusCode::NOT_FOUND {
+        return Ok(HttpResponse::Ok().json(serde_json::json!({
+            "logo_path": null
+        })));
     }
 
+    let body = resp
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|e| anyhow::anyhow!("TMDB parse failed: {}", e))?;
+
+    // Prefer a logo matching the exact requested language,
+    // then fall back to language-neutral (null) logos
+    let logo_path = body["logos"]
+        .as_array()
+        .and_then(|logos| {
+            logos.iter()
+                .find(|l| l["iso_639_1"].as_str() == Some(lang))
+                .or_else(|| logos.iter().find(|l| l["iso_639_1"].is_null()))
+        })
+        .and_then(|logo| logo["file_path"].as_str())
+        .map(|s| s.to_string());
+
     Ok(HttpResponse::Ok().json(serde_json::json!({
-        "logo_path": null
+        "logo_path": logo_path
     })))
 }
 
