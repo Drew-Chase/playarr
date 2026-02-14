@@ -441,7 +441,7 @@ export default function Detail() {
     return (
         <div>
             {/* Full-bleed art background */}
-            <div className="relative w-full h-[50vh] -mt-16">
+            <div className="relative w-full h-[50vh] -mt-16 min-h-[700px]">
                 <div
                     className="absolute inset-0 bg-cover bg-center"
                     style={{
@@ -453,7 +453,7 @@ export default function Detail() {
             </div>
 
             {/* Content area */}
-            <div className="relative z-10 -mt-64 px-6 md:px-12 lg:px-16">
+            <div className="relative z-10 -mt-96 px-6 md:px-12 lg:px-16">
                 <Breadcrumbs item={item}/>
 
                 {item.type === "episode" ? (
@@ -461,7 +461,7 @@ export default function Detail() {
                 ) : (
                     /* Movie / Show / Season — poster + metadata layout */
                     <div>
-                        <div className="flex flex-col md:flex-row gap-6 -mt-96">
+                        <div className="flex flex-col md:flex-row gap-6">
                             {/* Poster */}
                             <div className="shrink-0">
                                 <img

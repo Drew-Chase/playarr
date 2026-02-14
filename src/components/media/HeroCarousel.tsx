@@ -48,7 +48,7 @@ export default function HeroCarousel({items}: HeroCarouselProps) {
 
     return (
         <div
-            className="relative w-full h-[70vh] -mt-16 overflow-hidden group"
+            className="relative w-full h-[70vh] min-h-[700px] -mt-16 overflow-hidden group"
             onMouseEnter={() => setIsPaused(true)}
             onMouseLeave={() => setIsPaused(false)}
         >
