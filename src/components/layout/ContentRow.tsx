@@ -45,7 +45,7 @@ export default function ContentRow({title, children, onSeeAll}: ContentRowProps)
 
                 <div
                     ref={scrollRef}
-                    className="flex gap-4 overflow-x-auto scrollbar-hide pb-2 scroll-snap-x"
+                    className="flex gap-4 overflow-x-auto scrollbar-hide pb-2 scroll-snap-x py-8 pl-4 overflow-y-hidden"
                     style={{scrollbarWidth: "none"}}
                 >
                     {children}
