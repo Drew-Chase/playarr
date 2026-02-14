@@ -29,9 +29,15 @@ function getShowRatingKey(item: PlexMediaItem): string | undefined {
     return undefined;
 }
 
+function getBrowserLanguage(): string {
+    const full = navigator.language || "en";
+    return full.split("-")[0].toLowerCase();
+}
+
 export function useTmdbLogo(item: PlexMediaItem | undefined) {
     const needsParent = item?.type === "season" || item?.type === "episode";
     const parentKey = item ? getShowRatingKey(item) : undefined;
+    const lang = getBrowserLanguage();
 
     // Fetch parent show metadata to get show-level TMDB ID for seasons/episodes
     const {data: parentData} = useQuery({
@@ -46,11 +52,12 @@ export function useTmdbLogo(item: PlexMediaItem | undefined) {
     const mediaType = item ? getMediaType(item) : "movie";
 
     const {data} = useQuery({
-        queryKey: ["tmdb", "logo", tmdbId, mediaType],
+        queryKey: ["tmdb", "logo", tmdbId, mediaType, lang],
         queryFn: () =>
             api.get<LogoResponse>("/discover/logo", {
                 tmdb_id: tmdbId!,
                 type: mediaType,
+                lang,
             }),
         enabled: !!tmdbId,
         staleTime: 1000 * 60 * 60,
