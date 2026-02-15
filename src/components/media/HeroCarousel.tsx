@@ -100,14 +100,14 @@ export default function HeroCarousel({items}: HeroCarouselProps) {
                             </h1>
                         )}
                         {item.type === "season" && (
-                            <p className="text-lg text-default-300 mb-1">
+                            <p className="text-lg text-white/50 mb-1">
                                 {item.parentTitle && `${item.parentTitle} — `}{item.title}
                             </p>
                         )}
 
-                        <div className="flex flex-wrap items-center gap-3 text-sm text-default-400 mb-3">
+                        <div className="flex flex-wrap items-center gap-3 text-sm text-white/70 mb-3">
                             {item.type === "episode" && item.grandparentTitle && (
-                                <span className="font-medium text-default-300">{item.grandparentTitle}</span>
+                                <span className="font-medium">{item.grandparentTitle}</span>
                             )}
                             {item.year && <span>{item.year}</span>}
                             {item.contentRating && (
@@ -129,7 +129,7 @@ export default function HeroCarousel({items}: HeroCarouselProps) {
                             )}
                         </div>
 
-                        <p className="text-sm md:text-base text-default-300 line-clamp-2 max-w-2xl mb-5">
+                        <p className="text-sm md:text-base text-white/50 line-clamp-2 max-w-2xl mb-5">
                             {item.summary}
                         </p>
 

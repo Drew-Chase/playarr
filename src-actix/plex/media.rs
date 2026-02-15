@@ -38,7 +38,15 @@ async fn get_related(
 ) -> Result<impl Responder> {
     let id = path.into_inner();
     let req = plex.get(&format!("/library/metadata/{}/similar", id))?;
-    let body = plex.send_json(req).await?;
+    let resp = req.send().await
+        .map_err(|e| anyhow::anyhow!("Plex request failed: {}", e))?;
+
+    if !resp.status().is_success() {
+        return Ok(HttpResponse::Ok().json(serde_json::json!([])));
+    }
+
+    let body: serde_json::Value = resp.json().await
+        .map_err(|e| anyhow::anyhow!("Failed to parse Plex JSON response: {}", e))?;
     Ok(HttpResponse::Ok().json(&body["MediaContainer"]["Metadata"]))
 }
 
@@ -75,10 +83,8 @@ async fn get_stream_url(
     let direct_stream = query.direct_stream.unwrap_or(false);
 
     if direct_play && !direct_stream {
-        let stream_url = format!(
-            "{}{}?X-Plex-Token={}",
-            base_url, part_key, token
-        );
+        // Proxy through backend so local Plex IP is never exposed to clients
+        let stream_url = format!("/api/media/stream-proxy{}", part_key);
         Ok(HttpResponse::Ok().json(serde_json::json!({
             "url": stream_url,
             "type": "direct",
@@ -127,10 +133,14 @@ async fn get_stream_url(
             .find(|line| !line.starts_with('#') && !line.is_empty())
             .ok_or_else(|| anyhow::anyhow!("No session URL in m3u8 response"))?;
 
+        // Proxy through backend so local Plex IP is never exposed to clients
         let stream_url = if session_path.starts_with("http") {
-            session_path.to_string()
+            session_path.replace(
+                &format!("{}/video/:/transcode/universal/", base_url),
+                "/api/media/transcode/",
+            )
         } else {
-            format!("{}/video/:/transcode/universal/{}", base_url, session_path)
+            format!("/api/media/transcode/{}", session_path)
         };
 
         Ok(HttpResponse::Ok().json(serde_json::json!({
@@ -206,23 +216,21 @@ async fn get_stream_url(
             .find(|line| !line.starts_with('#') && !line.is_empty())
             .ok_or_else(|| anyhow::anyhow!("No session URL in m3u8 response"))?;
 
-        // Build absolute URL — session URLs don't need auth (session ID is the auth)
+        // Proxy through backend so local Plex IP is never exposed to clients
         let stream_url = if session_path.starts_with("http") {
-            session_path.to_string()
-        } else {
-            format!(
-                "{}/video/:/transcode/universal/{}",
-                base_url, session_path
+            session_path.replace(
+                &format!("{}/video/:/transcode/universal/", base_url),
+                "/api/media/transcode/",
             )
+        } else {
+            format!("/api/media/transcode/{}", session_path)
         };
 
         Ok(HttpResponse::Ok().json(serde_json::json!({
             "url": stream_url,
             "type": "hls",
             "media": media,
-            "part": part,
-            "debug_m3u8": m3u8_body,
-            "debug_url": transcode_url
+            "part": part
         })))
     }
 }
@@ -326,10 +334,131 @@ async fn proxy_image(plex: &PlexClient, path: &str) -> Result<HttpResponse> {
         .body(bytes))
 }
 
+/// Proxy direct-play streams from Plex, with HTTP range request support.
+/// This prevents the local Plex server IP from being exposed to remote clients.
+#[get("/stream-proxy/{path:.*}")]
+async fn stream_proxy(
+    req: HttpRequest,
+    plex: web::Data<PlexClient>,
+    path: web::Path<String>,
+) -> Result<HttpResponse> {
+    let plex_path = format!("/{}", path.into_inner());
+
+    // Only allow proxying library paths
+    if !plex_path.starts_with("/library/") {
+        return Err(anyhow::anyhow!("Invalid proxy path").into());
+    }
+
+    let mut plex_req = plex.get_image(&plex_path)?;
+
+    // Forward Range header for seeking support
+    if let Some(range) = req.headers().get("Range") {
+        if let Ok(range_str) = range.to_str() {
+            plex_req = plex_req.header("Range", range_str);
+        }
+    }
+
+    let resp = plex_req.send().await
+        .map_err(|e| anyhow::anyhow!("Plex stream proxy failed: {}", e))?;
+
+    let status = resp.status();
+    let mut builder = if status == reqwest::StatusCode::PARTIAL_CONTENT {
+        HttpResponse::PartialContent()
+    } else if status.is_success() {
+        HttpResponse::Ok()
+    } else {
+        return Err(anyhow::anyhow!("Plex returned {}", status.as_u16()).into());
+    };
+
+    // Forward relevant headers
+    for name in ["content-type", "content-length", "content-range", "accept-ranges"] {
+        if let Some(val) = resp.headers().get(name) {
+            if let Ok(val_str) = val.to_str() {
+                builder.insert_header((name, val_str.to_string()));
+            }
+        }
+    }
+
+    let bytes = resp.bytes().await
+        .map_err(|e| anyhow::anyhow!("Failed to read stream data: {}", e))?;
+
+    Ok(builder.body(bytes))
+}
+
+/// Proxy HLS transcode/directstream requests to Plex.
+/// Rewrites absolute Plex URLs in m3u8 playlists to use the proxy,
+/// and forwards video segments transparently.
+#[get("/transcode/{path:.*}")]
+async fn transcode_proxy(
+    req: HttpRequest,
+    plex: web::Data<PlexClient>,
+    path: web::Path<String>,
+) -> Result<HttpResponse> {
+    let plex_path = path.into_inner();
+    let cfg = plex.config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+    let base_url = cfg.plex.url.trim_end_matches('/').to_string();
+    let token = cfg.plex.token.clone();
+    let client_id = cfg.plex.client_id.clone();
+    drop(cfg);
+
+    let mut url = format!("{}/video/:/transcode/universal/{}", base_url, plex_path);
+
+    // Forward query string if present (some segment requests may include params)
+    if let Some(query) = req.uri().query() {
+        url.push('?');
+        url.push_str(query);
+    }
+
+    let resp = plex.http
+        .get(&url)
+        .header("X-Plex-Token", &token)
+        .header("X-Plex-Client-Identifier", &client_id)
+        .header("X-Plex-Product", "Playarr")
+        .send()
+        .await
+        .map_err(|e| anyhow::anyhow!("Transcode proxy failed: {}", e))?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        return Err(anyhow::anyhow!("Plex transcode returned {}", status.as_u16()).into());
+    }
+
+    let content_type = resp.headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/octet-stream")
+        .to_string();
+
+    if content_type.contains("mpegurl") || plex_path.ends_with(".m3u8") {
+        // For m3u8 playlists, rewrite any absolute Plex URLs to use our proxy
+        let body = resp.text().await
+            .map_err(|e| anyhow::anyhow!("Failed to read m3u8: {}", e))?;
+
+        let rewritten = body.replace(
+            &format!("{}/video/:/transcode/universal/", base_url),
+            "/api/media/transcode/",
+        );
+
+        Ok(HttpResponse::Ok()
+            .content_type("application/vnd.apple.mpegurl")
+            .body(rewritten))
+    } else {
+        // For video segments, proxy the bytes directly
+        let bytes = resp.bytes().await
+            .map_err(|e| anyhow::anyhow!("Failed to read transcode data: {}", e))?;
+
+        Ok(HttpResponse::Ok()
+            .content_type(content_type)
+            .body(bytes))
+    }
+}
+
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/media")
             .service(get_image)
+            .service(stream_proxy)
+            .service(transcode_proxy)
             .service(get_stream_url)
             .service(get_bif)
             .service(get_thumb)
