@@ -102,14 +102,34 @@ struct TestServicePath {
     service: String,
 }
 
+#[derive(Deserialize, Default)]
+struct TestConnectionBody {
+    #[serde(default)]
+    url: Option<String>,
+    #[serde(default)]
+    token: Option<String>,
+    #[serde(default)]
+    api_key: Option<String>,
+}
+
+/// Return `override_val` if non-empty, otherwise `saved_val`.
+fn pick(override_val: &Option<String>, saved_val: &str) -> String {
+    match override_val {
+        Some(v) if !v.is_empty() => v.clone(),
+        _ => saved_val.to_string(),
+    }
+}
+
 #[post("/test/{service}")]
 async fn test_connection(
     req: HttpRequest,
     config: web::Data<SharedConfig>,
     path: web::Path<TestServicePath>,
+    body: web::Json<TestConnectionBody>,
 ) -> Result<impl Responder> {
     require_admin(&req, &config)?;
     let cfg = config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+    let body = body.into_inner();
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()
@@ -117,50 +137,57 @@ async fn test_connection(
 
     let result = match path.service.as_str() {
         "plex" => {
-            if cfg.plex.url.is_empty() {
+            let plex_url = pick(&body.url, &cfg.plex.url);
+            let plex_token = pick(&body.token, &cfg.plex.token);
+            if plex_url.is_empty() {
                 return Ok(HttpResponse::BadRequest().json(serde_json::json!({
                     "success": false,
                     "message": "Plex URL is not configured"
                 })));
             }
-            let mut url = cfg.plex.url.trim_end_matches('/').to_string();
+            let mut url = plex_url.trim_end_matches('/').to_string();
             url.push_str("/identity");
             let mut req = client.get(&url);
-            if !cfg.plex.token.is_empty() {
-                req = req.header("X-Plex-Token", &cfg.plex.token);
+            if !plex_token.is_empty() {
+                req = req.header("X-Plex-Token", &plex_token);
             }
             req.send().await
         }
         "sonarr" => {
-            if cfg.sonarr.url.is_empty() {
+            let sonarr_url = pick(&body.url, &cfg.sonarr.url);
+            let sonarr_key = pick(&body.api_key, &cfg.sonarr.api_key);
+            if sonarr_url.is_empty() {
                 return Ok(HttpResponse::BadRequest().json(serde_json::json!({
                     "success": false,
                     "message": "Sonarr URL is not configured"
                 })));
             }
-            let url = format!("{}/api/v3/system/status", cfg.sonarr.url.trim_end_matches('/'));
+            let url = format!("{}/api/v3/system/status", sonarr_url.trim_end_matches('/'));
             client
                 .get(&url)
-                .header("X-Api-Key", &cfg.sonarr.api_key)
+                .header("X-Api-Key", &sonarr_key)
                 .send()
                 .await
         }
         "radarr" => {
-            if cfg.radarr.url.is_empty() {
+            let radarr_url = pick(&body.url, &cfg.radarr.url);
+            let radarr_key = pick(&body.api_key, &cfg.radarr.api_key);
+            if radarr_url.is_empty() {
                 return Ok(HttpResponse::BadRequest().json(serde_json::json!({
                     "success": false,
                     "message": "Radarr URL is not configured"
                 })));
             }
-            let url = format!("{}/api/v3/system/status", cfg.radarr.url.trim_end_matches('/'));
+            let url = format!("{}/api/v3/system/status", radarr_url.trim_end_matches('/'));
             client
                 .get(&url)
-                .header("X-Api-Key", &cfg.radarr.api_key)
+                .header("X-Api-Key", &radarr_key)
                 .send()
                 .await
         }
         "tmdb" => {
-            if cfg.tmdb.api_key.is_empty() {
+            let tmdb_key = pick(&body.api_key, &cfg.tmdb.api_key);
+            if tmdb_key.is_empty() {
                 return Ok(HttpResponse::BadRequest().json(serde_json::json!({
                     "success": false,
                     "message": "TMDB API key is not configured"
@@ -168,7 +195,7 @@ async fn test_connection(
             }
             let url = format!(
                 "https://api.themoviedb.org/3/configuration?api_key={}",
-                cfg.tmdb.api_key
+                tmdb_key
             );
             client.get(&url).send().await
         }

@@ -86,7 +86,7 @@ function TmdbSettings({current, onSaved}: { current?: { has_api_key: boolean }; 
                 <Button color="primary" onPress={handleSave} isLoading={saving}>
                     Save
                 </Button>
-                <ConnectionTest service="tmdb"/>
+                <ConnectionTest service="tmdb" params={{api_key: apiKey}}/>
             </div>
         </div>
     );

@@ -45,7 +45,7 @@ export default function SonarrSettings({current, onSaved}: SonarrSettingsProps) 
             />
             <div className="flex gap-2">
                 <Button color="primary" onPress={handleSave} isLoading={saving}>Save</Button>
-                <ConnectionTest service="sonarr"/>
+                <ConnectionTest service="sonarr" params={{url, api_key: apiKey}}/>
             </div>
         </div>
     );

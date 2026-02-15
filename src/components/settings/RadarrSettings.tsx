@@ -45,7 +45,7 @@ export default function RadarrSettings({current, onSaved}: RadarrSettingsProps) 
             />
             <div className="flex gap-2">
                 <Button color="primary" onPress={handleSave} isLoading={saving}>Save</Button>
-                <ConnectionTest service="radarr"/>
+                <ConnectionTest service="radarr" params={{url, api_key: apiKey}}/>
             </div>
         </div>
     );

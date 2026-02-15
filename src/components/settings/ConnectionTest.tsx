@@ -6,9 +6,10 @@ import type {ConnectionTestResult} from "../../lib/types.ts";
 
 interface ConnectionTestProps {
     service: string;
+    params?: Record<string, string>;
 }
 
-export default function ConnectionTest({service}: ConnectionTestProps) {
+export default function ConnectionTest({service, params}: ConnectionTestProps) {
     const [testing, setTesting] = useState(false);
     const [result, setResult] = useState<ConnectionTestResult | null>(null);
 
@@ -16,7 +17,7 @@ export default function ConnectionTest({service}: ConnectionTestProps) {
         setTesting(true);
         setResult(null);
         try {
-            const res = await api.post<ConnectionTestResult>(`/settings/test/${service}`);
+            const res = await api.post<ConnectionTestResult>(`/settings/test/${service}`, params ?? {});
             setResult(res);
         } catch {
             setResult({success: false, message: "Request failed"});

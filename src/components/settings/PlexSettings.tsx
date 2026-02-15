@@ -46,7 +46,7 @@ export default function PlexSettings({current, onSaved}: PlexSettingsProps) {
             />
             <div className="flex gap-2">
                 <Button color="primary" onPress={handleSave} isLoading={saving}>Save</Button>
-                <ConnectionTest service="plex"/>
+                <ConnectionTest service="plex" params={{url, token}}/>
             </div>
         </div>
     );
