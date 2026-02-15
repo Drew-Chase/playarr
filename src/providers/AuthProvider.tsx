@@ -1,6 +1,6 @@
 import {createContext, ReactNode, useCallback, useContext, useEffect, useState} from "react";
 import {plexApi} from "../lib/plex.ts";
-import type {PlexUser} from "../lib/types.ts";
+import type {PlexUser, SetupData} from "../lib/types.ts";
 
 interface AuthContextType {
     user: PlexUser | null;
@@ -12,7 +12,7 @@ interface AuthContextType {
     pollLogin: (id: number) => Promise<boolean>;
     logout: () => Promise<void>;
     refresh: () => Promise<void>;
-    completeSetup: (plexUrl: string) => Promise<void>;
+    completeSetup: (data: SetupData) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -70,8 +70,8 @@ export function AuthProvider({children}: { children: ReactNode }) {
         setUser(null);
     };
 
-    const completeSetup = async (plexUrl: string) => {
-        await plexApi.completeSetup(plexUrl);
+    const completeSetup = async (data: SetupData) => {
+        await plexApi.completeSetup(data);
         setSetupComplete(true);
         await refresh();
     };

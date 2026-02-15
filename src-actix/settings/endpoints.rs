@@ -97,6 +97,12 @@ struct TestConnectionBody {
     token: Option<String>,
     #[serde(default)]
     api_key: Option<String>,
+    #[serde(default, rename = "type")]
+    client_type: Option<String>,
+    #[serde(default)]
+    username: Option<String>,
+    #[serde(default)]
+    password: Option<String>,
 }
 
 /// Return `override_val` if non-empty, otherwise `saved_val`.
@@ -104,6 +110,87 @@ fn pick(override_val: &Option<String>, saved_val: &str) -> String {
     match override_val {
         Some(v) if !v.is_empty() => v.clone(),
         _ => saved_val.to_string(),
+    }
+}
+
+pub async fn test_download_client_connection(
+    client: &reqwest::Client,
+    client_type: &str,
+    url: &str,
+    api_key: &str,
+    username: &str,
+    password: &str,
+) -> Result<HttpResponse> {
+    let base = url.trim_end_matches('/');
+    let result = match client_type {
+        "sabnzbd" => {
+            let api_url = format!("{}/api?mode=version&output=json&apikey={}", base, api_key);
+            client.get(&api_url).send().await
+        }
+        "nzbget" => {
+            let api_url = if !username.is_empty() {
+                let authed = base.replacen("://", &format!("://{}:{}@", username, password), 1);
+                format!("{}/jsonrpc", authed)
+            } else {
+                format!("{}/jsonrpc", base)
+            };
+            client
+                .post(&api_url)
+                .json(&serde_json::json!({"method": "version", "params": []}))
+                .send()
+                .await
+        }
+        "qbittorrent" => {
+            let api_url = format!("{}/api/v2/app/version", base);
+            client.get(&api_url).send().await
+        }
+        "transmission" => {
+            let api_url = format!("{}/transmission/rpc", base);
+            let mut req = client
+                .post(&api_url)
+                .json(&serde_json::json!({"method": "session-get"}));
+            if !username.is_empty() {
+                req = req.basic_auth(username, Some(password));
+            }
+            let resp = req.send().await;
+            // Transmission returns 409 with session ID header on first request - that counts as reachable
+            match resp {
+                Ok(r) if r.status().as_u16() == 409 => {
+                    return Ok(HttpResponse::Ok().json(serde_json::json!({
+                        "success": true,
+                        "message": "Connection successful"
+                    })));
+                }
+                other => other,
+            }
+        }
+        _ => {
+            return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "message": format!("Unknown client type: {}", client_type)
+            })));
+        }
+    };
+
+    match result {
+        Ok(resp) if resp.status().is_success() => {
+            Ok(HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "message": "Connection successful"
+            })))
+        }
+        Ok(resp) => {
+            Ok(HttpResponse::Ok().json(serde_json::json!({
+                "success": false,
+                "message": format!("Service returned status {}", resp.status())
+            })))
+        }
+        Err(e) => {
+            Ok(HttpResponse::Ok().json(serde_json::json!({
+                "success": false,
+                "message": format!("Connection failed: {}", e)
+            })))
+        }
     }
 }
 
@@ -171,6 +258,26 @@ async fn test_connection(
                 .header("X-Api-Key", &radarr_key)
                 .send()
                 .await
+        }
+        "download-client" => {
+            let dc_url = body.url.unwrap_or_default();
+            let dc_type = body.client_type.unwrap_or_default();
+            if dc_url.is_empty() {
+                return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+                    "success": false,
+                    "message": "URL is required"
+                })));
+            }
+            if dc_type.is_empty() {
+                return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+                    "success": false,
+                    "message": "Client type is required"
+                })));
+            }
+            let dc_api_key = body.api_key.unwrap_or_default();
+            let dc_username = body.username.unwrap_or_default();
+            let dc_password = body.password.unwrap_or_default();
+            return test_download_client_connection(&client, &dc_type, &dc_url, &dc_api_key, &dc_username, &dc_password).await;
         }
         _ => {
             return Ok(HttpResponse::BadRequest().json(serde_json::json!({

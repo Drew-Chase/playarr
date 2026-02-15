@@ -9,13 +9,14 @@ import type {
     StreamInfo,
     SearchHub,
     TimelineUpdate,
+    SetupData,
 } from "./types.ts";
 
 // Status
 export const plexApi = {
     getStatus: () => api.get<{ setup_complete: boolean }>("/status"),
 
-    completeSetup: (plex_url: string) => api.post("/setup", { plex_url }),
+    completeSetup: (data: SetupData) => api.post("/setup", data),
 
     // Auth
     requestPin: () => api.post<PlexPin>("/auth/pin"),

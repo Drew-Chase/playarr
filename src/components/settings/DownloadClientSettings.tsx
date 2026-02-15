@@ -1,11 +1,21 @@
-import {Button, Input, Select, SelectItem, Switch, Card, CardBody} from "@heroui/react";
+import {Button, Input, Select, SelectItem, Switch, Card, CardBody, Chip} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {useState} from "react";
 import {toast} from "sonner";
 import {api} from "../../lib/api.ts";
-import type {DownloadClientConfig} from "../../lib/types.ts";
+import type {ConnectionTestResult, DownloadClientConfig} from "../../lib/types.ts";
+
+interface RedactedDownloadClient {
+    name: string;
+    type: string;
+    url: string;
+    has_api_key: boolean;
+    has_credentials: boolean;
+    enabled: boolean;
+}
 
 interface DownloadClientSettingsProps {
+    current?: RedactedDownloadClient[];
     onSaved: () => void;
 }
 
@@ -28,9 +38,31 @@ function emptyClient(): DownloadClientConfig {
     };
 }
 
-export default function DownloadClientSettings({onSaved}: DownloadClientSettingsProps) {
-    const [clients, setClients] = useState<DownloadClientConfig[]>([]);
+interface TestState {
+    testing: boolean;
+    result: ConnectionTestResult | null;
+}
+
+export default function DownloadClientSettings({current, onSaved}: DownloadClientSettingsProps) {
+    const [clients, setClients] = useState<DownloadClientConfig[]>(() =>
+        (current ?? []).map(c => ({
+            name: c.name,
+            type: c.type as DownloadClientConfig["type"],
+            url: c.url,
+            api_key: "",
+            username: "",
+            password: "",
+            enabled: c.enabled,
+        }))
+    );
+    // Track which indices came from saved config (for placeholder hints)
+    const [savedMeta] = useState<Record<number, RedactedDownloadClient>>(() => {
+        const meta: Record<number, RedactedDownloadClient> = {};
+        (current ?? []).forEach((c, i) => { meta[i] = c; });
+        return meta;
+    });
     const [saving, setSaving] = useState(false);
+    const [clientTests, setClientTests] = useState<Record<number, TestState>>({});
 
     const addClient = () => {
         setClients([...clients, emptyClient()]);
@@ -44,6 +76,9 @@ export default function DownloadClientSettings({onSaved}: DownloadClientSettings
 
     const removeClient = (index: number) => {
         setClients(clients.filter((_, i) => i !== index));
+        const newTests = {...clientTests};
+        delete newTests[index];
+        setClientTests(newTests);
     };
 
     const handleSave = async () => {
@@ -56,6 +91,26 @@ export default function DownloadClientSettings({onSaved}: DownloadClientSettings
             toast.error(`Failed to save: ${err instanceof Error ? err.message : "Unknown error"}`);
         } finally {
             setSaving(false);
+        }
+    };
+
+    const testClient = async (index: number) => {
+        const client = clients[index];
+        setClientTests(prev => ({...prev, [index]: {testing: true, result: null}}));
+        try {
+            const res = await api.post<ConnectionTestResult>("/settings/test/download-client", {
+                url: client.url,
+                type: client.type,
+                api_key: client.api_key,
+                username: client.username,
+                password: client.password,
+            });
+            setClientTests(prev => ({...prev, [index]: {testing: false, result: res}}));
+        } catch {
+            setClientTests(prev => ({
+                ...prev,
+                [index]: {testing: false, result: {success: false, message: "Request failed"}},
+            }));
         }
     };
 
@@ -118,6 +173,7 @@ export default function DownloadClientSettings({onSaved}: DownloadClientSettings
                                 size="sm"
                                 value={client.api_key}
                                 onValueChange={(v) => updateClient(index, "api_key", v)}
+                                placeholder={savedMeta[index]?.has_api_key ? "••••••••" : "Enter API key"}
                                 autoComplete={"one-time-code"}
                             />
                             {needsCredentials(client.type) && (
@@ -127,6 +183,7 @@ export default function DownloadClientSettings({onSaved}: DownloadClientSettings
                                         size="sm"
                                         value={client.username}
                                         onValueChange={(v) => updateClient(index, "username", v)}
+                                        placeholder={savedMeta[index]?.has_credentials ? "••••••••" : "Enter username"}
                                         autoComplete={"one-time-code"}
                                     />
                                     <Input
@@ -135,9 +192,41 @@ export default function DownloadClientSettings({onSaved}: DownloadClientSettings
                                         type="password"
                                         value={client.password}
                                         onValueChange={(v) => updateClient(index, "password", v)}
+                                        placeholder={savedMeta[index]?.has_credentials ? "••••••••" : "Enter password"}
                                         autoComplete={"one-time-code"}
                                     />
                                 </>
+                            )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="bordered"
+                                size="sm"
+                                onPress={() => testClient(index)}
+                                isLoading={clientTests[index]?.testing}
+                                isDisabled={!client.url}
+                                startContent={
+                                    !clientTests[index]?.testing
+                                        ? <Icon icon="mdi:connection" width="16"/>
+                                        : undefined
+                                }
+                            >
+                                Test
+                            </Button>
+                            {clientTests[index]?.result && (
+                                <Chip
+                                    color={clientTests[index].result!.success ? "success" : "danger"}
+                                    variant="flat"
+                                    size="sm"
+                                    startContent={
+                                        <Icon
+                                            icon={clientTests[index].result!.success ? "mdi:check" : "mdi:close"}
+                                            width="14"
+                                        />
+                                    }
+                                >
+                                    {clientTests[index].result!.message}
+                                </Chip>
                             )}
                         </div>
                     </CardBody>

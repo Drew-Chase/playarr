@@ -3,6 +3,7 @@ use actix_web::cookie::{Cookie, SameSite};
 use log::debug;
 use serde::{Deserialize, Serialize};
 use crate::config::{save_config, SharedConfig};
+use crate::config::models::*;
 use crate::http_error::Result;
 use crate::plex::client::PlexClient;
 
@@ -158,6 +159,12 @@ async fn server_status(
 #[derive(Deserialize)]
 struct SetupRequest {
     plex_url: String,
+    #[serde(default)]
+    sonarr: Option<SonarrConfig>,
+    #[serde(default)]
+    radarr: Option<RadarrConfig>,
+    #[serde(default)]
+    download_clients: Option<Vec<DownloadClientConfig>>,
 }
 
 #[post("/setup")]
@@ -181,15 +188,124 @@ async fn initial_setup(
         }
     }
 
+    let body = body.into_inner();
     let mut cfg = config.write().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
     cfg.plex.url = body.plex_url.trim_end_matches('/').to_string();
     cfg.plex.token = token;
     cfg.plex.admin_user_id = user_id;
+    if let Some(sonarr) = body.sonarr {
+        cfg.sonarr = sonarr;
+    }
+    if let Some(radarr) = body.radarr {
+        cfg.radarr = radarr;
+    }
+    if let Some(download_clients) = body.download_clients {
+        cfg.download_clients = download_clients;
+    }
     save_config(&cfg)?;
 
     debug!("Initial setup complete: url={}, admin_user_id={}", cfg.plex.url, user_id);
 
     Ok(HttpResponse::Ok().json(serde_json::json!({ "success": true })))
+}
+
+#[derive(Deserialize)]
+struct SetupTestPath {
+    service: String,
+}
+
+#[derive(Deserialize, Default)]
+struct SetupTestBody {
+    #[serde(default)]
+    url: Option<String>,
+    #[serde(default)]
+    api_key: Option<String>,
+    #[serde(default, rename = "type")]
+    client_type: Option<String>,
+    #[serde(default)]
+    username: Option<String>,
+    #[serde(default)]
+    password: Option<String>,
+}
+
+#[post("/setup/test/{service}")]
+async fn setup_test_connection(
+    config: web::Data<SharedConfig>,
+    path: web::Path<SetupTestPath>,
+    body: web::Json<SetupTestBody>,
+) -> Result<HttpResponse> {
+    // Only allow during setup phase
+    {
+        let cfg = config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+        if !cfg.plex.url.is_empty() && !cfg.plex.token.is_empty() {
+            return Err(crate::http_error::Error::BadRequest(
+                "Setup is already complete. Use /api/settings/test instead.".to_string(),
+            ));
+        }
+    }
+
+    let body = body.into_inner();
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| anyhow::anyhow!("Failed to create HTTP client: {}", e))?;
+
+    let url = body.url.unwrap_or_default();
+    if url.is_empty() {
+        return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+            "success": false,
+            "message": "URL is required"
+        })));
+    }
+
+    let result = match path.service.as_str() {
+        "sonarr" => {
+            let key = body.api_key.unwrap_or_default();
+            let test_url = format!("{}/api/v3/system/status", url.trim_end_matches('/'));
+            client.get(&test_url).header("X-Api-Key", &key).send().await
+        }
+        "radarr" => {
+            let key = body.api_key.unwrap_or_default();
+            let test_url = format!("{}/api/v3/system/status", url.trim_end_matches('/'));
+            client.get(&test_url).header("X-Api-Key", &key).send().await
+        }
+        "download-client" => {
+            let dc_type = body.client_type.unwrap_or_default();
+            let dc_api_key = body.api_key.unwrap_or_default();
+            let dc_username = body.username.unwrap_or_default();
+            let dc_password = body.password.unwrap_or_default();
+            return crate::settings::endpoints::test_download_client_connection(
+                &client, &dc_type, &url, &dc_api_key, &dc_username, &dc_password,
+            ).await;
+        }
+        _ => {
+            return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+                "success": false,
+                "message": format!("Unknown service: {}", path.service)
+            })));
+        }
+    };
+
+    match result {
+        Ok(resp) if resp.status().is_success() => {
+            Ok(HttpResponse::Ok().json(serde_json::json!({
+                "success": true,
+                "message": "Connection successful"
+            })))
+        }
+        Ok(resp) => {
+            Ok(HttpResponse::Ok().json(serde_json::json!({
+                "success": false,
+                "message": format!("Service returned status {}", resp.status())
+            })))
+        }
+        Err(e) => {
+            Ok(HttpResponse::Ok().json(serde_json::json!({
+                "success": false,
+                "message": format!("Connection failed: {}", e)
+            })))
+        }
+    }
 }
 
 pub fn configure(cfg: &mut web::ServiceConfig) {
@@ -204,5 +320,6 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
 
 pub fn configure_setup(cfg: &mut web::ServiceConfig) {
     cfg.service(server_status)
-        .service(initial_setup);
+        .service(initial_setup)
+        .service(setup_test_connection);
 }

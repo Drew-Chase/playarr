@@ -47,6 +47,13 @@ export interface ConnectionTestResult {
     message: string;
 }
 
+export interface SetupData {
+    plex_url: string;
+    sonarr?: SonarrConfig;
+    radarr?: RadarrConfig;
+    download_clients?: DownloadClientConfig[];
+}
+
 // Plex types
 export interface PlexLibrary {
     key: string;

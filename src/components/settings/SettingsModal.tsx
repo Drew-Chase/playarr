@@ -40,7 +40,7 @@ export default function SettingsModal({isOpen, onClose}: SettingsModalProps) {
                                 <RadarrSettings current={settings?.radarr} onSaved={refetch}/>
                             </Tab>
                             <Tab key="downloads" title="Downloads">
-                                <DownloadClientSettings onSaved={refetch}/>
+                                <DownloadClientSettings current={settings?.download_clients} onSaved={refetch}/>
                             </Tab>
                         </Tabs>
                     )}
