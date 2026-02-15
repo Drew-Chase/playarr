@@ -5,11 +5,14 @@ import type {PlexUser} from "../lib/types.ts";
 interface AuthContextType {
     user: PlexUser | null;
     isAuthenticated: boolean;
+    isAdmin: boolean;
     isLoading: boolean;
+    setupComplete: boolean | null;
     login: () => Promise<{ code: string; id: number }>;
     pollLogin: (id: number) => Promise<boolean>;
     logout: () => Promise<void>;
     refresh: () => Promise<void>;
+    completeSetup: (plexUrl: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -17,6 +20,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({children}: { children: ReactNode }) {
     const [user, setUser] = useState<PlexUser | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [setupComplete, setSetupComplete] = useState<boolean | null>(null);
 
     const refresh = useCallback(async () => {
         try {
@@ -30,7 +34,21 @@ export function AuthProvider({children}: { children: ReactNode }) {
     }, []);
 
     useEffect(() => {
-        refresh();
+        const init = async () => {
+            try {
+                const status = await plexApi.getStatus();
+                setSetupComplete(status.setup_complete);
+                if (status.setup_complete) {
+                    await refresh();
+                } else {
+                    setIsLoading(false);
+                }
+            } catch {
+                setSetupComplete(false);
+                setIsLoading(false);
+            }
+        };
+        init();
     }, [refresh]);
 
     const login = async () => {
@@ -52,16 +70,25 @@ export function AuthProvider({children}: { children: ReactNode }) {
         setUser(null);
     };
 
+    const completeSetup = async (plexUrl: string) => {
+        await plexApi.completeSetup(plexUrl);
+        setSetupComplete(true);
+        await refresh();
+    };
+
     return (
         <AuthContext.Provider
             value={{
                 user,
                 isAuthenticated: !!user,
+                isAdmin: !!user?.isAdmin,
                 isLoading,
+                setupComplete,
                 login,
                 pollLogin,
                 logout,
                 refresh,
+                completeSetup,
             }}
         >
             {children}

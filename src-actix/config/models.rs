@@ -22,6 +22,9 @@ pub struct PlexConfig {
     pub token: String,
     #[serde(default = "generate_client_id")]
     pub client_id: String,
+    /// Plex user ID of the admin who completed initial setup
+    #[serde(default)]
+    pub admin_user_id: i64,
 }
 
 fn generate_client_id() -> String {
@@ -34,6 +37,7 @@ impl Default for PlexConfig {
             url: String::new(),
             token: String::new(),
             client_id: generate_client_id(),
+            admin_user_id: 0,
         }
     }
 }

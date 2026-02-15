@@ -1,3 +1,4 @@
+use actix_web::HttpRequest;
 use reqwest::Client;
 use crate::config::SharedConfig;
 use crate::http_error;
@@ -120,6 +121,54 @@ impl PlexClient {
             .query(&[("X-Plex-Token", &token)])
             .header("X-Plex-Product", PLEX_PRODUCT)
             .header("X-Plex-Client-Identifier", self.client_id()))
+    }
+
+    /// Extract (user_id, token) from the plex_user_token HttpOnly cookie.
+    /// Cookie format: "{plex_user_id}:{plex_auth_token}"
+    pub fn user_from_request(req: &HttpRequest) -> Option<(i64, String)> {
+        req.cookie("plex_user_token").and_then(|c| {
+            let (id_str, token) = c.value().split_once(':')?;
+            Some((id_str.parse::<i64>().ok()?, token.to_string()))
+        })
+    }
+
+    /// Extract just the user token from the cookie, if present.
+    pub fn user_token_from_request(req: &HttpRequest) -> Option<String> {
+        Self::user_from_request(req).map(|(_, t)| t)
+    }
+
+    /// Build a GET request using a per-user token (falls back to server token if empty).
+    pub fn get_as_user(&self, path: &str, user_token: &str) -> http_error::Result<reqwest::RequestBuilder> {
+        let token = if user_token.is_empty() { self.token() } else { user_token.to_string() };
+        if token.is_empty() {
+            return Err(http_error::Error::Unauthorized(
+                "Not authenticated with Plex. Please sign in first.".to_string(),
+            ));
+        }
+        let url = format!("{}{}", self.base_url()?, path);
+        Ok(self.http
+            .get(&url)
+            .query(&[("X-Plex-Token", &token)])
+            .header("X-Plex-Product", PLEX_PRODUCT)
+            .header("X-Plex-Client-Identifier", self.client_id())
+            .header("Accept", "application/json"))
+    }
+
+    /// Build a PUT request using a per-user token (falls back to server token if empty).
+    pub fn put_as_user(&self, path: &str, user_token: &str) -> http_error::Result<reqwest::RequestBuilder> {
+        let token = if user_token.is_empty() { self.token() } else { user_token.to_string() };
+        if token.is_empty() {
+            return Err(http_error::Error::Unauthorized(
+                "Not authenticated with Plex. Please sign in first.".to_string(),
+            ));
+        }
+        let url = format!("{}{}", self.base_url()?, path);
+        Ok(self.http
+            .put(&url)
+            .query(&[("X-Plex-Token", &token)])
+            .header("X-Plex-Product", PLEX_PRODUCT)
+            .header("X-Plex-Client-Identifier", self.client_id())
+            .header("Accept", "application/json"))
     }
 
     /// Build a request to plex.tv (for auth).

@@ -66,6 +66,7 @@ pub async fn run() -> Result<()> {
 				web::scope("api")
 					.configure(settings::endpoints::configure)
 					.configure(auth::plex_auth::configure)
+					.configure(auth::plex_auth::configure_setup)
 					.configure(plex::libraries::configure)
 					.configure(plex::media::configure)
 					.configure(plex::hub::configure)

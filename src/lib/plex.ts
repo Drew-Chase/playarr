@@ -11,8 +11,13 @@ import type {
     TimelineUpdate,
 } from "./types.ts";
 
-// Auth
+// Status
 export const plexApi = {
+    getStatus: () => api.get<{ setup_complete: boolean }>("/status"),
+
+    completeSetup: (plex_url: string) => api.post("/setup", { plex_url }),
+
+    // Auth
     requestPin: () => api.post<PlexPin>("/auth/pin"),
 
     pollPin: (id: number) => api.get<PinPollResult>(`/auth/pin/${id}`),
@@ -50,7 +55,7 @@ export const plexApi = {
 
     getBifData: async (id: string): Promise<ArrayBuffer | null> => {
         try {
-            const response = await fetch(`/api/media/${id}/bif`);
+            const response = await fetch(`/api/media/${id}/bif`, { credentials: "same-origin" });
             if (!response.ok) return null;
             return response.arrayBuffer();
         } catch {

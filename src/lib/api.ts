@@ -15,6 +15,7 @@ async function request<T>(path: string, options: FetchOptions = {}): Promise<T> 
 
     const response = await fetch(url, {
         ...fetchOptions,
+        credentials: "same-origin",
         headers: {
             "Content-Type": "application/json",
             ...fetchOptions.headers,

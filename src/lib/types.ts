@@ -205,6 +205,7 @@ export interface PlexUser {
     title: string;
     email: string;
     thumb: string;
+    isAdmin?: boolean;
 }
 
 // Timeline

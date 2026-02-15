@@ -3,6 +3,7 @@ import {BrowserRouter, Route, Routes, useNavigate} from "react-router-dom";
 import ReactDOM from "react-dom/client";
 import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
 import {Toaster} from "sonner";
+import {Spinner} from "@heroui/react";
 
 import "./css/index.css";
 import Home from "./pages/Home.tsx";
@@ -13,10 +14,11 @@ import Search from "./pages/Search.tsx";
 import Discover from "./pages/Discover.tsx";
 import Downloads from "./pages/Downloads.tsx";
 import WatchParty from "./pages/WatchParty.tsx";
-import Settings from "./pages/Settings.tsx";
+import Login from "./pages/Login.tsx";
+import Setup from "./pages/Setup.tsx";
 import AppLayout from "./components/layout/AppLayout.tsx";
 import {ThemeProvider} from "./providers/ThemeProvider.tsx";
-import {AuthProvider} from "./providers/AuthProvider.tsx";
+import {AuthProvider, useAuth} from "./providers/AuthProvider.tsx";
 import {PlayerProvider} from "./providers/PlayerProvider.tsx";
 import {HeroUIProvider} from "@heroui/react";
 
@@ -47,6 +49,40 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
 
 export function MainContentRenderer() {
     const navigate = useNavigate();
+    const {isAuthenticated, isLoading, setupComplete} = useAuth();
+
+    // Still checking setup status or user session
+    if (setupComplete === null || isLoading) {
+        return (
+            <HeroUIProvider navigate={navigate}>
+                <div className="flex items-center justify-center min-h-screen">
+                    <Spinner size="lg"/>
+                </div>
+            </HeroUIProvider>
+        );
+    }
+
+    // Server not configured — show setup wizard
+    if (!setupComplete) {
+        return (
+            <HeroUIProvider navigate={navigate}>
+                <Toaster richColors position="bottom-right"/>
+                <Setup/>
+            </HeroUIProvider>
+        );
+    }
+
+    // Not signed in — show login page
+    if (!isAuthenticated) {
+        return (
+            <HeroUIProvider navigate={navigate}>
+                <Toaster richColors position="bottom-right"/>
+                <Login/>
+            </HeroUIProvider>
+        );
+    }
+
+    // Fully authenticated — show main app
     return (
         <HeroUIProvider navigate={navigate}>
             <Toaster richColors position="bottom-right"/>
@@ -60,7 +96,6 @@ export function MainContentRenderer() {
                     <Route path="/discover" element={<Discover/>}/>
                     <Route path="/downloads" element={<Downloads/>}/>
                     <Route path="/watch-party/:roomId?" element={<WatchParty/>}/>
-                    <Route path="/settings" element={<Settings/>}/>
                 </Route>
             </Routes>
         </HeroUIProvider>

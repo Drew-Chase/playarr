@@ -1,4 +1,4 @@
-use actix_web::{get, web, HttpResponse, Responder};
+use actix_web::{get, web, HttpRequest, HttpResponse, Responder};
 use serde::Deserialize;
 use uuid::Uuid;
 use crate::http_error::Result;
@@ -6,12 +6,14 @@ use crate::plex::client::PlexClient;
 
 #[get("/{id}")]
 async fn get_metadata(
+    req: HttpRequest,
     plex: web::Data<PlexClient>,
     path: web::Path<String>,
 ) -> Result<impl Responder> {
     let id = path.into_inner();
-    let req = plex.get(&format!("/library/metadata/{}", id))?;
-    let body = plex.send_json(req).await?;
+    let user_token = PlexClient::user_token_from_request(&req).unwrap_or_default();
+    let request = plex.get_as_user(&format!("/library/metadata/{}", id), &user_token)?;
+    let body = plex.send_json(request).await?;
 
     let metadata = &body["MediaContainer"]["Metadata"];
     let item = metadata.get(0).unwrap_or(metadata);
@@ -20,12 +22,14 @@ async fn get_metadata(
 
 #[get("/{id}/children")]
 async fn get_children(
+    req: HttpRequest,
     plex: web::Data<PlexClient>,
     path: web::Path<String>,
 ) -> Result<impl Responder> {
     let id = path.into_inner();
-    let req = plex.get(&format!("/library/metadata/{}/children", id))?;
-    let body = plex.send_json(req).await?;
+    let user_token = PlexClient::user_token_from_request(&req).unwrap_or_default();
+    let request = plex.get_as_user(&format!("/library/metadata/{}/children", id), &user_token)?;
+    let body = plex.send_json(request).await?;
     Ok(HttpResponse::Ok().json(&body["MediaContainer"]["Metadata"]))
 }
 
