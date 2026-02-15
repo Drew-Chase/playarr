@@ -10,12 +10,18 @@ import {useWatchPartyContext} from "../../providers/WatchPartyProvider.tsx";
 import PlayerControls from "./PlayerControls.tsx";
 import PlayerOverlay from "./PlayerOverlay.tsx";
 import WatchQueuePanel from "./WatchQueuePanel.tsx";
+import EpisodeQueuePanel from "./EpisodeQueuePanel.tsx";
 
 interface VideoPlayerProps {
     item: PlexMediaItem;
+    onNext?: () => void;
+    onPrevious?: () => void;
+    hasNext?: boolean;
+    hasPrevious?: boolean;
+    episodes?: PlexMediaItem[];
 }
 
-export default function VideoPlayer({item}: VideoPlayerProps) {
+export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevious, episodes}: VideoPlayerProps) {
     const navigate = useNavigate();
     const watchParty = useWatchPartyContext();
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -293,6 +299,18 @@ export default function VideoPlayer({item}: VideoPlayerProps) {
                     e.preventDefault();
                     handleVolumeChange(Math.max(0, volume - 0.1));
                     break;
+                case "N":
+                    if (e.shiftKey && onNext) {
+                        e.preventDefault();
+                        onNext();
+                    }
+                    break;
+                case "P":
+                    if (e.shiftKey && onPrevious) {
+                        e.preventDefault();
+                        onPrevious();
+                    }
+                    break;
                 case "Escape":
                     if (isFullscreen) {
                         document.exitFullscreen();
@@ -506,6 +524,7 @@ export default function VideoPlayer({item}: VideoPlayerProps) {
                         time: Math.floor(duration * 1000),
                         duration: Math.floor(duration * 1000),
                     }).catch(() => {});
+                    onNext?.();
                 }}
                 onClick={togglePlay}
             />
@@ -539,7 +558,11 @@ export default function VideoPlayer({item}: VideoPlayerProps) {
                 isInParty={isInParty}
                 participants={watchParty?.activeRoom?.participants}
                 hostUserId={watchParty?.activeRoom?.host_user_id}
-                onToggleQueue={() => setShowQueue(q => !q)}
+                onToggleQueue={(episodes?.length || isInParty) ? () => setShowQueue(q => !q) : undefined}
+                onNext={onNext}
+                onPrevious={onPrevious}
+                hasNext={hasNext}
+                hasPrevious={hasPrevious}
             />
 
             {isInParty && watchParty?.activeRoom && (
@@ -550,6 +573,16 @@ export default function VideoPlayer({item}: VideoPlayerProps) {
                     isHost={isHost}
                     onRemoveItem={watchParty.removeFromQueue}
                     onPlayNext={watchParty.nextInQueue}
+                />
+            )}
+
+            {!isInParty && episodes && episodes.length > 0 && (
+                <EpisodeQueuePanel
+                    isOpen={showQueue}
+                    onClose={() => setShowQueue(false)}
+                    episodes={episodes}
+                    currentRatingKey={item.ratingKey}
+                    onSelectEpisode={(ratingKey) => navigate(`/player/${ratingKey}`, {replace: true})}
                 />
             )}
         </div>

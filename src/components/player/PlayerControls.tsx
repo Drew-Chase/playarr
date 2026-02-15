@@ -30,6 +30,10 @@ interface PlayerControlsProps {
     participants?: WatchPartyParticipant[];
     hostUserId?: number;
     onToggleQueue?: () => void;
+    onNext?: () => void;
+    onPrevious?: () => void;
+    hasNext?: boolean;
+    hasPrevious?: boolean;
 }
 
 export default function PlayerControls({
@@ -54,6 +58,10 @@ export default function PlayerControls({
     participants,
     hostUserId,
     onToggleQueue,
+    onNext,
+    onPrevious,
+    hasNext,
+    hasPrevious,
 }: PlayerControlsProps) {
     return (
         <div
@@ -72,6 +80,18 @@ export default function PlayerControls({
             <div className="flex items-center justify-between">
                 {/* Left controls */}
                 <div className="flex items-center gap-1">
+                    {hasPrevious !== undefined && (
+                        <Button
+                            isIconOnly
+                            variant="light"
+                            size="sm"
+                            onPress={onPrevious}
+                            isDisabled={!hasPrevious}
+                            className="text-white"
+                        >
+                            <Icon icon="mdi:skip-previous" width="24"/>
+                        </Button>
+                    )}
                     <Button
                         isIconOnly
                         variant="light"
@@ -81,6 +101,18 @@ export default function PlayerControls({
                     >
                         <Icon icon={isPlaying ? "mdi:pause" : "mdi:play"} width="24"/>
                     </Button>
+                    {hasNext !== undefined && (
+                        <Button
+                            isIconOnly
+                            variant="light"
+                            size="sm"
+                            onPress={onNext}
+                            isDisabled={!hasNext}
+                            className="text-white"
+                        >
+                            <Icon icon="mdi:skip-next" width="24"/>
+                        </Button>
+                    )}
 
                     {/* Volume */}
                     <Button
@@ -134,7 +166,7 @@ export default function PlayerControls({
                     {isInParty && participants && hostUserId !== undefined && (
                         <ParticipantsPopover participants={participants} hostUserId={hostUserId}/>
                     )}
-                    {isInParty && onToggleQueue && (
+                    {onToggleQueue && (
                         <Button
                             isIconOnly
                             variant="light"
