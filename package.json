@@ -13,7 +13,7 @@
     "build:frontend": "tsc && vite build",
     "dev": "cargo run",
     "build": "npm run \"build:frontend\" && npm run \"build:api\"",
-    "publish": "uv -g commit-push-tag && gh act -W .github/workflows/publish-ghcr.yml -P ubuntu-latest=catthehacker/ubuntu:act-latest"
+    "publish": "uv -g commit-push-tag"
   },
   "dependencies": {
     "@heroui/react": "^2.8.9",
