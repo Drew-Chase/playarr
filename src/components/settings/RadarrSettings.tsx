@@ -34,13 +34,14 @@ export default function RadarrSettings({current, onSaved}: RadarrSettingsProps) 
                 value={url}
                 onValueChange={setUrl}
                 placeholder="http://localhost:7878"
+                autoComplete={"one-time-code"}
             />
             <Input
                 label="API Key"
-                type="password"
                 value={apiKey}
                 onValueChange={setApiKey}
                 placeholder={current?.has_api_key ? "••••••••" : "Enter Radarr API key"}
+                autoComplete={"one-time-code"}
             />
             <div className="flex gap-2">
                 <Button color="primary" onPress={handleSave} isLoading={saving}>Save</Button>

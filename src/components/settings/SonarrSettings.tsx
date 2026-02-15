@@ -34,13 +34,14 @@ export default function SonarrSettings({current, onSaved}: SonarrSettingsProps) 
                 value={url}
                 onValueChange={setUrl}
                 placeholder="http://localhost:8989"
+                autoComplete={"one-time-code"}
             />
             <Input
                 label="API Key"
-                type="password"
                 value={apiKey}
                 onValueChange={setApiKey}
                 placeholder={current?.has_api_key ? "••••••••" : "Enter Sonarr API key"}
+                autoComplete={"one-time-code"}
             />
             <div className="flex gap-2">
                 <Button color="primary" onPress={handleSave} isLoading={saving}>Save</Button>

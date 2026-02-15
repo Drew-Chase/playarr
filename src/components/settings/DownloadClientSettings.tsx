@@ -92,6 +92,7 @@ export default function DownloadClientSettings({onSaved}: DownloadClientSettings
                                 value={client.name}
                                 onValueChange={(v) => updateClient(index, "name", v)}
                                 placeholder="My SABnzbd"
+                                autoComplete={"one-time-code"}
                             />
                             <Select
                                 label="Type"
@@ -110,13 +111,14 @@ export default function DownloadClientSettings({onSaved}: DownloadClientSettings
                                 onValueChange={(v) => updateClient(index, "url", v)}
                                 placeholder="http://localhost:8080"
                                 className="md:col-span-2"
+                                autoComplete={"one-time-code"}
                             />
                             <Input
                                 label="API Key"
                                 size="sm"
-                                type="password"
                                 value={client.api_key}
                                 onValueChange={(v) => updateClient(index, "api_key", v)}
+                                autoComplete={"one-time-code"}
                             />
                             {needsCredentials(client.type) && (
                                 <>
@@ -125,6 +127,7 @@ export default function DownloadClientSettings({onSaved}: DownloadClientSettings
                                         size="sm"
                                         value={client.username}
                                         onValueChange={(v) => updateClient(index, "username", v)}
+                                        autoComplete={"one-time-code"}
                                     />
                                     <Input
                                         label="Password"
@@ -132,6 +135,7 @@ export default function DownloadClientSettings({onSaved}: DownloadClientSettings
                                         type="password"
                                         value={client.password}
                                         onValueChange={(v) => updateClient(index, "password", v)}
+                                        autoComplete={"one-time-code"}
                                     />
                                 </>
                             )}
