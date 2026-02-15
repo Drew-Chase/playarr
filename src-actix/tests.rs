@@ -17,6 +17,7 @@ fn mock_config(plex_url: &str, plex_token: &str) -> SharedConfig {
             url: plex_url.to_string(),
             token: plex_token.to_string(),
             client_id: "test-client-id".to_string(),
+            admin_user_id: 0,
         },
         sonarr: SonarrConfig::default(),
         radarr: RadarrConfig::default(),
@@ -30,6 +31,7 @@ fn full_mock_config(plex_url: &str, sonarr_url: &str, radarr_url: &str) -> Share
             url: plex_url.to_string(),
             token: "test-token-abc123".to_string(),
             client_id: "test-client-id".to_string(),
+            admin_user_id: 0,
         },
         sonarr: SonarrConfig {
             url: sonarr_url.to_string(),
