@@ -1,4 +1,4 @@
-import {Modal, ModalContent, ModalHeader, ModalBody, Tabs, Tab, Spinner, Button, Input} from "@heroui/react";
+import {Modal, ModalContent, ModalHeader, ModalBody, Tabs, Tab, Spinner} from "@heroui/react";
 import {useQuery} from "@tanstack/react-query";
 import {api} from "../../lib/api.ts";
 import type {RedactedSettings} from "../../lib/types.ts";
@@ -6,9 +6,6 @@ import PlexSettings from "./PlexSettings.tsx";
 import SonarrSettings from "./SonarrSettings.tsx";
 import RadarrSettings from "./RadarrSettings.tsx";
 import DownloadClientSettings from "./DownloadClientSettings.tsx";
-import ConnectionTest from "./ConnectionTest.tsx";
-import {useState} from "react";
-import {toast} from "sonner";
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -42,9 +39,6 @@ export default function SettingsModal({isOpen, onClose}: SettingsModalProps) {
                             <Tab key="radarr" title="Radarr">
                                 <RadarrSettings current={settings?.radarr} onSaved={refetch}/>
                             </Tab>
-                            <Tab key="tmdb" title="TMDB">
-                                <TmdbSettings current={settings?.tmdb} onSaved={refetch}/>
-                            </Tab>
                             <Tab key="downloads" title="Downloads">
                                 <DownloadClientSettings onSaved={refetch}/>
                             </Tab>
@@ -53,41 +47,5 @@ export default function SettingsModal({isOpen, onClose}: SettingsModalProps) {
                 </ModalBody>
             </ModalContent>
         </Modal>
-    );
-}
-
-function TmdbSettings({current, onSaved}: { current?: { has_api_key: boolean }; onSaved: () => void }) {
-    const [apiKey, setApiKey] = useState("");
-    const [saving, setSaving] = useState(false);
-
-    const handleSave = async () => {
-        setSaving(true);
-        try {
-            await api.put("/settings/tmdb", {api_key: apiKey});
-            toast.success("TMDB settings saved");
-            onSaved();
-        } catch (err) {
-            toast.error(`Failed to save: ${err instanceof Error ? err.message : "Unknown error"}`);
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    return (
-        <div className="max-w-lg space-y-4">
-            <Input
-                label="API Key"
-                value={apiKey}
-                onValueChange={setApiKey}
-                placeholder={current?.has_api_key ? "••••••••" : "Enter TMDB API key"}
-                autoComplete={"one-time-code"}
-            />
-            <div className="flex gap-2">
-                <Button color="primary" onPress={handleSave} isLoading={saving}>
-                    Save
-                </Button>
-                <ConnectionTest service="tmdb" params={{api_key: apiKey}}/>
-            </div>
-        </div>
     );
 }

@@ -9,8 +9,6 @@ pub struct AppConfig {
     #[serde(default)]
     pub radarr: RadarrConfig,
     #[serde(default)]
-    pub tmdb: TmdbConfig,
-    #[serde(default)]
     pub download_clients: Vec<DownloadClientConfig>,
 }
 
@@ -58,12 +56,6 @@ pub struct RadarrConfig {
     pub api_key: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct TmdbConfig {
-    #[serde(default)]
-    pub api_key: String,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DownloadClientConfig {
     pub name: String,
@@ -100,7 +92,6 @@ pub struct RedactedAppConfig {
     pub plex: RedactedPlexConfig,
     pub sonarr: RedactedSonarrConfig,
     pub radarr: RedactedRadarrConfig,
-    pub tmdb: RedactedTmdbConfig,
     pub download_clients: Vec<RedactedDownloadClientConfig>,
 }
 
@@ -119,11 +110,6 @@ pub struct RedactedSonarrConfig {
 #[derive(Debug, Serialize)]
 pub struct RedactedRadarrConfig {
     pub url: String,
-    pub has_api_key: bool,
-}
-
-#[derive(Debug, Serialize)]
-pub struct RedactedTmdbConfig {
     pub has_api_key: bool,
 }
 
@@ -152,9 +138,6 @@ impl AppConfig {
             radarr: RedactedRadarrConfig {
                 url: self.radarr.url.clone(),
                 has_api_key: !self.radarr.api_key.is_empty(),
-            },
-            tmdb: RedactedTmdbConfig {
-                has_api_key: !self.tmdb.api_key.is_empty(),
             },
             download_clients: self
                 .download_clients

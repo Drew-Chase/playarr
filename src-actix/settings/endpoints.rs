@@ -71,19 +71,6 @@ async fn update_radarr(
     Ok(HttpResponse::Ok().json(cfg.redacted()))
 }
 
-#[put("/tmdb")]
-async fn update_tmdb(
-    req: HttpRequest,
-    config: web::Data<SharedConfig>,
-    body: web::Json<TmdbConfig>,
-) -> Result<impl Responder> {
-    require_admin(&req, &config)?;
-    let mut cfg = config.write().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
-    cfg.tmdb = body.into_inner();
-    save_config(&cfg)?;
-    Ok(HttpResponse::Ok().json(cfg.redacted()))
-}
-
 #[put("/download-clients")]
 async fn update_download_clients(
     req: HttpRequest,
@@ -185,20 +172,6 @@ async fn test_connection(
                 .send()
                 .await
         }
-        "tmdb" => {
-            let tmdb_key = pick(&body.api_key, &cfg.tmdb.api_key);
-            if tmdb_key.is_empty() {
-                return Ok(HttpResponse::BadRequest().json(serde_json::json!({
-                    "success": false,
-                    "message": "TMDB API key is not configured"
-                })));
-            }
-            let url = format!(
-                "https://api.themoviedb.org/3/configuration?api_key={}",
-                tmdb_key
-            );
-            client.get(&url).send().await
-        }
         _ => {
             return Ok(HttpResponse::BadRequest().json(serde_json::json!({
                 "success": false,
@@ -236,7 +209,6 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
             .service(update_plex)
             .service(update_sonarr)
             .service(update_radarr)
-            .service(update_tmdb)
             .service(update_download_clients)
             .service(test_connection),
     );

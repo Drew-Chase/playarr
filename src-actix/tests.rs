@@ -20,12 +20,11 @@ fn mock_config(plex_url: &str, plex_token: &str) -> SharedConfig {
         },
         sonarr: SonarrConfig::default(),
         radarr: RadarrConfig::default(),
-        tmdb: TmdbConfig::default(),
         download_clients: vec![],
     }))
 }
 
-fn full_mock_config(plex_url: &str, sonarr_url: &str, radarr_url: &str, tmdb_key: &str) -> SharedConfig {
+fn full_mock_config(plex_url: &str, sonarr_url: &str, radarr_url: &str) -> SharedConfig {
     Arc::new(RwLock::new(AppConfig {
         plex: PlexConfig {
             url: plex_url.to_string(),
@@ -39,9 +38,6 @@ fn full_mock_config(plex_url: &str, sonarr_url: &str, radarr_url: &str, tmdb_key
         radarr: RadarrConfig {
             url: radarr_url.to_string(),
             api_key: "radarr-key".to_string(),
-        },
-        tmdb: TmdbConfig {
-            api_key: tmdb_key.to_string(),
         },
         download_clients: vec![],
     }))
@@ -300,22 +296,6 @@ async fn settings_update_radarr() {
 }
 
 #[actix_rt::test]
-async fn settings_update_tmdb() {
-    let config = mock_config("", "");
-    let app = test_app!(config.clone());
-
-    let req = test::TestRequest::put()
-        .uri("/api/settings/tmdb")
-        .set_json(json!({ "api_key": "tmdb-abc" }))
-        .to_request();
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), 200);
-
-    let cfg = config.read().unwrap();
-    assert_eq!(cfg.tmdb.api_key, "tmdb-abc");
-}
-
-#[actix_rt::test]
 async fn settings_update_download_clients() {
     let config = mock_config("", "");
     let app = test_app!(config.clone());
@@ -339,7 +319,7 @@ async fn settings_update_download_clients() {
 async fn settings_test_unknown_service_returns_400() {
     let app = test_app!(mock_config("", ""));
 
-    let req = test::TestRequest::post().uri("/api/settings/test/unknown").to_request();
+    let req = test::TestRequest::post().uri("/api/settings/test/unknown").set_json(json!({})).to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 400);
 
@@ -351,7 +331,7 @@ async fn settings_test_unknown_service_returns_400() {
 async fn settings_test_plex_unconfigured_returns_400() {
     let app = test_app!(mock_config("", ""));
 
-    let req = test::TestRequest::post().uri("/api/settings/test/plex").to_request();
+    let req = test::TestRequest::post().uri("/api/settings/test/plex").set_json(json!({})).to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 400);
 
@@ -850,7 +830,7 @@ async fn sonarr_lookup() {
         ])))
         .mount(&mock_server).await;
 
-    let app = test_app!(full_mock_config("http://unused", &mock_server.uri(), "", ""));
+    let app = test_app!(full_mock_config("http://unused", &mock_server.uri(), ""));
 
     let req = test::TestRequest::get().uri("/api/sonarr/lookup?term=breaking").to_request();
     let resp = test::call_service(&app, req).await;
@@ -870,7 +850,7 @@ async fn sonarr_calendar() {
         ])))
         .mount(&mock_server).await;
 
-    let app = test_app!(full_mock_config("http://unused", &mock_server.uri(), "", ""));
+    let app = test_app!(full_mock_config("http://unused", &mock_server.uri(), ""));
 
     let req = test::TestRequest::get().uri("/api/sonarr/calendar").to_request();
     let resp = test::call_service(&app, req).await;
@@ -890,7 +870,7 @@ async fn sonarr_queue() {
         })))
         .mount(&mock_server).await;
 
-    let app = test_app!(full_mock_config("http://unused", &mock_server.uri(), "", ""));
+    let app = test_app!(full_mock_config("http://unused", &mock_server.uri(), ""));
 
     let req = test::TestRequest::get().uri("/api/sonarr/queue").to_request();
     let resp = test::call_service(&app, req).await;
@@ -908,7 +888,7 @@ async fn sonarr_episodes() {
         ])))
         .mount(&mock_server).await;
 
-    let app = test_app!(full_mock_config("http://unused", &mock_server.uri(), "", ""));
+    let app = test_app!(full_mock_config("http://unused", &mock_server.uri(), ""));
 
     let req = test::TestRequest::get().uri("/api/sonarr/episodes?seriesId=1").to_request();
     let resp = test::call_service(&app, req).await;
@@ -931,7 +911,7 @@ async fn radarr_lookup() {
         ])))
         .mount(&mock_server).await;
 
-    let app = test_app!(full_mock_config("http://unused", "", &mock_server.uri(), ""));
+    let app = test_app!(full_mock_config("http://unused", "", &mock_server.uri()));
 
     let req = test::TestRequest::get().uri("/api/radarr/lookup?term=inception").to_request();
     let resp = test::call_service(&app, req).await;
@@ -951,7 +931,7 @@ async fn radarr_calendar() {
         ])))
         .mount(&mock_server).await;
 
-    let app = test_app!(full_mock_config("http://unused", "", &mock_server.uri(), ""));
+    let app = test_app!(full_mock_config("http://unused", "", &mock_server.uri()));
 
     let req = test::TestRequest::get().uri("/api/radarr/calendar").to_request();
     let resp = test::call_service(&app, req).await;
@@ -968,7 +948,7 @@ async fn radarr_queue() {
         })))
         .mount(&mock_server).await;
 
-    let app = test_app!(full_mock_config("http://unused", "", &mock_server.uri(), ""));
+    let app = test_app!(full_mock_config("http://unused", "", &mock_server.uri()));
 
     let req = test::TestRequest::get().uri("/api/radarr/queue").to_request();
     let resp = test::call_service(&app, req).await;
@@ -1073,31 +1053,3 @@ async fn watch_party_invalid_id_returns_400() {
     assert_eq!(resp.status(), 400);
 }
 
-// ─── Discover ────────────────────────────────────────────────────────────────
-
-#[actix_rt::test]
-async fn discover_without_tmdb_key_returns_503() {
-    let app = test_app!(mock_config("http://plex.local:32400", "token"));
-
-    let req = test::TestRequest::get().uri("/api/discover/trending").to_request();
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), 503);
-}
-
-#[actix_rt::test]
-async fn discover_upcoming_without_key_returns_503() {
-    let app = test_app!(mock_config("http://plex.local:32400", "token"));
-
-    let req = test::TestRequest::get().uri("/api/discover/upcoming").to_request();
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), 503);
-}
-
-#[actix_rt::test]
-async fn discover_recent_without_key_returns_503() {
-    let app = test_app!(mock_config("http://plex.local:32400", "token"));
-
-    let req = test::TestRequest::get().uri("/api/discover/recent").to_request();
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), 503);
-}

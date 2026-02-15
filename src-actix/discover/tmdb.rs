@@ -1,8 +1,8 @@
 use actix_web::{get, web, HttpResponse, Responder};
-use crate::config::SharedConfig;
 use crate::http_error::Result;
 
 const TMDB_BASE: &str = "https://api.themoviedb.org/3";
+const TMDB_API_KEY: &str = env!("TMDB_API_KEY");
 
 fn tmdb_client() -> reqwest::Client {
     reqwest::Client::builder()
@@ -12,20 +12,11 @@ fn tmdb_client() -> reqwest::Client {
 }
 
 #[get("/trending")]
-async fn trending(
-    config: web::Data<SharedConfig>,
-) -> Result<impl Responder> {
-    let cfg = config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
-    if cfg.tmdb.api_key.is_empty() {
-        return Err(crate::http_error::Error::ServiceUnavailable(
-            "TMDB API key not configured".to_string(),
-        ));
-    }
-
+async fn trending() -> Result<impl Responder> {
     let client = tmdb_client();
     let movies = client
         .get(format!("{}/trending/movie/week", TMDB_BASE))
-        .query(&[("api_key", cfg.tmdb.api_key.as_str())])
+        .query(&[("api_key", TMDB_API_KEY)])
         .send()
         .await
         .map_err(|e| anyhow::anyhow!("TMDB request failed: {}", e))?
@@ -35,7 +26,7 @@ async fn trending(
 
     let tv = client
         .get(format!("{}/trending/tv/week", TMDB_BASE))
-        .query(&[("api_key", cfg.tmdb.api_key.as_str())])
+        .query(&[("api_key", TMDB_API_KEY)])
         .send()
         .await
         .map_err(|e| anyhow::anyhow!("TMDB request failed: {}", e))?
@@ -50,20 +41,11 @@ async fn trending(
 }
 
 #[get("/upcoming")]
-async fn upcoming(
-    config: web::Data<SharedConfig>,
-) -> Result<impl Responder> {
-    let cfg = config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
-    if cfg.tmdb.api_key.is_empty() {
-        return Err(crate::http_error::Error::ServiceUnavailable(
-            "TMDB API key not configured".to_string(),
-        ));
-    }
-
+async fn upcoming() -> Result<impl Responder> {
     let client = tmdb_client();
     let movies = client
         .get(format!("{}/movie/upcoming", TMDB_BASE))
-        .query(&[("api_key", cfg.tmdb.api_key.as_str())])
+        .query(&[("api_key", TMDB_API_KEY)])
         .send()
         .await
         .map_err(|e| anyhow::anyhow!("TMDB request failed: {}", e))?
@@ -77,16 +59,7 @@ async fn upcoming(
 }
 
 #[get("/recent")]
-async fn recent(
-    config: web::Data<SharedConfig>,
-) -> Result<impl Responder> {
-    let cfg = config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
-    if cfg.tmdb.api_key.is_empty() {
-        return Err(crate::http_error::Error::ServiceUnavailable(
-            "TMDB API key not configured".to_string(),
-        ));
-    }
-
+async fn recent() -> Result<impl Responder> {
     let now = chrono::Utc::now();
     let month_ago = (now - chrono::Duration::days(30)).format("%Y-%m-%d").to_string();
     let today = now.format("%Y-%m-%d").to_string();
@@ -95,7 +68,7 @@ async fn recent(
     let movies = client
         .get(format!("{}/discover/movie", TMDB_BASE))
         .query(&[
-            ("api_key", cfg.tmdb.api_key.as_str()),
+            ("api_key", TMDB_API_KEY),
             ("sort_by", "popularity.desc"),
             ("primary_release_date.gte", month_ago.as_str()),
             ("primary_release_date.lte", today.as_str()),
@@ -110,7 +83,7 @@ async fn recent(
     let tv = client
         .get(format!("{}/discover/tv", TMDB_BASE))
         .query(&[
-            ("api_key", cfg.tmdb.api_key.as_str()),
+            ("api_key", TMDB_API_KEY),
             ("sort_by", "popularity.desc"),
             ("first_air_date.gte", month_ago.as_str()),
             ("first_air_date.lte", today.as_str()),
@@ -138,16 +111,8 @@ struct LogoQuery {
 
 #[get("/logo")]
 async fn logo(
-    config: web::Data<SharedConfig>,
     query: web::Query<LogoQuery>,
 ) -> Result<impl Responder> {
-    let cfg = config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
-    if cfg.tmdb.api_key.is_empty() {
-        return Err(crate::http_error::Error::ServiceUnavailable(
-            "TMDB API key not configured".to_string(),
-        ));
-    }
-
     let media_type = match query.media_type.as_str() {
         "movie" => "movie",
         "tv" => "tv",
@@ -157,8 +122,6 @@ async fn logo(
     };
 
     let client = tmdb_client();
-    let api_key = cfg.tmdb.api_key.clone();
-    drop(cfg);
 
     // Use the requested language, default to "en"
     let lang = query.lang.as_deref().unwrap_or("en");
@@ -167,7 +130,7 @@ async fn logo(
     let resp = client
         .get(format!("{}/{}/{}/images", TMDB_BASE, media_type, query.tmdb_id))
         .query(&[
-            ("api_key", api_key.as_str()),
+            ("api_key", TMDB_API_KEY),
             ("include_image_languages", image_languages.as_str()),
         ])
         .send()

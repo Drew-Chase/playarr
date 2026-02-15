@@ -32,7 +32,6 @@ export interface RedactedSettings {
     plex: { url: string; has_token: boolean };
     sonarr: { url: string; has_api_key: boolean };
     radarr: { url: string; has_api_key: boolean };
-    tmdb: { has_api_key: boolean };
     download_clients: {
         name: string;
         type: string;
