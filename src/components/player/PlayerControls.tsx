@@ -34,6 +34,8 @@ interface PlayerControlsProps {
     onPrevious?: () => void;
     hasNext?: boolean;
     hasPrevious?: boolean;
+    syncStatus?: "in_sync" | "syncing" | "disconnected";
+    displayRate?: number;
 }
 
 export default function PlayerControls({
@@ -62,6 +64,8 @@ export default function PlayerControls({
     onPrevious,
     hasNext,
     hasPrevious,
+    syncStatus,
+    displayRate,
 }: PlayerControlsProps) {
     return (
         <div
@@ -152,6 +156,24 @@ export default function PlayerControls({
                     <span className="text-white text-xs ml-2">
                         {formatTimestamp(currentTime * 1000)} / {formatTimestamp(duration * 1000)}
                     </span>
+                    {isInParty && syncStatus && (
+                        <div className="flex items-center gap-1.5 ml-2">
+                            <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                syncStatus === "in_sync" ? "bg-green-500/20 text-green-400" :
+                                syncStatus === "syncing" ? "bg-yellow-500/20 text-yellow-400" :
+                                "bg-red-500/20 text-red-400"
+                            }`}>
+                                {syncStatus === "in_sync" ? "In sync" :
+                                 syncStatus === "syncing" ? "Syncing..." :
+                                 "Connecting..."}
+                            </span>
+                            {displayRate !== undefined && displayRate !== 1 && (
+                                <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">
+                                    {displayRate.toFixed(2)}x
+                                </span>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* Right controls */}

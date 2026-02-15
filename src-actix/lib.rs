@@ -6,6 +6,8 @@ use serde_json::json;
 use vite_actix::proxy_vite_options::ProxyViteOptions;
 use vite_actix::start_vite_server;
 
+use watch_party::websocket::WsMessage;
+
 mod asset_endpoint;
 mod auth;
 pub mod config;
@@ -46,6 +48,23 @@ pub async fn run() -> Result<()> {
     let radarr_client = web::Data::new(radarr::client::RadarrClient::new(shared_config.clone()));
     let room_manager = web::Data::new(watch_party::room::RoomManager::new());
     let config_data = web::Data::new(shared_config);
+
+    // Spawn heartbeat task: every 500ms, broadcast server time to all playing rooms
+    let hb_rooms = room_manager.clone();
+    actix_web::rt::spawn(async move {
+        let mut interval = actix_web::rt::time::interval(std::time::Duration::from_millis(500));
+        loop {
+            interval.tick().await;
+            let ticks = hb_rooms.heartbeat_tick();
+            let now = chrono::Utc::now().timestamp_millis() as u64;
+            for (room_id, server_time) in ticks {
+                hb_rooms.broadcast(&room_id, &WsMessage::Heartbeat {
+                    server_time,
+                    timestamp: now,
+                }).await;
+            }
+        }
+    });
 
     let server = HttpServer::new(move || {
         App::new()

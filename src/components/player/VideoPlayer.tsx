@@ -30,11 +30,11 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const lastReportTimeRef = useRef<number>(0);
     const scrobbledRef = useRef(false);
     const isTransitioningRef = useRef(false);
-    const lastHostPositionRef = useRef<number>(0);
-    const lastSyncTimestampRef = useRef<number>(0);
     const syncFromPartyRef = useRef(false);
     const waitingForAllReadyRef = useRef(false);
     const lastReadyMediaRef = useRef<string>("");
+    const remoteRef = useRef({ t: 0, playing: false, m: performance.now() });
+    const rateTimerRef = useRef<number | null>(null);
 
     const durationRef = useRef<number>(0);
 
@@ -50,6 +50,8 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const [bifData, setBifData] = useState<BifData | null>(null);
     const [showQueue, setShowQueue] = useState(false);
     const [isWaitingForReady, setIsWaitingForReady] = useState(false);
+    const [syncStatus, setSyncStatus] = useState<"in_sync" | "syncing" | "disconnected">("in_sync");
+    const [displayRate, setDisplayRate] = useState(1);
 
     const isInParty = watchParty?.isInParty ?? false;
     const isHost = watchParty?.isHost ?? false;
@@ -120,32 +122,40 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
 
         let info: StreamInfo;
 
-        if (quality === "original") {
-            // Check codec compatibility before attempting direct play
-            const media = item.Media?.[0];
-            if (media) {
-                const {recommendation, reason} = checkDirectPlayability(
-                    media.videoCodec,
-                    media.audioCodec,
-                    media.container,
-                );
+        try {
+            if (quality === "original") {
+                // Check codec compatibility before attempting direct play
+                const media = item.Media?.[0];
+                if (media) {
+                    const {recommendation, reason} = checkDirectPlayability(
+                        media.videoCodec,
+                        media.audioCodec,
+                        media.container,
+                    );
 
-                if (recommendation === "direct") {
-                    info = await plexApi.getStreamUrl(item.ratingKey, quality, true);
-                } else if (recommendation === "directstream") {
-                    // Video OK, audio/container incompatible - use directstream
-                    info = await plexApi.getStreamUrl(item.ratingKey, quality, false, true);
-                    console.info(`DirectStream mode: ${reason}`);
+                    if (recommendation === "direct") {
+                        info = await plexApi.getStreamUrl(item.ratingKey, quality, true);
+                    } else if (recommendation === "directstream") {
+                        // Video OK, audio/container incompatible - use directstream
+                        info = await plexApi.getStreamUrl(item.ratingKey, quality, false, true);
+                        console.info(`DirectStream mode: ${reason}`);
+                    } else {
+                        // Full transcode needed
+                        info = await plexApi.getStreamUrl(item.ratingKey, "1080p", false);
+                        console.info(`Auto-transcode: ${reason}`);
+                    }
                 } else {
-                    // Full transcode needed
-                    info = await plexApi.getStreamUrl(item.ratingKey, "1080p", false);
-                    console.info(`Auto-transcode: ${reason}`);
+                    info = await plexApi.getStreamUrl(item.ratingKey, quality, true);
                 }
             } else {
-                info = await plexApi.getStreamUrl(item.ratingKey, quality, true);
+                info = await plexApi.getStreamUrl(item.ratingKey, quality, false);
             }
-        } else {
-            info = await plexApi.getStreamUrl(item.ratingKey, quality, false);
+        } catch (err) {
+            console.warn("Failed to get stream URL, falling back to transcode:", err);
+            if (quality === "original") {
+                setQuality("1080p");
+            }
+            return;
         }
 
         // Bail out if this effect was superseded by a newer quality change
@@ -170,10 +180,15 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             hls.on(Hls.Events.MANIFEST_PARSED, () => {
                 isTransitioningRef.current = false;
                 if (isInParty && watchParty && item.ratingKey !== lastReadyMediaRef.current) {
-                    waitingForAllReadyRef.current = true;
-                    setIsWaitingForReady(true);
                     lastReadyMediaRef.current = item.ratingKey;
-                    watchParty.sendReady();
+                    // Only do ready-check for episode transitions (room not already playing)
+                    if (watchParty.activeRoom?.status !== "watching") {
+                        waitingForAllReadyRef.current = true;
+                        setIsWaitingForReady(true);
+                        watchParty.sendReady();
+                    } else {
+                        video.play().catch(() => {});
+                    }
                 } else {
                     video.play().catch(() => {});
                 }
@@ -201,10 +216,14 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             video.currentTime = resumePosition;
             isTransitioningRef.current = false;
             if (isInParty && watchParty && item.ratingKey !== lastReadyMediaRef.current) {
-                waitingForAllReadyRef.current = true;
-                setIsWaitingForReady(true);
                 lastReadyMediaRef.current = item.ratingKey;
-                watchParty.sendReady();
+                if (watchParty.activeRoom?.status !== "watching") {
+                    waitingForAllReadyRef.current = true;
+                    setIsWaitingForReady(true);
+                    watchParty.sendReady();
+                } else {
+                    video.play().catch(() => {});
+                }
             } else {
                 video.play().catch(() => {});
             }
@@ -296,6 +315,46 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         };
     }, [isPlaying]);
 
+    // Compute expected remote position accounting for elapsed time
+    const rTarget = useCallback(() => {
+        const r = remoteRef.current;
+        return r.playing ? r.t + (performance.now() - r.m) / 1000 : r.t;
+    }, []);
+
+    // Apply sync: proportional rate correction or hard seek
+    const applySync = useCallback(() => {
+        const video = videoRef.current;
+        if (!video || waitingForAllReadyRef.current) return;
+
+        const target = rTarget();
+        const diff = target - video.currentTime;
+
+        video.preservesPitch = true;
+
+        if (Math.abs(diff) > 0.5) {
+            // Hard seek for large drift
+            if (video.readyState >= 1) video.currentTime = target;
+            video.playbackRate = 1;
+        } else if (remoteRef.current.playing) {
+            // Proportional rate correction for small drift
+            video.playbackRate = Math.max(0.5, Math.min(1.5, 1 + diff * 0.2));
+            if (rateTimerRef.current) clearTimeout(rateTimerRef.current);
+            rateTimerRef.current = window.setTimeout(() => { video.playbackRate = 1; }, 800);
+        }
+
+        // Match play/pause state
+        if (remoteRef.current.playing !== !video.paused) {
+            if (remoteRef.current.playing) {
+                video.play().catch(() => {});
+            } else {
+                video.pause();
+            }
+        }
+
+        setSyncStatus(Math.abs(diff) <= 0.2 ? "in_sync" : "syncing");
+        setDisplayRate(video.playbackRate);
+    }, [rTarget]);
+
     // Watch party: subscribe to player events from provider
     useEffect(() => {
         if (!watchParty || !isInParty) return;
@@ -306,26 +365,34 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
 
             syncFromPartyRef.current = true;
             switch (msg.type) {
+                case "heartbeat":
+                    remoteRef.current.t = msg.server_time;
+                    remoteRef.current.m = performance.now();
+                    remoteRef.current.playing = true;
+                    applySync();
+                    break;
                 case "play":
-                    video.currentTime = msg.position_ms / 1000;
-                    video.play().catch(() => {});
-                    lastHostPositionRef.current = msg.position_ms / 1000;
-                    lastSyncTimestampRef.current = Date.now();
+                    remoteRef.current.t = msg.position_ms / 1000;
+                    remoteRef.current.playing = true;
+                    remoteRef.current.m = performance.now();
+                    applySync();
                     break;
                 case "pause":
-                    video.currentTime = msg.position_ms / 1000;
-                    video.pause();
-                    lastHostPositionRef.current = msg.position_ms / 1000;
-                    lastSyncTimestampRef.current = Date.now();
+                    remoteRef.current.t = msg.position_ms / 1000;
+                    remoteRef.current.playing = false;
+                    remoteRef.current.m = performance.now();
+                    applySync();
                     break;
                 case "seek":
-                    video.currentTime = msg.position_ms / 1000;
-                    lastHostPositionRef.current = msg.position_ms / 1000;
-                    lastSyncTimestampRef.current = Date.now();
+                    remoteRef.current.t = msg.position_ms / 1000;
+                    remoteRef.current.m = performance.now();
+                    applySync();
                     break;
                 case "sync_response":
-                    lastHostPositionRef.current = msg.position_ms / 1000;
-                    lastSyncTimestampRef.current = Date.now();
+                    remoteRef.current.t = msg.position_ms / 1000;
+                    remoteRef.current.playing = !msg.is_paused;
+                    remoteRef.current.m = performance.now();
+                    applySync();
                     break;
                 case "all_ready":
                     waitingForAllReadyRef.current = false;
@@ -341,24 +408,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         return () => {
             watchParty.onPlayerEvent.current = null;
         };
-    }, [watchParty, isInParty]);
-
-    // Watch party: host sends periodic sync every 3 seconds
-    useEffect(() => {
-        if (!isInParty || !isHost || !watchParty) return;
-
-        const interval = window.setInterval(() => {
-            const video = videoRef.current;
-            if (!video) return;
-            watchParty.sendSyncResponse(
-                Math.floor(video.currentTime * 1000),
-                video.paused,
-                item.ratingKey,
-            );
-        }, 3000);
-
-        return () => clearInterval(interval);
-    }, [isInParty, isHost, watchParty, item.ratingKey]);
+    }, [watchParty, isInParty, applySync]);
 
     // Watch party: host sends navigate when entering player
     useEffect(() => {
@@ -367,42 +417,20 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         }
     }, [item.ratingKey]);
 
-    // Watch party: non-host adaptive sync (adjust playback rate to match host)
+    // Watch party: detect connection loss (no heartbeat for 2.5s)
     useEffect(() => {
-        if (!isInParty || isHost) return;
-
+        if (!isInParty) return;
         const interval = window.setInterval(() => {
-            const video = videoRef.current;
-            if (!video || video.paused || waitingForAllReadyRef.current) return;
-
-            // Calculate expected host position accounting for elapsed time since last sync
-            const elapsedSinceSync = (Date.now() - lastSyncTimestampRef.current) / 1000;
-            const expectedPosition = lastHostPositionRef.current + elapsedSinceSync;
-
-            const drift = video.currentTime - expectedPosition;
-
-            video.preservesPitch = true;
-            if (Math.abs(drift) > 3) {
-                // Hard seek if drift too large
-                video.currentTime = expectedPosition;
-                video.playbackRate = 1.0;
-            } else if (drift > 0.5) {
-                // We're ahead — slow down
-                video.playbackRate = 0.9;
-            } else if (drift < -0.5) {
-                // We're behind — speed up
-                video.playbackRate = 1.1;
-            } else {
-                video.playbackRate = 1.0;
+            if (performance.now() - remoteRef.current.m > 2500) {
+                setSyncStatus("disconnected");
             }
         }, 1000);
-
         return () => {
             clearInterval(interval);
             const video = videoRef.current;
             if (video) video.playbackRate = 1.0;
         };
-    }, [isInParty, isHost]);
+    }, [isInParty]);
 
     const togglePlay = useCallback(() => {
         const video = videoRef.current;
@@ -620,6 +648,8 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 onPrevious={onPrevious}
                 hasNext={hasNext}
                 hasPrevious={hasPrevious}
+                syncStatus={isInParty ? syncStatus : undefined}
+                displayRate={isInParty ? displayRate : undefined}
             />
 
             {isInParty && watchParty?.activeRoom && (

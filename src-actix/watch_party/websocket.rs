@@ -23,9 +23,9 @@ pub enum WsMessage {
         position_ms: u64,
         is_paused: bool,
         media_id: String,
-        #[serde(default)]
-        server_time_ms: u64,
     },
+    #[serde(rename = "heartbeat")]
+    Heartbeat { server_time: f64, timestamp: u64 },
     #[serde(rename = "next_episode")]
     NextEpisode,
     #[serde(rename = "queue_add")]
@@ -204,18 +204,16 @@ async fn handle_ws_messages(
                                     position_ms: room.position_ms,
                                     is_paused: room.status != RoomStatus::Watching,
                                     media_id: room.media_id.clone(),
-                                    server_time_ms: chrono::Utc::now().timestamp_millis() as u64,
                                 };
                                 rooms.send_to_user(&room_id, user_id, &resp).await;
                             }
                         }
-                        WsMessage::SyncResponse { position_ms, is_paused, media_id, .. } => {
+                        WsMessage::SyncResponse { position_ms, is_paused, media_id } => {
                             // Host sending authoritative sync - broadcast to others
                             if rooms.is_host(&room_id, user_id) {
                                 rooms.update_position(&room_id, position_ms);
-                                let server_time_ms = chrono::Utc::now().timestamp_millis() as u64;
                                 rooms.broadcast_except(&room_id, &WsMessage::SyncResponse {
-                                    position_ms, is_paused, media_id, server_time_ms,
+                                    position_ms, is_paused, media_id,
                                 }, user_id).await;
                             }
                         }

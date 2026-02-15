@@ -158,6 +158,7 @@ export default function WatchPartyProvider({children}: { children: React.ReactNo
                 break;
             case "buffering":
             case "all_ready":
+            case "heartbeat":
                 onPlayerEvent.current?.(msg);
                 break;
             case "error":

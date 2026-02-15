@@ -297,7 +297,7 @@ export type WsMessage =
     | { type: "pause"; position_ms: number; user_id?: number }
     | { type: "seek"; position_ms: number; user_id?: number }
     | { type: "sync_request" }
-    | { type: "sync_response"; position_ms: number; is_paused: boolean; media_id: string; server_time_ms?: number }
+    | { type: "sync_response"; position_ms: number; is_paused: boolean; media_id: string }
     | { type: "next_episode" }
     | { type: "queue_add"; media_id: string }
     | { type: "queue_remove"; index: number }
@@ -312,6 +312,7 @@ export type WsMessage =
     | { type: "buffering"; user_id: number }
     | { type: "ready"; user_id: number }
     | { type: "all_ready" }
+    | { type: "heartbeat"; server_time: number; timestamp: number }
     | { type: "error"; message: string };
 
 // TMDB types

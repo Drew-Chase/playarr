@@ -48,6 +48,7 @@ pub struct RoomState {
     pub participants: Vec<Participant>,
     pub episode_queue: Vec<String>,
     pub ready_users: HashSet<i64>,
+    pub last_update_ms: u64,
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
@@ -111,6 +112,7 @@ impl RoomManager {
             participants: vec![host],
             episode_queue: Vec::new(),
             ready_users: HashSet::new(),
+            last_update_ms: chrono::Utc::now().timestamp_millis() as u64,
             created_at: chrono::Utc::now(),
         };
 
@@ -202,12 +204,20 @@ impl RoomManager {
     pub fn update_position(&self, room_id: &Uuid, position_ms: u64) {
         if let Some(mut room) = self.rooms.get_mut(room_id) {
             room.position_ms = position_ms;
+            room.last_update_ms = chrono::Utc::now().timestamp_millis() as u64;
         }
     }
 
     pub fn set_status(&self, room_id: &Uuid, status: RoomStatus) {
         if let Some(mut room) = self.rooms.get_mut(room_id) {
+            // Snapshot current computed position before changing status
+            if room.status == RoomStatus::Watching && status != RoomStatus::Watching {
+                let now = chrono::Utc::now().timestamp_millis() as u64;
+                let elapsed = now.saturating_sub(room.last_update_ms);
+                room.position_ms += elapsed;
+            }
             room.status = status;
+            room.last_update_ms = chrono::Utc::now().timestamp_millis() as u64;
         }
     }
 
@@ -219,6 +229,7 @@ impl RoomManager {
             room.position_ms = 0;
             room.status = RoomStatus::Idle;
             room.ready_users.clear();
+            room.last_update_ms = chrono::Utc::now().timestamp_millis() as u64;
         }
     }
 
@@ -244,6 +255,7 @@ impl RoomManager {
                 room.position_ms = 0;
                 room.status = RoomStatus::Idle;
                 room.ready_users.clear();
+                room.last_update_ms = chrono::Utc::now().timestamp_millis() as u64;
                 return Some(next);
             }
         }
@@ -298,6 +310,45 @@ impl RoomManager {
             }
         }
         false
+    }
+
+    /// Compute the current playback position in seconds for a room.
+    /// For Watching rooms, accounts for elapsed time since last update.
+    pub fn compute_position_secs(&self, room_id: &Uuid) -> Option<f64> {
+        let room = self.rooms.get(room_id)?;
+        if room.status == RoomStatus::Watching {
+            let now = chrono::Utc::now().timestamp_millis() as u64;
+            let elapsed = now.saturating_sub(room.last_update_ms);
+            Some((room.position_ms + elapsed) as f64 / 1000.0)
+        } else {
+            Some(room.position_ms as f64 / 1000.0)
+        }
+    }
+
+    /// Called every 500ms by the heartbeat task.
+    /// Returns (room_id, computed_position_secs) for all rooms currently playing.
+    /// Also snapshots position_ms to prevent drift accumulation.
+    pub fn heartbeat_tick(&self) -> Vec<(Uuid, f64)> {
+        let now = chrono::Utc::now().timestamp_millis() as u64;
+        let mut results = Vec::new();
+        for mut entry in self.rooms.iter_mut() {
+            let room_id = *entry.key();
+            let room = entry.value_mut();
+            if room.status != RoomStatus::Watching {
+                continue;
+            }
+            let elapsed = now.saturating_sub(room.last_update_ms);
+            let position_ms = room.position_ms + elapsed;
+            // Snapshot to prevent accumulation drift
+            room.position_ms = position_ms;
+            room.last_update_ms = now;
+            results.push((room_id, position_ms as f64 / 1000.0));
+        }
+        // Filter to rooms that have connections
+        results.retain(|(id, _)| {
+            self.connections.get(id).is_some_and(|c| !c.is_empty())
+        });
+        results
     }
 
     /// Broadcast a message to ALL connected sessions in a room.
