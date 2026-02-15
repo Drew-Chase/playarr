@@ -12,11 +12,12 @@
     "run:api": "cargo run --bin playarr",
     "build:frontend": "tsc && vite build",
     "dev": "cargo run",
-    "build": "npm run \"build:frontend\" && npm run \"build:api\""
+    "build": "npm run \"build:frontend\" && npm run \"build:api\"",
+    "publish": "uv -g commit-push-tag && gh act -W .github/workflows/publish-ghcr.yml"
   },
   "dependencies": {
-    "@heroui/react": "^2.8.5",
-    "@iconify-icon/react": "^3.0.1",
+    "@heroui/react": "^2.8.9",
+    "@iconify-icon/react": "^3.0.3",
     "@tanstack/react-query": "^5.90.21",
     "date-fns": "^4.1.0",
     "framer-motion": "11.18.2",
