@@ -59,6 +59,7 @@ struct StreamQuery {
 
 #[get("/{id}/stream")]
 async fn get_stream_url(
+    req: HttpRequest,
     plex: web::Data<PlexClient>,
     path: web::Path<String>,
     query: web::Query<StreamQuery>,
@@ -67,8 +68,10 @@ async fn get_stream_url(
     let cfg = plex.config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
     let base_url = cfg.plex.url.trim_end_matches('/').to_string();
     let token = cfg.plex.token.clone();
-    let client_id = cfg.plex.client_id.clone();
     drop(cfg);
+    // Use per-session client identifier so each browser tab gets its own
+    // Plex transcode session, preventing multi-user conflicts.
+    let client_id = plex.playback_client_id(&req);
     let session = Uuid::new_v4().to_string();
 
     let req = plex.get(&format!("/library/metadata/{}", id))?;

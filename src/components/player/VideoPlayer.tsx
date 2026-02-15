@@ -34,6 +34,8 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const lastHostPositionRef = useRef<number>(0);
     const syncFromPartyRef = useRef(false);
 
+    const durationRef = useRef<number>(0);
+
     const [streamInfo, setStreamInfo] = useState<StreamInfo | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
@@ -227,20 +229,34 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         };
     }, [item.ratingKey, reportTimeline]);
 
-    // Report stopped on unmount
+    // Send stop signal on unmount (SPA navigation) using sendBeacon for reliability
     useEffect(() => {
         return () => {
-            const video = videoRef.current;
-            if (video && video.currentTime > 0) {
-                plexApi.updateTimeline({
-                    ratingKey: item.ratingKey,
-                    key: item.key,
-                    state: "stopped",
-                    time: Math.floor(video.currentTime * 1000),
-                    duration: Math.floor((video.duration || 0) * 1000),
-                }).catch(() => {});
+            if (savedPositionRef.current > 0) {
+                plexApi.sendStopBeacon(
+                    item.ratingKey,
+                    item.key,
+                    Math.floor(savedPositionRef.current * 1000),
+                    Math.floor(durationRef.current * 1000),
+                );
             }
         };
+    }, [item.ratingKey, item.key]);
+
+    // Send stop signal on browser close/refresh
+    useEffect(() => {
+        const handleBeforeUnload = () => {
+            if (savedPositionRef.current > 0) {
+                plexApi.sendStopBeacon(
+                    item.ratingKey,
+                    item.key,
+                    Math.floor(savedPositionRef.current * 1000),
+                    Math.floor(durationRef.current * 1000),
+                );
+            }
+        };
+        window.addEventListener("beforeunload", handleBeforeUnload);
+        return () => window.removeEventListener("beforeunload", handleBeforeUnload);
     }, [item.ratingKey, item.key]);
 
     // Auto-hide controls
@@ -505,7 +521,11 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 ref={videoRef}
                 className="w-full h-full"
                 onTimeUpdate={handleTimeUpdate}
-                onDurationChange={() => setDuration(videoRef.current?.duration || 0)}
+                onDurationChange={() => {
+                    const d = videoRef.current?.duration || 0;
+                    setDuration(d);
+                    durationRef.current = d;
+                }}
                 onPlay={() => {
                     setIsPlaying(true);
                     reportTimeline("playing");

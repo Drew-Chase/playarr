@@ -85,6 +85,25 @@ impl PlexClient {
         cfg.plex.client_id.clone()
     }
 
+    /// Construct a per-session Plex client identifier from a playback session ID.
+    /// Falls back to the configured client_id if the session ID is absent.
+    pub fn session_to_client_id(&self, session_id: Option<&str>) -> String {
+        match session_id {
+            Some(s) if !s.is_empty() => format!("playarr-{}", s),
+            _ => self.client_id(),
+        }
+    }
+
+    /// Extract the playback session client ID from the X-Playarr-Session request header.
+    /// Each browser tab sends a unique session ID so that Plex treats each viewer
+    /// as a separate player (preventing session conflicts).
+    pub fn playback_client_id(&self, req: &HttpRequest) -> String {
+        let session_id = req.headers()
+            .get("X-Playarr-Session")
+            .and_then(|v| v.to_str().ok());
+        self.session_to_client_id(session_id)
+    }
+
     /// Build a GET request with standard Plex headers.
     /// Token is sent as a query parameter for local Plex Media Server compatibility.
     pub fn get(&self, path: &str) -> http_error::Result<reqwest::RequestBuilder> {
@@ -284,17 +303,17 @@ impl PlexClient {
             .map_err(|e| anyhow::anyhow!("Failed to parse Plex JSON response: {}", e).into())
     }
 
-    /// Send a GET-based PMS request as a user, with automatic fallback to admin token on 401.
-    /// For PUT/GET requests that don't return JSON (e.g. timeline), checks status and retries.
-    pub async fn send_as_user(
+    /// Internal: send a GET request to Plex with a specific client identifier,
+    /// with automatic fallback to admin token on 401.
+    async fn send_with_client_id(
         &self,
         path: &str,
         user_token: &str,
+        client_id: &str,
         extra_query: &[(&str, &str)],
     ) -> http_error::Result<reqwest::Response> {
         let base_url = self.base_url()?;
         let url = format!("{}{}", base_url, path);
-        let client_id = self.client_id();
 
         let token = if user_token.is_empty() { self.token() } else { user_token.to_string() };
         if token.is_empty() {
@@ -307,7 +326,7 @@ impl PlexClient {
             .query(&[("X-Plex-Token", token.as_str())])
             .query(extra_query)
             .header("X-Plex-Product", PLEX_PRODUCT)
-            .header("X-Plex-Client-Identifier", &client_id)
+            .header("X-Plex-Client-Identifier", client_id)
             .header("Accept", "application/json")
             .send().await
             .map_err(|e| anyhow::anyhow!("Plex request failed: {}", e))?;
@@ -321,7 +340,7 @@ impl PlexClient {
                         .query(&[("X-Plex-Token", server_token.as_str())])
                         .query(extra_query)
                         .header("X-Plex-Product", PLEX_PRODUCT)
-                        .header("X-Plex-Client-Identifier", &client_id)
+                        .header("X-Plex-Client-Identifier", client_id)
                         .header("Accept", "application/json")
                         .send().await
                         .map_err(|e| anyhow::anyhow!("Plex request failed: {}", e).into());
@@ -336,7 +355,7 @@ impl PlexClient {
                     .query(&[("X-Plex-Token", admin_token.as_str())])
                     .query(extra_query)
                     .header("X-Plex-Product", PLEX_PRODUCT)
-                    .header("X-Plex-Client-Identifier", &client_id)
+                    .header("X-Plex-Client-Identifier", client_id)
                     .header("Accept", "application/json")
                     .send().await
                     .map_err(|e| anyhow::anyhow!("Plex request failed: {}", e).into());
@@ -344,6 +363,31 @@ impl PlexClient {
         }
 
         Ok(resp)
+    }
+
+    /// Send a GET-based PMS request as a user, with automatic fallback to admin token on 401.
+    /// Uses the configured client_id for X-Plex-Client-Identifier.
+    pub async fn send_as_user(
+        &self,
+        path: &str,
+        user_token: &str,
+        extra_query: &[(&str, &str)],
+    ) -> http_error::Result<reqwest::Response> {
+        let client_id = self.client_id();
+        self.send_with_client_id(path, user_token, &client_id, extra_query).await
+    }
+
+    /// Send a GET-based PMS request with a per-session client identifier.
+    /// Used for playback-related endpoints (timeline, scrobble) where each
+    /// browser tab needs its own Plex session identity.
+    pub async fn send_for_session(
+        &self,
+        path: &str,
+        user_token: &str,
+        session_client_id: &str,
+        extra_query: &[(&str, &str)],
+    ) -> http_error::Result<reqwest::Response> {
+        self.send_with_client_id(path, user_token, session_client_id, extra_query).await
     }
 
     /// Build a PUT request using a per-user token (falls back to server token if empty).

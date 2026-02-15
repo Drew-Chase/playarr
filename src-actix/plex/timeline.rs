@@ -1,4 +1,4 @@
-use actix_web::{put, web, HttpRequest, HttpResponse, Responder};
+use actix_web::{post, put, web, HttpRequest, HttpResponse, Responder};
 use serde::Deserialize;
 use crate::http_error::Result;
 use crate::plex::client::PlexClient;
@@ -20,10 +20,11 @@ async fn update_timeline(
     body: web::Json<TimelineUpdate>,
 ) -> Result<impl Responder> {
     let user_token = PlexClient::user_token_from_request(&req).unwrap_or_default();
+    let session_client_id = plex.playback_client_id(&req);
     let time_str = body.time.to_string();
     let duration_str = body.duration.to_string();
     let resp = plex
-        .send_as_user("/:/timeline", &user_token, &[
+        .send_for_session("/:/timeline", &user_token, &session_client_id, &[
             ("ratingKey", body.rating_key.as_str()),
             ("key", body.key.as_str()),
             ("state", body.state.as_str()),
@@ -43,6 +44,43 @@ async fn update_timeline(
     }
 }
 
+/// Stop endpoint for navigator.sendBeacon (POST, no custom headers).
+/// The session ID comes from the request body since sendBeacon cannot set headers.
+#[derive(Deserialize)]
+struct StopRequest {
+    #[serde(rename = "ratingKey")]
+    rating_key: String,
+    key: String,
+    time: u64,
+    duration: u64,
+    #[serde(rename = "sessionId")]
+    session_id: Option<String>,
+}
+
+#[post("/stop")]
+async fn stop_playback(
+    req: HttpRequest,
+    plex: web::Data<PlexClient>,
+    body: web::Json<StopRequest>,
+) -> Result<impl Responder> {
+    let user_token = PlexClient::user_token_from_request(&req).unwrap_or_default();
+    let session_client_id = plex.session_to_client_id(body.session_id.as_deref());
+    let time_str = body.time.to_string();
+    let duration_str = body.duration.to_string();
+    let _ = plex
+        .send_for_session("/:/timeline", &user_token, &session_client_id, &[
+            ("ratingKey", body.rating_key.as_str()),
+            ("key", body.key.as_str()),
+            ("state", "stopped"),
+            ("time", &time_str),
+            ("duration", &duration_str),
+            ("hasMDE", "1"),
+        ])
+        .await;
+
+    Ok(HttpResponse::Ok().json(serde_json::json!({ "success": true })))
+}
+
 #[put("/scrobble/{id}")]
 async fn scrobble(
     req: HttpRequest,
@@ -51,8 +89,9 @@ async fn scrobble(
 ) -> Result<impl Responder> {
     let id = path.into_inner();
     let user_token = PlexClient::user_token_from_request(&req).unwrap_or_default();
+    let session_client_id = plex.playback_client_id(&req);
     let resp = plex
-        .send_as_user("/:/scrobble", &user_token, &[
+        .send_for_session("/:/scrobble", &user_token, &session_client_id, &[
             ("identifier", "com.plexapp.plugins.library"),
             ("key", id.as_str()),
         ])
@@ -76,8 +115,9 @@ async fn unscrobble(
 ) -> Result<impl Responder> {
     let id = path.into_inner();
     let user_token = PlexClient::user_token_from_request(&req).unwrap_or_default();
+    let session_client_id = plex.playback_client_id(&req);
     let resp = plex
-        .send_as_user("/:/unscrobble", &user_token, &[
+        .send_for_session("/:/unscrobble", &user_token, &session_client_id, &[
             ("identifier", "com.plexapp.plugins.library"),
             ("key", id.as_str()),
         ])
@@ -97,6 +137,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/player")
             .service(update_timeline)
+            .service(stop_playback)
             .service(scrobble)
             .service(unscrobble),
     );

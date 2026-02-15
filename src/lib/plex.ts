@@ -12,6 +12,20 @@ import type {
     SetupData,
 } from "./types.ts";
 
+// Generate a unique session ID per browser tab so each tab gets its own
+// Plex playback session. This prevents multiple viewers from conflicting.
+function getPlaybackSessionId(): string {
+    let id = sessionStorage.getItem("playarr-session-id");
+    if (!id) {
+        id = crypto.randomUUID();
+        sessionStorage.setItem("playarr-session-id", id);
+    }
+    return id;
+}
+
+export const playbackSessionId = getPlaybackSessionId();
+const sessionHeaders = { "X-Playarr-Session": playbackSessionId };
+
 // Status
 export const plexApi = {
     getStatus: () => api.get<{ setup_complete: boolean }>("/status"),
@@ -52,7 +66,7 @@ export const plexApi = {
             ...(quality ? { quality } : {}),
             direct_play: directPlay.toString(),
             ...(directStream ? { direct_stream: "true" } : {}),
-        }),
+        }, sessionHeaders),
 
     getBifData: async (id: string): Promise<ArrayBuffer | null> => {
         try {
@@ -76,9 +90,19 @@ export const plexApi = {
 
     // Player
     updateTimeline: (update: TimelineUpdate) =>
-        api.put("/player/timeline", update),
+        api.put("/player/timeline", update, sessionHeaders),
 
-    scrobble: (id: string) => api.put(`/player/scrobble/${id}`),
+    scrobble: (id: string) => api.put(`/player/scrobble/${id}`, undefined, sessionHeaders),
 
-    unscrobble: (id: string) => api.put(`/player/unscrobble/${id}`),
+    unscrobble: (id: string) => api.put(`/player/unscrobble/${id}`, undefined, sessionHeaders),
+
+    // Send stop signal via sendBeacon (reliable during page unload/SPA navigation)
+    sendStopBeacon: (ratingKey: string, key: string, timeMs: number, durationMs: number) => {
+        const body = JSON.stringify({
+            ratingKey, key, state: "stopped",
+            time: timeMs, duration: durationMs,
+            sessionId: playbackSessionId,
+        });
+        navigator.sendBeacon("/api/player/stop", new Blob([body], { type: "application/json" }));
+    },
 };

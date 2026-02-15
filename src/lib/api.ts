@@ -33,20 +33,23 @@ async function request<T>(path: string, options: FetchOptions = {}): Promise<T> 
 }
 
 export const api = {
-    get: <T>(path: string, params?: Record<string, string>) =>
-        request<T>(path, { method: "GET", params }),
+    get: <T>(path: string, params?: Record<string, string>, headers?: Record<string, string>) =>
+        request<T>(path, { method: "GET", params, headers }),
 
-    post: <T>(path: string, body?: unknown) =>
+    post: <T>(path: string, body?: unknown, headers?: Record<string, string>) =>
         request<T>(path, {
             method: "POST",
             body: body ? JSON.stringify(body) : undefined,
+            headers,
         }),
 
-    put: <T>(path: string, body?: unknown) =>
+    put: <T>(path: string, body?: unknown, headers?: Record<string, string>) =>
         request<T>(path, {
             method: "PUT",
             body: body ? JSON.stringify(body) : undefined,
+            headers,
         }),
 
-    delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+    delete: <T>(path: string, headers?: Record<string, string>) =>
+        request<T>(path, { method: "DELETE", headers }),
 };
