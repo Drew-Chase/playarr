@@ -544,7 +544,11 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                         time: Math.floor(duration * 1000),
                         duration: Math.floor(duration * 1000),
                     }).catch(() => {});
-                    onNext?.();
+                    // In a watch party, only the host auto-advances;
+                    // members navigate via the host's "navigate" broadcast
+                    if (!isInParty || isHost) {
+                        onNext?.();
+                    }
                 }}
                 onClick={togglePlay}
             />
