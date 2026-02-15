@@ -331,7 +331,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                     if (isFullscreen) {
                         document.exitFullscreen();
                     } else {
-                        navigate(-1);
+                        navigate("/");
                     }
                     break;
             }
@@ -552,7 +552,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             <PlayerOverlay
                 item={item}
                 visible={showControls}
-                onBack={() => navigate(-1)}
+                onBack={() => navigate("/")}
                 isInParty={isInParty}
                 participantCount={watchParty?.activeRoom?.participants.length ?? 0}
             />
