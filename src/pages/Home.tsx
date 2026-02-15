@@ -1,6 +1,7 @@
 import {Spinner} from "@heroui/react";
 import {useQuery} from "@tanstack/react-query";
 import {useContinueWatching, useOnDeck, useRecentlyAdded} from "../hooks/usePlex.ts";
+import {useAuth} from "../providers/AuthProvider.tsx";
 import {api} from "../lib/api.ts";
 import type {DiscoverResults, PlexMediaItem} from "../lib/types.ts";
 import ContentRow from "../components/layout/ContentRow.tsx";
@@ -10,6 +11,7 @@ import DiscoverCard from "../components/media/DiscoverCard.tsx";
 
 export default function Home()
 {
+    const {isGuest} = useAuth();
     const {data: continueWatching, isLoading: cwLoading} = useContinueWatching();
     const {data: onDeck, isLoading: odLoading} = useOnDeck();
     const {data: recentlyAdded, isLoading: raLoading} = useRecentlyAdded();
@@ -35,19 +37,22 @@ export default function Home()
         );
     }
 
-    // Merge continue watching + on deck, deduplicate by ratingKey
+    // Merge continue watching + on deck, deduplicate by ratingKey (skip for guests)
     const watching: PlexMediaItem[] = [];
-    const seenKeys = new Set<string>();
-    for (const source of [continueWatching, onDeck])
+    if (!isGuest)
     {
-        if (source)
+        const seenKeys = new Set<string>();
+        for (const source of [continueWatching, onDeck])
         {
-            for (const item of source)
+            if (source)
             {
-                if (!seenKeys.has(item.ratingKey))
+                for (const item of source)
                 {
-                    seenKeys.add(item.ratingKey);
-                    watching.push(item);
+                    if (!seenKeys.has(item.ratingKey))
+                    {
+                        seenKeys.add(item.ratingKey);
+                        watching.push(item);
+                    }
                 }
             }
         }
@@ -59,7 +64,7 @@ export default function Home()
 
     // Collect featured items for the hero carousel (up to 5)
     const featured: PlexMediaItem[] = [];
-    const sources = [continueWatching, onDeck, recentlyAdded];
+    const sources = isGuest ? [recentlyAdded] : [continueWatching, onDeck, recentlyAdded];
     for (const source of sources)
     {
         if (source)

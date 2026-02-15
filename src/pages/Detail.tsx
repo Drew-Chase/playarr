@@ -9,6 +9,7 @@ import ContentRow from "../components/layout/ContentRow.tsx";
 import MediaCard from "../components/media/MediaCard.tsx";
 import {plexApi} from "../lib/plex.ts";
 import {plexImage} from "../lib/utils.ts";
+import {useAuth} from "../providers/AuthProvider.tsx";
 import {useQuery} from "@tanstack/react-query";
 import type {PlexMediaItem, PlexRole, PlexReview} from "../lib/types.ts";
 
@@ -320,6 +321,7 @@ function ReviewsSection({reviews}: { reviews: PlexReview[] }) {
 
 function ActionButtons({item, progress}: { item: PlexMediaItem; progress: number }) {
     const navigate = useNavigate();
+    const {isGuest} = useAuth();
 
     return (
         <div className="flex flex-wrap gap-3 mt-5">
@@ -333,7 +335,7 @@ function ActionButtons({item, progress}: { item: PlexMediaItem; progress: number
             >
                 {item.viewOffset ? "Resume" : "Play"}
             </Button>
-            {progress > 0 && (
+            {!isGuest && progress > 0 && (
                 <div className="flex items-center">
                     <Progress
                         size="sm"
@@ -344,7 +346,7 @@ function ActionButtons({item, progress}: { item: PlexMediaItem; progress: number
                     <span className="text-xs text-default-400 ml-2">{Math.round(progress)}%</span>
                 </div>
             )}
-            {item.viewCount ? (
+            {!isGuest && (item.viewCount ? (
                 <Button
                     variant="ghost"
                     radius="sm"
@@ -367,7 +369,7 @@ function ActionButtons({item, progress}: { item: PlexMediaItem; progress: number
                 >
                     Mark Watched
                 </Button>
-            )}
+            ))}
         </div>
     );
 }

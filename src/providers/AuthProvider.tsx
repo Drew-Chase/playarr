@@ -6,10 +6,12 @@ interface AuthContextType {
     user: PlexUser | null;
     isAuthenticated: boolean;
     isAdmin: boolean;
+    isGuest: boolean;
     isLoading: boolean;
     setupComplete: boolean | null;
     login: () => Promise<{ code: string; id: number }>;
     pollLogin: (id: number) => Promise<boolean>;
+    guestLogin: () => Promise<void>;
     logout: () => Promise<void>;
     refresh: () => Promise<void>;
     completeSetup: (data: SetupData) => Promise<void>;
@@ -65,6 +67,11 @@ export function AuthProvider({children}: { children: ReactNode }) {
         return false;
     };
 
+    const guestLogin = async () => {
+        await plexApi.guestLogin();
+        await refresh();
+    };
+
     const logout = async () => {
         await plexApi.logout();
         setUser(null);
@@ -82,10 +89,12 @@ export function AuthProvider({children}: { children: ReactNode }) {
                 user,
                 isAuthenticated: !!user,
                 isAdmin: !!user?.isAdmin,
+                isGuest: !!user?.isGuest,
                 isLoading,
                 setupComplete,
                 login,
                 pollLogin,
+                guestLogin,
                 logout,
                 refresh,
                 completeSetup,

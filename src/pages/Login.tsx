@@ -1,14 +1,23 @@
-import {useState, useRef} from "react";
+import {useState, useRef, useEffect} from "react";
 import {Button, Card, CardBody, Spinner} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {useAuth} from "../providers/AuthProvider.tsx";
+import {plexApi} from "../lib/plex.ts";
 import {toast} from "sonner";
 
 export default function Login() {
-    const {login, pollLogin} = useAuth();
+    const {login, pollLogin, guestLogin} = useAuth();
     const [pinCode, setPinCode] = useState("");
     const [isAuthenticating, setIsAuthenticating] = useState(false);
+    const [guestAvailable, setGuestAvailable] = useState(false);
+    const [guestLoading, setGuestLoading] = useState(false);
     const intervalRef = useRef<ReturnType<typeof setInterval>>();
+
+    useEffect(() => {
+        plexApi.checkGuestAvailable()
+            .then(result => setGuestAvailable(result.available))
+            .catch(() => setGuestAvailable(false));
+    }, []);
 
     const handlePlexAuth = async () => {
         setIsAuthenticating(true);
@@ -43,6 +52,16 @@ export default function Login() {
         }
     };
 
+    const handleGuestLogin = async () => {
+        setGuestLoading(true);
+        try {
+            await guestLogin();
+        } catch {
+            toast.error("Guest login failed");
+            setGuestLoading(false);
+        }
+    };
+
     return (
         <div className="flex items-center justify-center min-h-screen bg-background">
             <Card className="w-full max-w-md">
@@ -68,14 +87,32 @@ export default function Login() {
                             <Spinner size="sm"/>
                         </div>
                     ) : (
-                        <Button
-                            color="primary"
-                            size="lg"
-                            onPress={handlePlexAuth}
-                            isLoading={isAuthenticating}
-                        >
-                            Sign in with Plex
-                        </Button>
+                        <div className="flex flex-col gap-3 w-full">
+                            <Button
+                                color="primary"
+                                size="lg"
+                                onPress={handlePlexAuth}
+                                isLoading={isAuthenticating}
+                                className="w-full"
+                            >
+                                Sign in with Plex
+                            </Button>
+                            {guestAvailable && (
+                                <Button
+                                    variant="flat"
+                                    size="lg"
+                                    onPress={handleGuestLogin}
+                                    isLoading={guestLoading}
+                                    className="w-full"
+                                    startContent={
+                                        !guestLoading &&
+                                        <Icon icon="mdi:account-outline" width="20"/>
+                                    }
+                                >
+                                    Continue as Guest
+                                </Button>
+                            )}
+                        </div>
                     )}
                 </CardBody>
             </Card>

@@ -41,6 +41,10 @@ export const plexApi = {
 
     logout: () => api.post("/auth/logout"),
 
+    checkGuestAvailable: () => api.get<{ available: boolean }>("/auth/guest"),
+
+    guestLogin: () => api.post<{ success: boolean }>("/auth/guest-login"),
+
     // Libraries
     getLibraries: () => api.get<PlexLibrary[]>("/libraries"),
 

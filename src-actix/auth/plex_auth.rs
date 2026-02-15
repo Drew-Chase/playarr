@@ -7,6 +7,14 @@ use crate::config::models::*;
 use crate::http_error::Result;
 use crate::plex::client::PlexClient;
 
+/// Extract an XML attribute value like `name="value"` from a string.
+fn extract_xml_attr(xml: &str, attr: &str) -> Option<String> {
+    let pattern = format!("{}=\"", attr);
+    let start = xml.find(&pattern)? + pattern.len();
+    let end = start + xml[start..].find('"')?;
+    Some(xml[start..end].to_string())
+}
+
 #[derive(Serialize, Deserialize)]
 struct PinResponse {
     id: u64,
@@ -114,6 +122,139 @@ async fn poll_pin(
     }
 }
 
+#[get("/guest")]
+async fn check_guest_available(
+    plex: web::Data<PlexClient>,
+    config: web::Data<SharedConfig>,
+) -> Result<HttpResponse> {
+    let cfg = config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+    let admin_token = cfg.plex.token.clone();
+    drop(cfg);
+
+    if admin_token.is_empty() {
+        return Ok(HttpResponse::Ok().json(serde_json::json!({ "available": false })));
+    }
+
+    let resp = plex
+        .plex_tv_get("/api/v2/home")
+        .header("X-Plex-Token", &admin_token)
+        .send()
+        .await;
+
+    match resp {
+        Ok(r) if r.status().is_success() => {
+            let body: serde_json::Value = r.json().await
+                .map_err(|e| anyhow::anyhow!("Failed to parse home response: {}", e))?;
+
+            let guest_enabled = body["guestEnabled"].as_bool().unwrap_or(false)
+                || body["guestEnabled"].as_i64() == Some(1);
+            let guest_user_id = body["guestUserID"].as_i64().unwrap_or(0);
+
+            Ok(HttpResponse::Ok().json(serde_json::json!({
+                "available": guest_enabled && guest_user_id > 0
+            })))
+        }
+        _ => Ok(HttpResponse::Ok().json(serde_json::json!({ "available": false }))),
+    }
+}
+
+#[post("/guest-login")]
+async fn guest_login(
+    plex: web::Data<PlexClient>,
+    config: web::Data<SharedConfig>,
+) -> Result<HttpResponse> {
+    let cfg = config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+    let admin_token = cfg.plex.token.clone();
+    drop(cfg);
+
+    if admin_token.is_empty() {
+        return Err(crate::http_error::Error::ServiceUnavailable(
+            "Server not configured".to_string(),
+        ));
+    }
+
+    // Get home info to find guest user ID
+    let home_resp = plex
+        .plex_tv_get("/api/v2/home")
+        .header("X-Plex-Token", &admin_token)
+        .send()
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to get home info: {}", e))?;
+
+    let home: serde_json::Value = home_resp.json().await
+        .map_err(|e| anyhow::anyhow!("Failed to parse home response: {}", e))?;
+
+    let guest_enabled = home["guestEnabled"].as_bool().unwrap_or(false)
+        || home["guestEnabled"].as_i64() == Some(1);
+    let guest_user_id = home["guestUserID"].as_i64().unwrap_or(0);
+
+    if !guest_enabled || guest_user_id == 0 {
+        return Err(crate::http_error::Error::BadRequest(
+            "Guest access is not enabled on this Plex Home".to_string(),
+        ));
+    }
+
+    // Switch to guest user
+    let switch_resp = plex
+        .plex_tv_post(&format!("/api/home/users/{}/switch", guest_user_id))
+        .header("X-Plex-Token", &admin_token)
+        .send()
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to switch to guest user: {}", e))?;
+
+    if !switch_resp.status().is_success() {
+        let status = switch_resp.status();
+        return Err(anyhow::anyhow!(
+            "Plex returned HTTP {} when switching to guest user",
+            status.as_u16()
+        ).into());
+    }
+
+    // The v1 switch endpoint returns XML, so read as text and extract the token
+    let switch_text = switch_resp.text().await
+        .map_err(|e| anyhow::anyhow!("Failed to read switch response: {}", e))?;
+
+    debug!("Guest switch response: {}", &switch_text[..switch_text.len().min(500)]);
+
+    // Try JSON first, fall back to XML attribute extraction
+    let guest_token = if let Ok(json) = serde_json::from_str::<serde_json::Value>(&switch_text) {
+        json["authToken"].as_str()
+            .or(json["authenticationToken"].as_str())
+            .map(|s| s.to_string())
+    } else {
+        // Extract authenticationToken="..." from XML
+        extract_xml_attr(&switch_text, "authenticationToken")
+            .or_else(|| extract_xml_attr(&switch_text, "authToken"))
+    }
+    .ok_or_else(|| anyhow::anyhow!("No auth token in switch response"))?;
+
+    // Resolve server access token for guest user
+    let server_token = match plex.resolve_server_access_token(&guest_token).await {
+        Some(token) => {
+            debug!("Resolved server access token for guest user {}", guest_user_id);
+            token
+        }
+        None => {
+            warn!("Could not resolve server access token for guest user; falling back to admin token");
+            admin_token.clone()
+        }
+    };
+
+    let cookie_value = format!("{}:{}:{}", guest_user_id, guest_token, server_token);
+    let cookie = Cookie::build("plex_user_token", cookie_value)
+        .path("/")
+        .http_only(true)
+        .same_site(SameSite::Lax)
+        .max_age(actix_web::cookie::time::Duration::days(365))
+        .finish();
+
+    debug!("Guest user {} authenticated, cookie set", guest_user_id);
+
+    Ok(HttpResponse::Ok()
+        .cookie(cookie)
+        .json(serde_json::json!({ "success": true })))
+}
+
 #[get("/user")]
 async fn get_user(
     req: HttpRequest,
@@ -125,6 +266,44 @@ async fn get_user(
             "Not signed in".to_string(),
         ))?;
 
+    let cfg = config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+    let is_admin = user_id == cfg.plex.admin_user_id;
+    let admin_token = cfg.plex.token.clone();
+    drop(cfg);
+
+    // Non-admin users might be guest/managed users. Check the home endpoint
+    // to definitively identify them, since plex.tv /api/v2/user may return
+    // the home owner's info for managed user tokens.
+    if !is_admin {
+        if let Ok(home_resp) = plex
+            .plex_tv_get("/api/v2/home")
+            .header("X-Plex-Token", &admin_token)
+            .send()
+            .await
+        {
+            if let Ok(home) = home_resp.json::<serde_json::Value>().await {
+                let guest_enabled = home["guestEnabled"].as_bool().unwrap_or(false)
+                    || home["guestEnabled"].as_i64() == Some(1);
+                let guest_user_id = home["guestUserID"].as_i64().unwrap_or(0);
+
+                if guest_enabled && guest_user_id == user_id {
+                    debug!("Identified guest user {} from home endpoint", user_id);
+                    return Ok(HttpResponse::Ok().json(serde_json::json!({
+                        "id": user_id,
+                        "uuid": home["guestUserUUID"].as_str().unwrap_or(""),
+                        "username": "Guest",
+                        "title": "Guest",
+                        "email": "",
+                        "thumb": "",
+                        "isAdmin": false,
+                        "isGuest": true,
+                    })));
+                }
+            }
+        }
+    }
+
+    // Admin or regular shared user — fetch info from plex.tv
     let resp = plex
         .plex_tv_get("/api/v2/user")
         .header("X-Plex-Token", &token)
@@ -144,9 +323,8 @@ async fn get_user(
         .await
         .map_err(|e| anyhow::anyhow!("Failed to parse user response: {}", e))?;
 
-    // Check if this user is the admin
-    let cfg = config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
-    body["isAdmin"] = serde_json::json!(user_id == cfg.plex.admin_user_id);
+    body["isAdmin"] = serde_json::json!(is_admin);
+    body["isGuest"] = serde_json::json!(false);
 
     Ok(HttpResponse::Ok().json(body))
 }
@@ -336,7 +514,9 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
             .service(request_pin)
             .service(poll_pin)
             .service(get_user)
-            .service(logout),
+            .service(logout)
+            .service(check_guest_available)
+            .service(guest_login),
     );
 }
 

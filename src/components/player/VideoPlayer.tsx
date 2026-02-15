@@ -5,6 +5,7 @@ import {plexApi} from "../../lib/plex.ts";
 import {checkDirectPlayability} from "../../lib/codec-support.ts";
 import {parseBif} from "../../lib/bif-parser.ts";
 import type {PlexMediaItem, StreamInfo, PlexStream, BifData, WsMessage} from "../../lib/types.ts";
+import {useAuth} from "../../providers/AuthProvider.tsx";
 import {useWatchPartyContext} from "../../providers/WatchPartyProvider.tsx";
 import PlayerControls from "./PlayerControls.tsx";
 import PlayerOverlay from "./PlayerOverlay.tsx";
@@ -22,6 +23,7 @@ interface VideoPlayerProps {
 
 export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevious, episodes}: VideoPlayerProps) {
     const navigate = useNavigate();
+    const {isGuest} = useAuth();
     const watchParty = useWatchPartyContext();
     const videoRef = useRef<HTMLVideoElement>(null);
     const hlsRef = useRef<Hls | null>(null);
@@ -67,8 +69,9 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         }
     }
 
-    // Report timeline to Plex
+    // Report timeline to Plex (skip for guest users)
     const reportTimeline = useCallback((state: "playing" | "paused" | "stopped") => {
+        if (isGuest) return;
         const video = videoRef.current;
         if (!video) return;
         lastReportTimeRef.current = Date.now();
@@ -80,7 +83,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             time: Math.floor(video.currentTime * 1000),
             duration: Math.floor((video.duration || 0) * 1000),
         }).catch(() => {});
-    }, [item.ratingKey, item.key]);
+    }, [item.ratingKey, item.key, isGuest]);
 
     // Load BIF data for timeline previews
     useEffect(() => {
@@ -267,10 +270,10 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         };
     }, [item.ratingKey, reportTimeline]);
 
-    // Send stop signal on unmount (SPA navigation) using sendBeacon for reliability
+    // Send stop signal on unmount (SPA navigation) using sendBeacon for reliability (skip for guests)
     useEffect(() => {
         return () => {
-            if (savedPositionRef.current > 0) {
+            if (!isGuest && savedPositionRef.current > 0) {
                 plexApi.sendStopBeacon(
                     item.ratingKey,
                     item.key,
@@ -279,10 +282,11 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 );
             }
         };
-    }, [item.ratingKey, item.key]);
+    }, [item.ratingKey, item.key, isGuest]);
 
-    // Send stop signal on browser close/refresh
+    // Send stop signal on browser close/refresh (skip for guests)
     useEffect(() => {
+        if (isGuest) return;
         const handleBeforeUnload = () => {
             if (savedPositionRef.current > 0) {
                 plexApi.sendStopBeacon(
@@ -295,7 +299,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         };
         window.addEventListener("beforeunload", handleBeforeUnload);
         return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-    }, [item.ratingKey, item.key]);
+    }, [item.ratingKey, item.key, isGuest]);
 
     // Auto-hide controls
     useEffect(() => {
@@ -560,8 +564,8 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         setCurrentTime(video.currentTime);
         savedPositionRef.current = video.currentTime;
 
-        // Mark as watched at 90% through (once)
-        if (!scrobbledRef.current && video.duration && video.currentTime / video.duration > 0.9) {
+        // Mark as watched at 90% through (once, skip for guests)
+        if (!isGuest && !scrobbledRef.current && video.duration && video.currentTime / video.duration > 0.9) {
             scrobbledRef.current = true;
             plexApi.scrobble(item.ratingKey).catch(() => {});
         }
@@ -596,14 +600,16 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                     }
                 }}
                 onEnded={() => {
-                    plexApi.scrobble(item.ratingKey).catch(() => {});
-                    plexApi.updateTimeline({
-                        ratingKey: item.ratingKey,
-                        key: item.key,
-                        state: "stopped",
-                        time: Math.floor(duration * 1000),
-                        duration: Math.floor(duration * 1000),
-                    }).catch(() => {});
+                    if (!isGuest) {
+                        plexApi.scrobble(item.ratingKey).catch(() => {});
+                        plexApi.updateTimeline({
+                            ratingKey: item.ratingKey,
+                            key: item.key,
+                            state: "stopped",
+                            time: Math.floor(duration * 1000),
+                            duration: Math.floor(duration * 1000),
+                        }).catch(() => {});
+                    }
                     // In a watch party, only the host auto-advances;
                     // members navigate via the host's "navigate" broadcast
                     if (!isInParty || isHost) {
