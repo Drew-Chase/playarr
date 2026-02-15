@@ -12,8 +12,7 @@ async fn get_metadata(
 ) -> Result<impl Responder> {
     let id = path.into_inner();
     let user_token = PlexClient::user_token_from_request(&req).unwrap_or_default();
-    let request = plex.get_as_user(&format!("/library/metadata/{}", id), &user_token)?;
-    let body = plex.send_json(request).await?;
+    let body = plex.get_json_as_user(&format!("/library/metadata/{}", id), &user_token, &[]).await?;
 
     let metadata = &body["MediaContainer"]["Metadata"];
     let item = metadata.get(0).unwrap_or(metadata);
@@ -28,8 +27,7 @@ async fn get_children(
 ) -> Result<impl Responder> {
     let id = path.into_inner();
     let user_token = PlexClient::user_token_from_request(&req).unwrap_or_default();
-    let request = plex.get_as_user(&format!("/library/metadata/{}/children", id), &user_token)?;
-    let body = plex.send_json(request).await?;
+    let body = plex.get_json_as_user(&format!("/library/metadata/{}/children", id), &user_token, &[]).await?;
     Ok(HttpResponse::Ok().json(&body["MediaContainer"]["Metadata"]))
 }
 

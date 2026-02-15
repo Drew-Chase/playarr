@@ -1,6 +1,6 @@
 use actix_web::{get, post, web, HttpRequest, HttpResponse, Responder};
 use actix_web::cookie::{Cookie, SameSite};
-use log::debug;
+use log::{debug, warn};
 use serde::{Deserialize, Serialize};
 use crate::config::{save_config, SharedConfig};
 use crate::config::models::*;
@@ -73,8 +73,30 @@ async fn poll_pin(
 
         let user_id = user["id"].as_i64().unwrap_or(0);
 
-        // Set HttpOnly cookie with format "{user_id}:{token}"
-        let cookie_value = format!("{}:{}", user_id, auth_token);
+        // For non-admin users, resolve a server-specific access token.
+        // A friend's plex.tv token doesn't work directly against the local PMS;
+        // they need the accessToken from the plex.tv resources API.
+        let cfg = plex.config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+        let is_admin = user_id == cfg.plex.admin_user_id;
+        drop(cfg);
+
+        let server_token = if is_admin {
+            auth_token.to_string()
+        } else {
+            match plex.resolve_server_access_token(auth_token).await {
+                Some(token) => {
+                    debug!("Resolved server access token for user {}", user_id);
+                    token
+                }
+                None => {
+                    warn!("Could not resolve server access token for user {}; falling back to plex.tv token", user_id);
+                    auth_token.to_string()
+                }
+            }
+        };
+
+        // Set HttpOnly cookie: "{user_id}:{plex_tv_token}:{server_access_token}"
+        let cookie_value = format!("{}:{}:{}", user_id, auth_token, server_token);
         let cookie = Cookie::build("plex_user_token", cookie_value)
             .path("/")
             .http_only(true)
@@ -82,7 +104,7 @@ async fn poll_pin(
             .max_age(actix_web::cookie::time::Duration::days(365))
             .finish();
 
-        debug!("Plex user {} authenticated via PIN, cookie set", user_id);
+        debug!("Plex user {} authenticated via PIN, cookie set (admin={})", user_id, is_admin);
 
         Ok(HttpResponse::Ok()
             .cookie(cookie)

@@ -14,6 +14,7 @@ export default defineConfig({
         host: true,
         port: 3000,
         strictPort: true,
+        allowedHosts: ["playarr.dclabs.app"],
         hmr: {
             protocol: "ws",
             host: "localhost",

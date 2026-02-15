@@ -8,10 +8,9 @@ async fn continue_watching(
     plex: web::Data<PlexClient>,
 ) -> Result<impl Responder> {
     let user_token = PlexClient::user_token_from_request(&req).unwrap_or_default();
-    let request = plex
-        .get_as_user("/hubs/continueWatching", &user_token)?
-        .query(&[("X-Plex-Container-Size", "20")]);
-    let body = plex.send_json(request).await?;
+    let body = plex
+        .get_json_as_user("/hubs/continueWatching", &user_token, &[("X-Plex-Container-Size", "20")])
+        .await?;
 
     // Extract from Hub container
     let hubs = &body["MediaContainer"]["Hub"];
@@ -28,10 +27,9 @@ async fn on_deck(
     plex: web::Data<PlexClient>,
 ) -> Result<impl Responder> {
     let user_token = PlexClient::user_token_from_request(&req).unwrap_or_default();
-    let request = plex
-        .get_as_user("/library/onDeck", &user_token)?
-        .query(&[("X-Plex-Container-Size", "20")]);
-    let body = plex.send_json(request).await?;
+    let body = plex
+        .get_json_as_user("/library/onDeck", &user_token, &[("X-Plex-Container-Size", "20")])
+        .await?;
     Ok(HttpResponse::Ok().json(&body["MediaContainer"]["Metadata"]))
 }
 
@@ -41,10 +39,9 @@ async fn recently_added(
     plex: web::Data<PlexClient>,
 ) -> Result<impl Responder> {
     let user_token = PlexClient::user_token_from_request(&req).unwrap_or_default();
-    let request = plex
-        .get_as_user("/library/recentlyAdded", &user_token)?
-        .query(&[("X-Plex-Container-Size", "20")]);
-    let body = plex.send_json(request).await?;
+    let body = plex
+        .get_json_as_user("/library/recentlyAdded", &user_token, &[("X-Plex-Container-Size", "20")])
+        .await?;
     Ok(HttpResponse::Ok().json(&body["MediaContainer"]["Metadata"]))
 }
 

@@ -20,19 +20,18 @@ async fn update_timeline(
     body: web::Json<TimelineUpdate>,
 ) -> Result<impl Responder> {
     let user_token = PlexClient::user_token_from_request(&req).unwrap_or_default();
-    let request = plex
-        .get_as_user("/:/timeline", &user_token)?
-        .query(&[
+    let time_str = body.time.to_string();
+    let duration_str = body.duration.to_string();
+    let resp = plex
+        .send_as_user("/:/timeline", &user_token, &[
             ("ratingKey", body.rating_key.as_str()),
             ("key", body.key.as_str()),
             ("state", body.state.as_str()),
-            ("time", &body.time.to_string()),
-            ("duration", &body.duration.to_string()),
+            ("time", &time_str),
+            ("duration", &duration_str),
             ("hasMDE", "1"),
-        ]);
-
-    let resp = request.send().await
-        .map_err(|e| anyhow::anyhow!("Failed to update timeline: {}", e))?;
+        ])
+        .await?;
 
     if resp.status().is_success() {
         Ok(HttpResponse::Ok().json(serde_json::json!({ "success": true })))
@@ -52,12 +51,12 @@ async fn scrobble(
 ) -> Result<impl Responder> {
     let id = path.into_inner();
     let user_token = PlexClient::user_token_from_request(&req).unwrap_or_default();
-    let request = plex
-        .get_as_user("/:/scrobble", &user_token)?
-        .query(&[("identifier", "com.plexapp.plugins.library"), ("key", id.as_str())]);
-
-    let resp = request.send().await
-        .map_err(|e| anyhow::anyhow!("Failed to scrobble: {}", e))?;
+    let resp = plex
+        .send_as_user("/:/scrobble", &user_token, &[
+            ("identifier", "com.plexapp.plugins.library"),
+            ("key", id.as_str()),
+        ])
+        .await?;
 
     if resp.status().is_success() {
         Ok(HttpResponse::Ok().json(serde_json::json!({ "success": true })))
@@ -77,12 +76,12 @@ async fn unscrobble(
 ) -> Result<impl Responder> {
     let id = path.into_inner();
     let user_token = PlexClient::user_token_from_request(&req).unwrap_or_default();
-    let request = plex
-        .get_as_user("/:/unscrobble", &user_token)?
-        .query(&[("identifier", "com.plexapp.plugins.library"), ("key", id.as_str())]);
-
-    let resp = request.send().await
-        .map_err(|e| anyhow::anyhow!("Failed to unscrobble: {}", e))?;
+    let resp = plex
+        .send_as_user("/:/unscrobble", &user_token, &[
+            ("identifier", "com.plexapp.plugins.library"),
+            ("key", id.as_str()),
+        ])
+        .await?;
 
     if resp.status().is_success() {
         Ok(HttpResponse::Ok().json(serde_json::json!({ "success": true })))
