@@ -1,9 +1,17 @@
 use actix_web::HttpRequest;
 use reqwest::Client;
+use serde::Serialize;
 use crate::config::SharedConfig;
 use crate::http_error;
 
 const PLEX_PRODUCT: &str = "Playarr";
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PlexUserInfo {
+    pub user_id: i64,
+    pub username: String,
+    pub thumb: String,
+}
 
 /// Shared Plex HTTP client that adds standard headers to all requests.
 pub struct PlexClient {
@@ -189,5 +197,51 @@ impl PlexClient {
             .header("X-Plex-Product", PLEX_PRODUCT)
             .header("X-Plex-Client-Identifier", self.client_id())
             .header("Accept", "application/json")
+    }
+
+    /// Fetch user info from plex.tv using their auth token.
+    pub async fn fetch_user_info(&self, user_token: &str) -> http_error::Result<PlexUserInfo> {
+        let resp = self.plex_tv_get("/api/v2/user")
+            .header("X-Plex-Token", user_token)
+            .send()
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to fetch user info: {}", e))?;
+
+        if !resp.status().is_success() {
+            return Err(http_error::Error::Unauthorized(
+                "Failed to authenticate with Plex".to_string(),
+            ));
+        }
+
+        let body: serde_json::Value = resp.json().await
+            .map_err(|e| anyhow::anyhow!("Failed to parse user info: {}", e))?;
+
+        Ok(PlexUserInfo {
+            user_id: body["id"].as_i64().unwrap_or(0),
+            username: body["username"].as_str()
+                .or(body["title"].as_str())
+                .unwrap_or("Unknown")
+                .to_string(),
+            thumb: body["thumb"].as_str().unwrap_or("").to_string(),
+        })
+    }
+
+    /// Fetch Plex friends list using the admin token.
+    pub async fn fetch_friends(&self) -> http_error::Result<Vec<serde_json::Value>> {
+        let token = self.token();
+        let resp = self.plex_tv_get("/api/v2/friends")
+            .header("X-Plex-Token", &token)
+            .send()
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to fetch Plex friends: {}", e))?;
+
+        if !resp.status().is_success() {
+            return Err(anyhow::anyhow!("Plex friends API returned {}", resp.status()).into());
+        }
+
+        let body: Vec<serde_json::Value> = resp.json().await
+            .map_err(|e| anyhow::anyhow!("Failed to parse friends response: {}", e))?;
+
+        Ok(body)
     }
 }

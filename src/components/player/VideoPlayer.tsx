@@ -1,12 +1,15 @@
 import {useCallback, useEffect, useRef, useState} from "react";
 import Hls from "hls.js";
 import {useNavigate} from "react-router-dom";
+import {toast} from "sonner";
 import {plexApi} from "../../lib/plex.ts";
 import {checkDirectPlayability} from "../../lib/codec-support.ts";
 import {parseBif} from "../../lib/bif-parser.ts";
-import type {PlexMediaItem, StreamInfo, PlexStream, BifData} from "../../lib/types.ts";
+import type {PlexMediaItem, StreamInfo, PlexStream, BifData, WsMessage} from "../../lib/types.ts";
+import {useWatchPartyContext} from "../../providers/WatchPartyProvider.tsx";
 import PlayerControls from "./PlayerControls.tsx";
 import PlayerOverlay from "./PlayerOverlay.tsx";
+import WatchQueuePanel from "./WatchQueuePanel.tsx";
 
 interface VideoPlayerProps {
     item: PlexMediaItem;
@@ -14,6 +17,7 @@ interface VideoPlayerProps {
 
 export default function VideoPlayer({item}: VideoPlayerProps) {
     const navigate = useNavigate();
+    const watchParty = useWatchPartyContext();
     const videoRef = useRef<HTMLVideoElement>(null);
     const hlsRef = useRef<Hls | null>(null);
     const timelineIntervalRef = useRef<number | null>(null);
@@ -21,6 +25,8 @@ export default function VideoPlayer({item}: VideoPlayerProps) {
     const lastReportTimeRef = useRef<number>(0);
     const scrobbledRef = useRef(false);
     const isTransitioningRef = useRef(false);
+    const lastHostPositionRef = useRef<number>(0);
+    const syncFromPartyRef = useRef(false);
 
     const [streamInfo, setStreamInfo] = useState<StreamInfo | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
@@ -32,6 +38,10 @@ export default function VideoPlayer({item}: VideoPlayerProps) {
     const [showControls, setShowControls] = useState(true);
     const [quality, setQuality] = useState("original");
     const [bifData, setBifData] = useState<BifData | null>(null);
+    const [showQueue, setShowQueue] = useState(false);
+
+    const isInParty = watchParty?.isInParty ?? false;
+    const isHost = watchParty?.isHost ?? false;
 
     // Get available streams
     const subtitleStreams: PlexStream[] = [];
@@ -297,22 +307,132 @@ export default function VideoPlayer({item}: VideoPlayerProps) {
         return () => document.removeEventListener("keydown", handleKeyDown);
     }, [volume, isPlaying, isFullscreen, reportTimeline]);
 
+    // Watch party: subscribe to player events from provider
+    useEffect(() => {
+        if (!watchParty || !isInParty) return;
+
+        const handlePartyEvent = (msg: WsMessage) => {
+            const video = videoRef.current;
+            if (!video) return;
+
+            syncFromPartyRef.current = true;
+            switch (msg.type) {
+                case "play":
+                    video.currentTime = msg.position_ms / 1000;
+                    video.play().catch(() => {});
+                    break;
+                case "pause":
+                    video.currentTime = msg.position_ms / 1000;
+                    video.pause();
+                    break;
+                case "seek":
+                    video.currentTime = msg.position_ms / 1000;
+                    break;
+                case "sync_response":
+                    lastHostPositionRef.current = msg.position_ms / 1000;
+                    break;
+            }
+            setTimeout(() => { syncFromPartyRef.current = false; }, 100);
+        };
+
+        watchParty.onPlayerEvent.current = handlePartyEvent;
+        return () => {
+            watchParty.onPlayerEvent.current = null;
+        };
+    }, [watchParty, isInParty]);
+
+    // Watch party: host sends periodic sync every 3 seconds
+    useEffect(() => {
+        if (!isInParty || !isHost || !watchParty) return;
+
+        const interval = window.setInterval(() => {
+            const video = videoRef.current;
+            if (!video) return;
+            watchParty.sendSyncResponse(
+                Math.floor(video.currentTime * 1000),
+                video.paused,
+                item.ratingKey,
+            );
+        }, 3000);
+
+        return () => clearInterval(interval);
+    }, [isInParty, isHost, watchParty, item.ratingKey]);
+
+    // Watch party: host sends navigate when entering player
+    useEffect(() => {
+        if (isInParty && isHost && watchParty) {
+            watchParty.sendNavigate(item.ratingKey);
+        }
+    }, [item.ratingKey]);
+
+    // Watch party: non-host adaptive sync (adjust playback rate)
+    useEffect(() => {
+        if (!isInParty || isHost) return;
+
+        const interval = window.setInterval(() => {
+            const video = videoRef.current;
+            if (!video || video.paused) return;
+
+            const drift = video.currentTime - lastHostPositionRef.current;
+            if (Math.abs(drift) > 5) {
+                // Hard seek if drift too large
+                video.currentTime = lastHostPositionRef.current;
+                video.playbackRate = 1.0;
+            } else if (drift > 1.5) {
+                video.playbackRate = 0.95;
+            } else if (drift < -1.5) {
+                video.playbackRate = 1.05;
+            } else {
+                video.playbackRate = 1.0;
+            }
+        }, 2000);
+
+        return () => {
+            clearInterval(interval);
+            const video = videoRef.current;
+            if (video) video.playbackRate = 1.0;
+        };
+    }, [isInParty, isHost]);
+
     const togglePlay = useCallback(() => {
         const video = videoRef.current;
         if (!video) return;
+
+        // Non-host in party: block play/pause
+        if (isInParty && !isHost) {
+            toast.info("Only the host can control playback");
+            return;
+        }
+
         if (video.paused) {
             video.play();
+            if (isInParty && isHost && watchParty) {
+                watchParty.sendPlay(Math.floor(video.currentTime * 1000));
+            }
         } else {
             video.pause();
+            if (isInParty && isHost && watchParty) {
+                watchParty.sendPause(Math.floor(video.currentTime * 1000));
+            }
         }
-    }, []);
+    }, [isInParty, isHost, watchParty]);
 
     const handleSeek = useCallback((time: number) => {
         const video = videoRef.current;
         if (!video) return;
+
+        if (isInParty && !isHost) {
+            toast.info("Only the host can control playback");
+            return;
+        }
+
         video.currentTime = time;
         reportTimeline(video.paused ? "paused" : "playing");
-    }, [reportTimeline]);
+
+        if (isInParty && isHost && watchParty) {
+            watchParty.sendSeek(Math.floor(time * 1000));
+        }
+    }, [reportTimeline, isInParty, isHost, watchParty]);
 
     const handleVolumeChange = useCallback((vol: number) => {
         const video = videoRef.current;
@@ -394,6 +514,8 @@ export default function VideoPlayer({item}: VideoPlayerProps) {
                 item={item}
                 visible={showControls}
                 onBack={() => navigate(-1)}
+                isInParty={isInParty}
+                participantCount={watchParty?.activeRoom?.participants.length ?? 0}
             />
 
             <PlayerControls
@@ -414,7 +536,22 @@ export default function VideoPlayer({item}: VideoPlayerProps) {
                 onMuteToggle={handleMuteToggle}
                 onToggleFullscreen={toggleFullscreen}
                 onQualityChange={setQuality}
+                isInParty={isInParty}
+                participants={watchParty?.activeRoom?.participants}
+                hostUserId={watchParty?.activeRoom?.host_user_id}
+                onToggleQueue={() => setShowQueue(q => !q)}
             />
+
+            {isInParty && watchParty?.activeRoom && (
+                <WatchQueuePanel
+                    isOpen={showQueue}
+                    onClose={() => setShowQueue(false)}
+                    queue={watchParty.activeRoom.episode_queue}
+                    isHost={isHost}
+                    onRemoveItem={watchParty.removeFromQueue}
+                    onPlayNext={watchParty.nextInQueue}
+                />
+            )}
         </div>
     );
 }

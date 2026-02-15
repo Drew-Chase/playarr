@@ -243,15 +243,53 @@ export interface DownloadStatus {
 }
 
 // Watch Party types
+export type WatchPartyAccessMode = "everyone" | "invite_only" | "by_user";
+export type WatchPartyStatus = "idle" | "watching" | "paused";
+
+export interface WatchPartyParticipant {
+    user_id: number;
+    username: string;
+    thumb: string;
+    joined_at: string;
+}
+
 export interface WatchRoom {
     id: string;
-    host_name: string;
+    name: string | null;
+    host_user_id: number;
+    host_username: string;
     media_id: string;
+    media_title: string | null;
     position_ms: number;
-    is_paused: boolean;
-    participants: string[];
+    duration_ms: number;
+    status: WatchPartyStatus;
+    access_mode: WatchPartyAccessMode;
+    invite_code: string | null;
+    allowed_user_ids: number[];
+    participants: WatchPartyParticipant[];
     episode_queue: string[];
     created_at: string;
+}
+
+export interface PlexServerUser {
+    id: number;
+    username: string;
+    title: string;
+    email: string;
+    thumb: string;
+}
+
+export interface CreateWatchPartyRequest {
+    name?: string;
+    accessMode: WatchPartyAccessMode;
+    allowedUserIds?: number[];
+}
+
+export interface WsParticipantInfo {
+    user_id: number;
+    username: string;
+    thumb: string;
+    is_host: boolean;
 }
 
 export type WsMessage =
@@ -263,10 +301,15 @@ export type WsMessage =
     | { type: "next_episode" }
     | { type: "queue_add"; media_id: string }
     | { type: "queue_remove"; index: number }
-    | { type: "chat"; from: string; message: string }
-    | { type: "join"; name: string }
-    | { type: "leave"; name: string }
-    | { type: "media_change"; media_id: string };
+    | { type: "chat"; from: string; user_id: number; message: string }
+    | { type: "join"; user_id: number; username: string; thumb: string }
+    | { type: "leave"; user_id: number; username: string }
+    | { type: "media_change"; media_id: string; title?: string; duration_ms?: number }
+    | { type: "navigate"; media_id: string; route: string }
+    | { type: "kicked"; reason?: string }
+    | { type: "room_closed" }
+    | { type: "room_state"; media_id: string; media_title?: string; position_ms: number; is_paused: boolean; participants: WsParticipantInfo[]; episode_queue: string[] }
+    | { type: "error"; message: string };
 
 // TMDB types
 export interface TmdbItem {

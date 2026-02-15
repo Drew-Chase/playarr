@@ -1,11 +1,12 @@
 import {Button, Slider} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {formatTimestamp} from "../../lib/utils.ts";
-import type {PlexStream, BifData} from "../../lib/types.ts";
+import type {PlexStream, BifData, WatchPartyParticipant} from "../../lib/types.ts";
 import SubtitleSelector from "./SubtitleSelector.tsx";
 import AudioSelector from "./AudioSelector.tsx";
 import QualitySelector from "./QualitySelector.tsx";
 import SeekBar from "./SeekBar.tsx";
+import ParticipantsPopover from "./ParticipantsPopover.tsx";
 
 interface PlayerControlsProps {
     isPlaying: boolean;
@@ -25,6 +26,10 @@ interface PlayerControlsProps {
     onMuteToggle: () => void;
     onToggleFullscreen: () => void;
     onQualityChange: (q: string) => void;
+    isInParty?: boolean;
+    participants?: WatchPartyParticipant[];
+    hostUserId?: number;
+    onToggleQueue?: () => void;
 }
 
 export default function PlayerControls({
@@ -45,6 +50,10 @@ export default function PlayerControls({
     onMuteToggle,
     onToggleFullscreen,
     onQualityChange,
+    isInParty,
+    participants,
+    hostUserId,
+    onToggleQueue,
 }: PlayerControlsProps) {
     return (
         <div
@@ -122,6 +131,20 @@ export default function PlayerControls({
                         <AudioSelector streams={audioStreams}/>
                     )}
                     <QualitySelector quality={quality} onQualityChange={onQualityChange}/>
+                    {isInParty && participants && hostUserId !== undefined && (
+                        <ParticipantsPopover participants={participants} hostUserId={hostUserId}/>
+                    )}
+                    {isInParty && onToggleQueue && (
+                        <Button
+                            isIconOnly
+                            variant="light"
+                            size="sm"
+                            onPress={onToggleQueue}
+                            className="text-white"
+                        >
+                            <Icon icon="mdi:playlist-play" width="20"/>
+                        </Button>
+                    )}
                     <Button
                         isIconOnly
                         variant="light"

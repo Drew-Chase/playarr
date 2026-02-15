@@ -14,10 +14,11 @@ import {
     DropdownTrigger,
     DropdownMenu,
     DropdownItem,
-    useDisclosure
+    useDisclosure, DropdownSection
 } from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {useAuth} from "../providers/AuthProvider.tsx";
+import {useWatchPartyContext} from "../providers/WatchPartyProvider.tsx";
 import {useLibraries} from "../hooks/usePlex.ts";
 import SettingsModal from "./settings/SettingsModal.tsx";
 
@@ -29,6 +30,7 @@ export default function Navigation()
     const navigate = useNavigate();
     const location = useLocation();
     const {user, isAuthenticated, isAdmin, logout} = useAuth();
+    const watchParty = useWatchPartyContext();
     const {data: libraries} = useLibraries();
     const {isOpen: isSettingsOpen, onOpen: onSettingsOpen, onClose: onSettingsClose} = useDisclosure();
 
@@ -210,10 +212,33 @@ export default function Navigation()
                                                   startContent={<Icon icon="mdi:download" width="18"/>}>
                                         Downloads
                                     </DropdownItem>,
-                                    <DropdownItem key="watch-party" onPress={() => navigate("/watch-party")}
-                                                  startContent={<Icon icon="mdi:account-group" width="18"/>}>
-                                        Watch Party
-                                    </DropdownItem>,
+                                    <DropdownSection key="watch-party-section" title={"Watch Party"} showDivider>
+                                        {(watchParty?.isInParty ? [
+                                            <DropdownItem key="leave-party" color="warning" className="text-warning"
+                                                          onPress={watchParty.leaveParty}
+                                                          startContent={<Icon icon="mdi:exit-run" width="18"/>}>
+                                                Leave Watch Party
+                                            </DropdownItem>,
+                                            watchParty.isHost && (
+                                                <DropdownItem key="close-party" color="danger" className="text-danger"
+                                                              onPress={watchParty.closeParty}
+                                                              startContent={<Icon icon="mdi:close-circle" width="18"/>}>
+                                                    Close Watch Party
+                                                </DropdownItem>
+                                            )
+                                        ] : [
+                                            <DropdownItem key="create-party"
+                                                          onPress={watchParty?.openCreateModal}
+                                                          startContent={<Icon icon="mdi:plus-circle" width="18"/>}>
+                                                Create Watch Party
+                                            </DropdownItem>,
+                                            <DropdownItem key="join-party"
+                                                          onPress={watchParty?.openJoinModal}
+                                                          startContent={<Icon icon="mdi:account-group" width="18"/>}>
+                                                Join Watch Party
+                                            </DropdownItem>
+                                        ]).filter((item): item is React.ReactElement => !!item)}
+                                    </DropdownSection>,
                                     isAdmin && (
                                         <DropdownItem key="settings" onPress={onSettingsOpen}
                                                       startContent={<Icon icon="mdi:cog" width="18"/>}>
@@ -282,18 +307,63 @@ export default function Navigation()
                             Downloads
                         </Link>
                     </NavbarMenuItem>
-                    <NavbarMenuItem>
-                        <Link
-                            to="/watch-party"
-                            className={`flex items-center gap-3 w-full py-2 ${
-                                isActive("/watch-party") ? "text-primary" : "text-foreground"
-                            }`}
-                            onClick={() => setIsMenuOpen(false)}
-                        >
-                            <Icon icon="mdi:account-group" width="18"/>
-                            Watch Party
-                        </Link>
-                    </NavbarMenuItem>
+                    {watchParty?.isInParty ? (
+                        <>
+                            <NavbarMenuItem>
+                                <button
+                                    className="flex items-center gap-3 w-full py-2 text-warning"
+                                    onClick={() => {
+                                        setIsMenuOpen(false);
+                                        watchParty.leaveParty();
+                                    }}
+                                >
+                                    <Icon icon="mdi:exit-run" width="18"/>
+                                    Leave Watch Party
+                                </button>
+                            </NavbarMenuItem>
+                            {watchParty.isHost && (
+                                <NavbarMenuItem>
+                                    <button
+                                        className="flex items-center gap-3 w-full py-2 text-danger"
+                                        onClick={() => {
+                                            setIsMenuOpen(false);
+                                            watchParty.closeParty();
+                                        }}
+                                    >
+                                        <Icon icon="mdi:close-circle" width="18"/>
+                                        Close Watch Party
+                                    </button>
+                                </NavbarMenuItem>
+                            )}
+                        </>
+                    ) : (
+                        <>
+                            <NavbarMenuItem>
+                                <button
+                                    className="flex items-center gap-3 w-full py-2 text-foreground"
+                                    onClick={() => {
+                                        setIsMenuOpen(false);
+                                        watchParty?.openCreateModal();
+                                    }}
+                                >
+                                    <Icon icon="mdi:plus-circle" width="18"/>
+                                    Create Watch Party
+                                </button>
+                            </NavbarMenuItem>
+                            <NavbarMenuItem>
+                                <button
+                                    className="flex items-center gap-3 w-full py-2 text-foreground"
+                                    onClick={() => {
+                                        setIsMenuOpen(false);
+                                        watchParty?.openJoinModal();
+                                    }}
+                                >
+                                    <Icon icon="mdi:account-group" width="18"/>
+                                    Join Watch Party
+                                </button>
+                            </NavbarMenuItem>
+                        </>
+                    )}
                     {isAdmin && (
                         <NavbarMenuItem>
                             <button

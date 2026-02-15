@@ -3,7 +3,9 @@ use actix_ws::Message;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use super::room::RoomManager;
+
+use crate::plex::client::{PlexClient, PlexUserInfo};
+use super::room::{RoomManager, RoomStatus, Participant};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type")]
@@ -29,98 +31,256 @@ pub enum WsMessage {
     #[serde(rename = "queue_remove")]
     QueueRemove { index: usize },
     #[serde(rename = "chat")]
-    ChatMessage { from: String, message: String },
+    ChatMessage {
+        from: String,
+        #[serde(default)]
+        user_id: i64,
+        message: String,
+    },
     #[serde(rename = "join")]
-    Join { name: String },
+    Join {
+        #[serde(default)]
+        user_id: i64,
+        #[serde(alias = "name", default)]
+        username: String,
+        #[serde(default)]
+        thumb: String,
+    },
     #[serde(rename = "leave")]
-    Leave { name: String },
+    Leave {
+        #[serde(default)]
+        user_id: i64,
+        #[serde(alias = "name", default)]
+        username: String,
+    },
     #[serde(rename = "media_change")]
-    MediaChange { media_id: String },
+    MediaChange {
+        media_id: String,
+        #[serde(default)]
+        title: Option<String>,
+        #[serde(default)]
+        duration_ms: u64,
+    },
+    #[serde(rename = "navigate")]
+    Navigate { media_id: String, route: String },
+    #[serde(rename = "kicked")]
+    Kicked { reason: Option<String> },
+    #[serde(rename = "room_closed")]
+    RoomClosed,
+    #[serde(rename = "room_state")]
+    RoomStateSnapshot {
+        media_id: String,
+        media_title: Option<String>,
+        position_ms: u64,
+        is_paused: bool,
+        participants: Vec<ParticipantInfo>,
+        episode_queue: Vec<String>,
+    },
+    #[serde(rename = "error")]
+    Error { message: String },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ParticipantInfo {
+    pub user_id: i64,
+    pub username: String,
+    pub thumb: String,
+    pub is_host: bool,
 }
 
 pub async fn ws_handler(
     req: HttpRequest,
     stream: web::Payload,
     rooms: web::Data<RoomManager>,
+    plex: web::Data<PlexClient>,
     room_id: Uuid,
 ) -> std::result::Result<HttpResponse, actix_web::Error> {
-    let (resp, mut session, mut msg_stream) = actix_ws::handle(&req, stream)?;
+    // Authenticate from cookie
+    let (user_id, token) = PlexClient::user_from_request(&req)
+        .ok_or_else(|| actix_web::error::ErrorUnauthorized("Not signed in"))?;
 
-    let rooms_clone = rooms.clone();
+    // Verify room exists
+    let room = rooms.get_room(&room_id)
+        .ok_or_else(|| actix_web::error::ErrorNotFound("Room not found"))?;
+
+    // Check access permission
+    if !rooms.can_user_join(&room_id, user_id) {
+        return Err(actix_web::error::ErrorForbidden("You are not allowed to join this room"));
+    }
+
+    // Fetch user info from Plex
+    let user_info = plex.fetch_user_info(&token).await
+        .unwrap_or_else(|_| PlexUserInfo {
+            user_id,
+            username: format!("User {}", user_id),
+            thumb: String::new(),
+        });
+
+    // Perform WS upgrade
+    let (resp, session, msg_stream) = actix_ws::handle(&req, stream)?;
+
+    // Register session for broadcasting
+    rooms.add_connection(&room_id, user_id, session.clone());
+
+    // Add participant to room state
+    rooms.add_participant(&room_id, Participant {
+        user_id,
+        username: user_info.username.clone(),
+        thumb: user_info.thumb.clone(),
+        joined_at: chrono::Utc::now(),
+    });
+
+    // Broadcast join to others
+    let join_msg = WsMessage::Join {
+        user_id,
+        username: user_info.username.clone(),
+        thumb: user_info.thumb.clone(),
+    };
+    rooms.broadcast_except(&room_id, &join_msg, user_id).await;
+
+    // Send room state snapshot to the joining client
+    let snapshot = WsMessage::RoomStateSnapshot {
+        media_id: room.media_id.clone(),
+        media_title: room.media_title.clone(),
+        position_ms: room.position_ms,
+        is_paused: room.status != RoomStatus::Watching,
+        participants: room.participants.iter().map(|p| ParticipantInfo {
+            user_id: p.user_id,
+            username: p.username.clone(),
+            thumb: p.thumb.clone(),
+            is_host: p.user_id == room.host_user_id,
+        }).collect(),
+        episode_queue: room.episode_queue.clone(),
+    };
+    rooms.send_to_user(&room_id, user_id, &snapshot).await;
+
+    // Spawn message handling loop
+    let rooms_clone = rooms.into_inner();
     actix_web::rt::spawn(async move {
-        while let Some(Ok(msg)) = msg_stream.next().await {
-            match msg {
-                Message::Text(text) => {
-                    if let Ok(ws_msg) = serde_json::from_str::<WsMessage>(&text) {
-                        handle_message(&rooms_clone, &room_id, &ws_msg);
-
-                        // Echo the message back (in a full impl, broadcast to all clients)
-                        let response = match &ws_msg {
-                            WsMessage::SyncRequest => {
-                                if let Some(room) = rooms_clone.get_room(&room_id) {
-                                    Some(WsMessage::SyncResponse {
-                                        position_ms: room.position_ms,
-                                        is_paused: room.is_paused,
-                                        media_id: room.media_id,
-                                    })
-                                } else {
-                                    None
-                                }
-                            }
-                            WsMessage::NextEpisode => {
-                                if let Some(media_id) = rooms_clone.next_in_queue(&room_id) {
-                                    Some(WsMessage::MediaChange { media_id })
-                                } else {
-                                    None
-                                }
-                            }
-                            _ => Some(ws_msg),
-                        };
-
-                        if let Some(resp_msg) = response {
-                            if let Ok(json) = serde_json::to_string(&resp_msg) {
-                                let _ = session.text(json).await;
-                            }
-                        }
-                    }
-                }
-                Message::Ping(bytes) => {
-                    let _ = session.pong(&bytes).await;
-                }
-                Message::Close(_) => break,
-                _ => {}
-            }
-        }
+        handle_ws_messages(rooms_clone, room_id, user_id, user_info, session, msg_stream).await;
     });
 
     Ok(resp)
 }
 
-fn handle_message(rooms: &RoomManager, room_id: &Uuid, msg: &WsMessage) {
-    match msg {
-        WsMessage::Play { position_ms } => {
-            rooms.update_position(room_id, *position_ms);
-            rooms.set_paused(room_id, false);
+async fn handle_ws_messages(
+    rooms: std::sync::Arc<RoomManager>,
+    room_id: Uuid,
+    user_id: i64,
+    user_info: PlexUserInfo,
+    mut session: actix_ws::Session,
+    mut msg_stream: actix_ws::MessageStream,
+) {
+    while let Some(Ok(msg)) = msg_stream.next().await {
+        match msg {
+            Message::Text(text) => {
+                if let Ok(ws_msg) = serde_json::from_str::<WsMessage>(&text) {
+                    match ws_msg {
+                        WsMessage::Play { position_ms } => {
+                            rooms.update_position(&room_id, position_ms);
+                            rooms.set_status(&room_id, RoomStatus::Watching);
+                            rooms.broadcast(&room_id, &WsMessage::Play { position_ms }).await;
+                        }
+                        WsMessage::Pause { position_ms } => {
+                            rooms.update_position(&room_id, position_ms);
+                            rooms.set_status(&room_id, RoomStatus::Paused);
+                            rooms.broadcast(&room_id, &WsMessage::Pause { position_ms }).await;
+                        }
+                        WsMessage::Seek { position_ms } => {
+                            rooms.update_position(&room_id, position_ms);
+                            rooms.broadcast(&room_id, &WsMessage::Seek { position_ms }).await;
+                        }
+                        WsMessage::SyncRequest => {
+                            if let Some(room) = rooms.get_room(&room_id) {
+                                let resp = WsMessage::SyncResponse {
+                                    position_ms: room.position_ms,
+                                    is_paused: room.status != RoomStatus::Watching,
+                                    media_id: room.media_id.clone(),
+                                };
+                                rooms.send_to_user(&room_id, user_id, &resp).await;
+                            }
+                        }
+                        WsMessage::SyncResponse { position_ms, is_paused, media_id } => {
+                            // Host sending authoritative sync - broadcast to others
+                            if rooms.is_host(&room_id, user_id) {
+                                rooms.update_position(&room_id, position_ms);
+                                rooms.broadcast_except(&room_id, &WsMessage::SyncResponse {
+                                    position_ms, is_paused, media_id,
+                                }, user_id).await;
+                            }
+                        }
+                        WsMessage::MediaChange { media_id, title, duration_ms } => {
+                            if rooms.is_host(&room_id, user_id) {
+                                rooms.set_media(&room_id, media_id.clone(), title.clone(), duration_ms);
+                                rooms.broadcast(&room_id, &WsMessage::MediaChange {
+                                    media_id: media_id.clone(), title, duration_ms,
+                                }).await;
+                                rooms.broadcast(&room_id, &WsMessage::Navigate {
+                                    media_id: media_id.clone(),
+                                    route: format!("/player/{}", media_id),
+                                }).await;
+                            } else {
+                                rooms.send_to_user(&room_id, user_id, &WsMessage::Error {
+                                    message: "Only the host can change media".to_string(),
+                                }).await;
+                            }
+                        }
+                        WsMessage::NextEpisode => {
+                            if rooms.is_host(&room_id, user_id) {
+                                if let Some(next_media) = rooms.next_in_queue(&room_id) {
+                                    rooms.broadcast(&room_id, &WsMessage::MediaChange {
+                                        media_id: next_media.clone(), title: None, duration_ms: 0,
+                                    }).await;
+                                    rooms.broadcast(&room_id, &WsMessage::Navigate {
+                                        media_id: next_media.clone(),
+                                        route: format!("/player/{}", next_media),
+                                    }).await;
+                                }
+                            }
+                        }
+                        WsMessage::QueueAdd { media_id } => {
+                            rooms.add_to_queue(&room_id, media_id);
+                        }
+                        WsMessage::QueueRemove { index } => {
+                            rooms.remove_from_queue(&room_id, index);
+                        }
+                        WsMessage::ChatMessage { message, .. } => {
+                            let chat = WsMessage::ChatMessage {
+                                from: user_info.username.clone(),
+                                user_id,
+                                message,
+                            };
+                            rooms.broadcast(&room_id, &chat).await;
+                        }
+                        // Navigate is server-to-client only
+                        WsMessage::Navigate { media_id, .. } => {
+                            if rooms.is_host(&room_id, user_id) {
+                                rooms.broadcast(&room_id, &WsMessage::Navigate {
+                                    media_id: media_id.clone(),
+                                    route: format!("/player/{}", media_id),
+                                }).await;
+                            }
+                        }
+                        // Client-sent join/leave are handled on connect/disconnect
+                        _ => {}
+                    }
+                }
+            }
+            Message::Ping(bytes) => {
+                let _ = session.pong(&bytes).await;
+            }
+            Message::Close(_) => break,
+            _ => {}
         }
-        WsMessage::Pause { position_ms } => {
-            rooms.update_position(room_id, *position_ms);
-            rooms.set_paused(room_id, true);
-        }
-        WsMessage::Seek { position_ms } => {
-            rooms.update_position(room_id, *position_ms);
-        }
-        WsMessage::Join { name } => {
-            rooms.add_participant(room_id, name.clone());
-        }
-        WsMessage::Leave { name } => {
-            rooms.remove_participant(room_id, name);
-        }
-        WsMessage::QueueAdd { media_id } => {
-            rooms.add_to_queue(room_id, media_id.clone());
-        }
-        WsMessage::QueueRemove { index } => {
-            rooms.remove_from_queue(room_id, *index);
-        }
-        _ => {}
     }
+
+    // Cleanup on disconnect
+    rooms.remove_connection(&room_id, user_id);
+
+    let username = user_info.username.clone();
+
+    rooms.remove_participant(&room_id, user_id);
+
+    let leave_msg = WsMessage::Leave { user_id, username };
+    rooms.broadcast(&room_id, &leave_msg).await;
 }

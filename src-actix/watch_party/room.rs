@@ -1,43 +1,118 @@
+use std::collections::HashMap;
+use actix_ws::Session;
 use dashmap::DashMap;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+use super::websocket::WsMessage;
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum RoomAccessMode {
+    Everyone,
+    InviteOnly,
+    ByUser,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum RoomStatus {
+    Idle,
+    Watching,
+    Paused,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Participant {
+    pub user_id: i64,
+    pub username: String,
+    pub thumb: String,
+    pub joined_at: chrono::DateTime<chrono::Utc>,
+}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct RoomState {
     pub id: Uuid,
-    pub host_name: String,
+    pub name: Option<String>,
+    pub host_user_id: i64,
+    pub host_username: String,
     pub media_id: String,
+    pub media_title: Option<String>,
     pub position_ms: u64,
-    pub is_paused: bool,
-    pub participants: Vec<String>,
+    pub duration_ms: u64,
+    pub status: RoomStatus,
+    pub access_mode: RoomAccessMode,
+    pub invite_code: Option<String>,
+    pub allowed_user_ids: Vec<i64>,
+    pub participants: Vec<Participant>,
     pub episode_queue: Vec<String>,
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
 pub struct RoomManager {
     pub rooms: DashMap<Uuid, RoomState>,
+    connections: DashMap<Uuid, HashMap<i64, Session>>,
+    invite_codes: DashMap<String, Uuid>,
+}
+
+fn generate_invite_code() -> String {
+    Uuid::new_v4().simple().to_string()[..8].to_uppercase()
 }
 
 impl RoomManager {
     pub fn new() -> Self {
         Self {
             rooms: DashMap::new(),
+            connections: DashMap::new(),
+            invite_codes: DashMap::new(),
         }
     }
 
-    pub fn create_room(&self, media_id: String, host_name: String) -> RoomState {
+    pub fn create_room(
+        &self,
+        name: Option<String>,
+        host_user_id: i64,
+        host_username: String,
+        host_thumb: String,
+        access_mode: RoomAccessMode,
+        allowed_user_ids: Vec<i64>,
+    ) -> RoomState {
         let id = Uuid::new_v4();
+        let invite_code = if access_mode == RoomAccessMode::InviteOnly {
+            let code = generate_invite_code();
+            self.invite_codes.insert(code.clone(), id);
+            Some(code)
+        } else {
+            None
+        };
+
+        let host = Participant {
+            user_id: host_user_id,
+            username: host_username.clone(),
+            thumb: host_thumb,
+            joined_at: chrono::Utc::now(),
+        };
+
         let room = RoomState {
             id,
-            host_name: host_name.clone(),
-            media_id,
+            name,
+            host_user_id,
+            host_username,
+            media_id: String::new(),
+            media_title: None,
             position_ms: 0,
-            is_paused: true,
-            participants: vec![host_name],
+            duration_ms: 0,
+            status: RoomStatus::Idle,
+            access_mode,
+            invite_code,
+            allowed_user_ids,
+            participants: vec![host],
             episode_queue: Vec::new(),
             created_at: chrono::Utc::now(),
         };
+
         self.rooms.insert(id, room.clone());
+        self.connections.insert(id, HashMap::new());
         room
     }
 
@@ -45,69 +120,240 @@ impl RoomManager {
         self.rooms.get(id).map(|r| r.clone())
     }
 
-    pub fn update_position(&self, id: &Uuid, position_ms: u64) {
-        if let Some(mut room) = self.rooms.get_mut(id) {
+    pub fn room_id_by_invite_code(&self, code: &str) -> Option<Uuid> {
+        self.invite_codes.get(code).map(|r| *r)
+    }
+
+    pub fn can_user_join(&self, room_id: &Uuid, user_id: i64) -> bool {
+        let Some(room) = self.rooms.get(room_id) else {
+            return false;
+        };
+
+        if room.host_user_id == user_id {
+            return true;
+        }
+
+        match &room.access_mode {
+            RoomAccessMode::Everyone => true,
+            RoomAccessMode::InviteOnly => {
+                room.participants.iter().any(|p| p.user_id == user_id)
+                    || room.allowed_user_ids.contains(&user_id)
+            }
+            RoomAccessMode::ByUser => {
+                room.allowed_user_ids.contains(&user_id)
+            }
+        }
+    }
+
+    /// Grant a user access (used when they join via invite code).
+    pub fn grant_access(&self, room_id: &Uuid, user_id: i64) {
+        if let Some(mut room) = self.rooms.get_mut(room_id) {
+            if !room.allowed_user_ids.contains(&user_id) {
+                room.allowed_user_ids.push(user_id);
+            }
+        }
+    }
+
+    pub fn is_host(&self, room_id: &Uuid, user_id: i64) -> bool {
+        self.rooms.get(room_id)
+            .map(|r| r.host_user_id == user_id)
+            .unwrap_or(false)
+    }
+
+    pub fn add_connection(&self, room_id: &Uuid, user_id: i64, session: Session) {
+        self.connections
+            .entry(*room_id)
+            .or_insert_with(HashMap::new)
+            .insert(user_id, session);
+    }
+
+    pub fn remove_connection(&self, room_id: &Uuid, user_id: i64) {
+        if let Some(mut conns) = self.connections.get_mut(room_id) {
+            conns.remove(&user_id);
+        }
+    }
+
+    pub fn add_participant(&self, room_id: &Uuid, participant: Participant) {
+        if let Some(mut room) = self.rooms.get_mut(room_id) {
+            if !room.participants.iter().any(|p| p.user_id == participant.user_id) {
+                room.participants.push(participant);
+            }
+        }
+    }
+
+    pub fn remove_participant(&self, room_id: &Uuid, user_id: i64) {
+        if let Some(mut room) = self.rooms.get_mut(room_id) {
+            room.participants.retain(|p| p.user_id != user_id);
+            if room.participants.is_empty() {
+                let invite_code = room.invite_code.clone();
+                drop(room);
+                self.rooms.remove(room_id);
+                self.connections.remove(room_id);
+                if let Some(code) = invite_code {
+                    self.invite_codes.remove(&code);
+                }
+            }
+        }
+    }
+
+    pub fn update_position(&self, room_id: &Uuid, position_ms: u64) {
+        if let Some(mut room) = self.rooms.get_mut(room_id) {
             room.position_ms = position_ms;
         }
     }
 
-    pub fn set_paused(&self, id: &Uuid, paused: bool) {
-        if let Some(mut room) = self.rooms.get_mut(id) {
-            room.is_paused = paused;
+    pub fn set_status(&self, room_id: &Uuid, status: RoomStatus) {
+        if let Some(mut room) = self.rooms.get_mut(room_id) {
+            room.status = status;
         }
     }
 
-    pub fn add_participant(&self, id: &Uuid, name: String) {
-        if let Some(mut room) = self.rooms.get_mut(id) {
-            if !room.participants.contains(&name) {
-                room.participants.push(name);
-            }
-        }
-    }
-
-    pub fn remove_participant(&self, id: &Uuid, name: &str) {
-        if let Some(mut room) = self.rooms.get_mut(id) {
-            room.participants.retain(|p| p != name);
-            // Clean up empty rooms
-            if room.participants.is_empty() {
-                drop(room);
-                self.rooms.remove(id);
-            }
-        }
-    }
-
-    pub fn set_media(&self, id: &Uuid, media_id: String) {
-        if let Some(mut room) = self.rooms.get_mut(id) {
+    pub fn set_media(&self, room_id: &Uuid, media_id: String, title: Option<String>, duration_ms: u64) {
+        if let Some(mut room) = self.rooms.get_mut(room_id) {
             room.media_id = media_id;
+            room.media_title = title;
+            room.duration_ms = duration_ms;
             room.position_ms = 0;
-            room.is_paused = true;
+            room.status = RoomStatus::Idle;
         }
     }
 
-    pub fn add_to_queue(&self, id: &Uuid, media_id: String) {
-        if let Some(mut room) = self.rooms.get_mut(id) {
+    pub fn add_to_queue(&self, room_id: &Uuid, media_id: String) {
+        if let Some(mut room) = self.rooms.get_mut(room_id) {
             room.episode_queue.push(media_id);
         }
     }
 
-    pub fn remove_from_queue(&self, id: &Uuid, index: usize) {
-        if let Some(mut room) = self.rooms.get_mut(id) {
+    pub fn remove_from_queue(&self, room_id: &Uuid, index: usize) {
+        if let Some(mut room) = self.rooms.get_mut(room_id) {
             if index < room.episode_queue.len() {
                 room.episode_queue.remove(index);
             }
         }
     }
 
-    pub fn next_in_queue(&self, id: &Uuid) -> Option<String> {
-        if let Some(mut room) = self.rooms.get_mut(id) {
+    pub fn next_in_queue(&self, room_id: &Uuid) -> Option<String> {
+        if let Some(mut room) = self.rooms.get_mut(room_id) {
             if !room.episode_queue.is_empty() {
                 let next = room.episode_queue.remove(0);
                 room.media_id = next.clone();
                 room.position_ms = 0;
-                room.is_paused = true;
+                room.status = RoomStatus::Idle;
                 return Some(next);
             }
         }
         None
+    }
+
+    /// List rooms visible to a given user.
+    pub fn list_rooms_for_user(&self, user_id: i64) -> Vec<RoomState> {
+        self.rooms.iter().filter_map(|entry| {
+            let room = entry.value();
+            let visible = room.host_user_id == user_id
+                || room.access_mode == RoomAccessMode::Everyone
+                || (room.access_mode == RoomAccessMode::InviteOnly
+                    && (room.participants.iter().any(|p| p.user_id == user_id)
+                        || room.allowed_user_ids.contains(&user_id)))
+                || (room.access_mode == RoomAccessMode::ByUser
+                    && room.allowed_user_ids.contains(&user_id));
+            if visible { Some(room.clone()) } else { None }
+        }).collect()
+    }
+
+    /// Broadcast a message to ALL connected sessions in a room.
+    pub async fn broadcast(&self, room_id: &Uuid, msg: &WsMessage) {
+        let json = match serde_json::to_string(msg) {
+            Ok(j) => j,
+            Err(_) => return,
+        };
+        let sessions: Vec<(i64, Session)> = self.connections
+            .get(room_id)
+            .map(|conns| conns.iter().map(|(k, v)| (*k, v.clone())).collect())
+            .unwrap_or_default();
+        for (user_id, mut session) in sessions {
+            if session.text(json.clone()).await.is_err() {
+                self.remove_connection(room_id, user_id);
+            }
+        }
+    }
+
+    /// Broadcast to all EXCEPT the specified user.
+    pub async fn broadcast_except(&self, room_id: &Uuid, msg: &WsMessage, exclude_user_id: i64) {
+        let json = match serde_json::to_string(msg) {
+            Ok(j) => j,
+            Err(_) => return,
+        };
+        let sessions: Vec<(i64, Session)> = self.connections
+            .get(room_id)
+            .map(|conns| conns.iter()
+                .filter(|(k, _)| **k != exclude_user_id)
+                .map(|(k, v)| (*k, v.clone()))
+                .collect())
+            .unwrap_or_default();
+        for (user_id, mut session) in sessions {
+            if session.text(json.clone()).await.is_err() {
+                self.remove_connection(room_id, user_id);
+            }
+        }
+    }
+
+    /// Send a message to a single user in a room.
+    pub async fn send_to_user(&self, room_id: &Uuid, user_id: i64, msg: &WsMessage) {
+        let json = match serde_json::to_string(msg) {
+            Ok(j) => j,
+            Err(_) => return,
+        };
+        let session = self.connections
+            .get(room_id)
+            .and_then(|conns| conns.get(&user_id).cloned());
+        if let Some(mut session) = session {
+            if session.text(json).await.is_err() {
+                self.remove_connection(room_id, user_id);
+            }
+        }
+    }
+
+    /// Host closes room: broadcast close message, remove all connections, delete room.
+    pub async fn close_room(&self, room_id: &Uuid) {
+        self.broadcast(room_id, &WsMessage::RoomClosed).await;
+
+        let sessions: Vec<(i64, Session)> = self.connections
+            .get(room_id)
+            .map(|conns| conns.iter().map(|(k, v)| (*k, v.clone())).collect())
+            .unwrap_or_default();
+        for (_, session) in sessions {
+            let _ = session.close(None).await;
+        }
+
+        if let Some(room) = self.rooms.get(room_id) {
+            if let Some(code) = &room.invite_code {
+                self.invite_codes.remove(code);
+            }
+        }
+
+        self.connections.remove(room_id);
+        self.rooms.remove(room_id);
+    }
+
+    /// Host kicks a user: send kicked message, close their session, remove participant.
+    pub async fn kick_user(&self, room_id: &Uuid, user_id: i64, reason: Option<String>) {
+        self.send_to_user(room_id, user_id, &WsMessage::Kicked { reason }).await;
+
+        let session = self.connections
+            .get(room_id)
+            .and_then(|conns| conns.get(&user_id).cloned());
+        if let Some(session) = session {
+            let _ = session.close(None).await;
+        }
+
+        self.remove_connection(room_id, user_id);
+
+        let username = self.rooms.get(room_id)
+            .and_then(|r| r.participants.iter().find(|p| p.user_id == user_id).map(|p| p.username.clone()))
+            .unwrap_or_default();
+
+        self.remove_participant(room_id, user_id);
+
+        self.broadcast(room_id, &WsMessage::Leave { user_id, username }).await;
     }
 }

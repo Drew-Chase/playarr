@@ -1,53 +1,79 @@
 import {useCallback, useEffect, useRef, useState} from "react";
-import type {WatchRoom, WsMessage} from "../lib/types.ts";
+import type {WsMessage} from "../lib/types.ts";
 
 interface UseWatchPartyOptions {
-    roomId: string;
-    userName: string;
-    onMessage?: (msg: WsMessage) => void;
+    roomId: string | null;
+    onMessage: (msg: WsMessage) => void;
 }
 
-export function useWatchParty({roomId, userName, onMessage}: UseWatchPartyOptions) {
-    const wsRef = useRef<WebSocket | null>(null);
-    const [connected, setConnected] = useState(false);
-    const [room, setRoom] = useState<WatchRoom | null>(null);
+interface UseWatchPartyReturn {
+    connected: boolean;
+    send: (msg: WsMessage) => void;
+    disconnect: () => void;
+}
 
-    useEffect(() => {
-        if (!roomId) return;
+export function useWatchParty({roomId, onMessage}: UseWatchPartyOptions): UseWatchPartyReturn {
+    const [connected, setConnected] = useState(false);
+    const wsRef = useRef<WebSocket | null>(null);
+    const reconnectTimeoutRef = useRef<number | null>(null);
+    const reconnectAttemptsRef = useRef(0);
+    const onMessageRef = useRef(onMessage);
+    onMessageRef.current = onMessage;
+    const roomIdRef = useRef(roomId);
+    roomIdRef.current = roomId;
+
+    const connect = useCallback(() => {
+        if (!roomIdRef.current) return;
 
         const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-        const ws = new WebSocket(`${protocol}//${window.location.host}/api/watch-party/rooms/${roomId}/ws`);
+        const url = `${protocol}//${window.location.host}/api/watch-party/rooms/${roomIdRef.current}/ws`;
+
+        const ws = new WebSocket(url);
         wsRef.current = ws;
 
         ws.onopen = () => {
             setConnected(true);
-            send({type: "join", name: userName});
-            send({type: "sync_request"});
+            reconnectAttemptsRef.current = 0;
         };
 
         ws.onmessage = (event) => {
-            const msg: WsMessage = JSON.parse(event.data);
-            onMessage?.(msg);
-
-            if (msg.type === "sync_response") {
-                setRoom((prev) => prev ? {
-                    ...prev,
-                    position_ms: msg.position_ms,
-                    is_paused: msg.is_paused,
-                    media_id: msg.media_id,
-                } : prev);
+            try {
+                const msg = JSON.parse(event.data) as WsMessage;
+                onMessageRef.current(msg);
+            } catch {
+                // ignore malformed messages
             }
         };
 
         ws.onclose = () => {
             setConnected(false);
+            wsRef.current = null;
+
+            // Exponential backoff reconnect (only if we still have a roomId)
+            if (roomIdRef.current) {
+                const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000);
+                reconnectAttemptsRef.current++;
+                reconnectTimeoutRef.current = window.setTimeout(connect, delay);
+            }
         };
 
-        return () => {
-            send({type: "leave", name: userName});
+        ws.onerror = () => {
             ws.close();
         };
-    }, [roomId, userName]);
+    }, []);
+
+    const disconnect = useCallback(() => {
+        if (reconnectTimeoutRef.current) {
+            clearTimeout(reconnectTimeoutRef.current);
+            reconnectTimeoutRef.current = null;
+        }
+        reconnectAttemptsRef.current = 0;
+        if (wsRef.current) {
+            wsRef.current.close();
+            wsRef.current = null;
+        }
+        setConnected(false);
+    }, []);
 
     const send = useCallback((msg: WsMessage) => {
         if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -55,5 +81,16 @@ export function useWatchParty({roomId, userName, onMessage}: UseWatchPartyOption
         }
     }, []);
 
-    return {connected, room, send};
+    useEffect(() => {
+        if (roomId) {
+            connect();
+        } else {
+            disconnect();
+        }
+        return () => {
+            disconnect();
+        };
+    }, [roomId, connect, disconnect]);
+
+    return {connected, send, disconnect};
 }

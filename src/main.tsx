@@ -13,12 +13,12 @@ import Player from "./pages/Player.tsx";
 import Search from "./pages/Search.tsx";
 import Discover from "./pages/Discover.tsx";
 import Downloads from "./pages/Downloads.tsx";
-import WatchParty from "./pages/WatchParty.tsx";
 import Login from "./pages/Login.tsx";
 import Setup from "./pages/Setup.tsx";
 import AppLayout from "./components/layout/AppLayout.tsx";
 import {AuthProvider, useAuth} from "./providers/AuthProvider.tsx";
 import {PlayerProvider} from "./providers/PlayerProvider.tsx";
+import WatchPartyProvider from "./providers/WatchPartyProvider.tsx";
 import {HeroUIProvider} from "@heroui/react";
 
 const queryClient = new QueryClient({
@@ -36,7 +36,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             <QueryClientProvider client={queryClient}>
                     <AuthProvider>
                         <PlayerProvider>
-                            <MainContentRenderer/>
+                            <WatchPartyProvider>
+                                <MainContentRenderer/>
+                            </WatchPartyProvider>
                         </PlayerProvider>
                     </AuthProvider>
             </QueryClientProvider>
@@ -92,7 +94,6 @@ export function MainContentRenderer() {
                     <Route path="/search" element={<Search/>}/>
                     <Route path="/discover" element={<Discover/>}/>
                     <Route path="/downloads" element={<Downloads/>}/>
-                    <Route path="/watch-party/:roomId?" element={<WatchParty/>}/>
                 </Route>
             </Routes>
         </HeroUIProvider>

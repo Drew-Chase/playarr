@@ -15,6 +15,9 @@ pub enum Error {
     #[error("unauthorized: {0}")]
     Unauthorized(String),
 
+    #[error("forbidden: {0}")]
+    Forbidden(String),
+
     #[error("service unavailable: {0}")]
     ServiceUnavailable(String),
 
@@ -29,6 +32,7 @@ impl ResponseError for Error {
             Self::BadRequest(_) => StatusCode::BAD_REQUEST,
             Self::NotFound(_) => StatusCode::NOT_FOUND,
             Self::Unauthorized(_) => StatusCode::UNAUTHORIZED,
+            Self::Forbidden(_) => StatusCode::FORBIDDEN,
             Self::ServiceUnavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
             Self::UpstreamError(_) => StatusCode::BAD_GATEWAY,
         }

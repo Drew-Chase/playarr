@@ -1,5 +1,4 @@
-// Episode queue logic is integrated into RoomManager (room.rs).
-// This module provides additional queue utilities if needed.
+// Additional queue utilities for RoomManager.
 
 use super::room::RoomManager;
 use uuid::Uuid;
