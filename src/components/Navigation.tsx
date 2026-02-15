@@ -14,15 +14,15 @@ import {
     DropdownTrigger,
     DropdownMenu,
     DropdownItem,
-    useDisclosure,
+    useDisclosure
 } from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
-import {ThemeSwitchComponent} from "../providers/ThemeProvider.tsx";
 import {useAuth} from "../providers/AuthProvider.tsx";
 import {useLibraries} from "../hooks/usePlex.ts";
 import SettingsModal from "./settings/SettingsModal.tsx";
 
-export default function Navigation() {
+export default function Navigation()
+{
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
     const [searchQuery, setSearchQuery] = React.useState("");
     const [searchOpen, setSearchOpen] = React.useState(false);
@@ -32,9 +32,11 @@ export default function Navigation() {
     const {data: libraries} = useLibraries();
     const {isOpen: isSettingsOpen, onOpen: onSettingsOpen, onClose: onSettingsClose} = useDisclosure();
 
-    const handleSearch = (e: React.FormEvent) => {
+    const handleSearch = (e: React.FormEvent) =>
+    {
         e.preventDefault();
-        if (searchQuery.trim()) {
+        if (searchQuery.trim())
+        {
             navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
             setSearchOpen(false);
         }
@@ -50,7 +52,7 @@ export default function Navigation() {
             <Navbar
                 onMenuOpenChange={setIsMenuOpen}
                 maxWidth="full"
-                className="bg-background/80 backdrop-blur-md border-none fixed top-0 z-50"
+                className="bg-background/80 backdrop-blur-md border-none fixed top-0 z-[99]"
                 height="4rem"
             >
                 <NavbarContent>
@@ -173,7 +175,8 @@ export default function Navigation() {
                                     className="w-48"
                                     autoFocus
                                     isClearable
-                                    onClear={() => {
+                                    onClear={() =>
+                                    {
                                         setSearchQuery("");
                                         setSearchOpen(false);
                                     }}
@@ -189,9 +192,6 @@ export default function Navigation() {
                                 <Icon icon="mdi:magnify" width="20"/>
                             </Button>
                         )}
-                    </NavbarItem>
-                    <NavbarItem>
-                        <ThemeSwitchComponent/>
                     </NavbarItem>
                     {isAuthenticated && user && (
                         <Dropdown>
@@ -224,7 +224,7 @@ export default function Navigation() {
                                                   onPress={logout}
                                                   startContent={<Icon icon="mdi:logout" width="18"/>}>
                                         Sign Out
-                                    </DropdownItem>,
+                                    </DropdownItem>
                                 ].filter((item): item is React.ReactElement => !!item)}
                             </DropdownMenu>
                         </Dropdown>
@@ -298,7 +298,8 @@ export default function Navigation() {
                         <NavbarMenuItem>
                             <button
                                 className="flex items-center gap-3 w-full py-2 text-foreground"
-                                onClick={() => {
+                                onClick={() =>
+                                {
                                     setIsMenuOpen(false);
                                     onSettingsOpen();
                                 }}
@@ -311,7 +312,8 @@ export default function Navigation() {
                     <NavbarMenuItem>
                         <button
                             className="flex items-center gap-3 w-full py-2 text-danger"
-                            onClick={() => {
+                            onClick={() =>
+                            {
                                 setIsMenuOpen(false);
                                 logout();
                             }}

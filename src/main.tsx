@@ -17,7 +17,6 @@ import WatchParty from "./pages/WatchParty.tsx";
 import Login from "./pages/Login.tsx";
 import Setup from "./pages/Setup.tsx";
 import AppLayout from "./components/layout/AppLayout.tsx";
-import {ThemeProvider} from "./providers/ThemeProvider.tsx";
 import {AuthProvider, useAuth} from "./providers/AuthProvider.tsx";
 import {PlayerProvider} from "./providers/PlayerProvider.tsx";
 import {HeroUIProvider} from "@heroui/react";
@@ -35,13 +34,11 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
         <BrowserRouter>
             <QueryClientProvider client={queryClient}>
-                <ThemeProvider>
                     <AuthProvider>
                         <PlayerProvider>
                             <MainContentRenderer/>
                         </PlayerProvider>
                     </AuthProvider>
-                </ThemeProvider>
             </QueryClientProvider>
         </BrowserRouter>
     </React.StrictMode>
