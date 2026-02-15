@@ -1,7 +1,6 @@
 import {useCallback, useEffect, useRef, useState} from "react";
 import Hls from "hls.js";
 import {useNavigate} from "react-router-dom";
-import {toast} from "sonner";
 import {plexApi} from "../../lib/plex.ts";
 import {checkDirectPlayability} from "../../lib/codec-support.ts";
 import {parseBif} from "../../lib/bif-parser.ts";
@@ -32,7 +31,10 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const scrobbledRef = useRef(false);
     const isTransitioningRef = useRef(false);
     const lastHostPositionRef = useRef<number>(0);
+    const lastSyncTimestampRef = useRef<number>(0);
     const syncFromPartyRef = useRef(false);
+    const waitingForAllReadyRef = useRef(false);
+    const lastReadyMediaRef = useRef<string>("");
 
     const durationRef = useRef<number>(0);
 
@@ -47,6 +49,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const [quality, setQuality] = useState("original");
     const [bifData, setBifData] = useState<BifData | null>(null);
     const [showQueue, setShowQueue] = useState(false);
+    const [isWaitingForReady, setIsWaitingForReady] = useState(false);
 
     const isInParty = watchParty?.isInParty ?? false;
     const isHost = watchParty?.isHost ?? false;
@@ -108,10 +111,12 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const loadStream = async (signal?: AbortSignal) => {
         const video = videoRef.current;
 
-        // Capture current position before cleanup (for quality switches)
-        const resumePosition = savedPositionRef.current > 0
-            ? savedPositionRef.current
-            : (item.viewOffset ? item.viewOffset / 1000 : 0);
+        // In a watch party, always start from the beginning for new episodes
+        const resumePosition = isInParty
+            ? 0
+            : (savedPositionRef.current > 0
+                ? savedPositionRef.current
+                : (item.viewOffset ? item.viewOffset / 1000 : 0));
 
         let info: StreamInfo;
 
@@ -164,7 +169,14 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             hls.attachMedia(video);
             hls.on(Hls.Events.MANIFEST_PARSED, () => {
                 isTransitioningRef.current = false;
-                video.play().catch(() => {});
+                if (isInParty && watchParty && item.ratingKey !== lastReadyMediaRef.current) {
+                    waitingForAllReadyRef.current = true;
+                    setIsWaitingForReady(true);
+                    lastReadyMediaRef.current = item.ratingKey;
+                    watchParty.sendReady();
+                } else {
+                    video.play().catch(() => {});
+                }
             });
             hls.on(Hls.Events.ERROR, (_event, data) => {
                 if (data.fatal) {
@@ -188,7 +200,14 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             video.src = info.url;
             video.currentTime = resumePosition;
             isTransitioningRef.current = false;
-            video.play().catch(() => {});
+            if (isInParty && watchParty && item.ratingKey !== lastReadyMediaRef.current) {
+                waitingForAllReadyRef.current = true;
+                setIsWaitingForReady(true);
+                lastReadyMediaRef.current = item.ratingKey;
+                watchParty.sendReady();
+            } else {
+                video.play().catch(() => {});
+            }
         }
     };
 
@@ -277,70 +296,6 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         };
     }, [isPlaying]);
 
-    // Keyboard shortcuts
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            const video = videoRef.current;
-            if (!video) return;
-
-            switch (e.key) {
-                case " ":
-                case "k":
-                    e.preventDefault();
-                    togglePlay();
-                    break;
-                case "f":
-                    e.preventDefault();
-                    toggleFullscreen();
-                    break;
-                case "m":
-                    e.preventDefault();
-                    handleMuteToggle();
-                    break;
-                case "ArrowLeft":
-                    e.preventDefault();
-                    video.currentTime = Math.max(0, video.currentTime - 10);
-                    reportTimeline(video.paused ? "paused" : "playing");
-                    break;
-                case "ArrowRight":
-                    e.preventDefault();
-                    video.currentTime = Math.min(video.duration, video.currentTime + 10);
-                    reportTimeline(video.paused ? "paused" : "playing");
-                    break;
-                case "ArrowUp":
-                    e.preventDefault();
-                    handleVolumeChange(Math.min(1, volume + 0.1));
-                    break;
-                case "ArrowDown":
-                    e.preventDefault();
-                    handleVolumeChange(Math.max(0, volume - 0.1));
-                    break;
-                case "N":
-                    if (e.shiftKey && onNext) {
-                        e.preventDefault();
-                        onNext();
-                    }
-                    break;
-                case "P":
-                    if (e.shiftKey && onPrevious) {
-                        e.preventDefault();
-                        onPrevious();
-                    }
-                    break;
-                case "Escape":
-                    if (isFullscreen) {
-                        document.exitFullscreen();
-                    } else {
-                        navigate("/");
-                    }
-                    break;
-            }
-        };
-
-        document.addEventListener("keydown", handleKeyDown);
-        return () => document.removeEventListener("keydown", handleKeyDown);
-    }, [volume, isPlaying, isFullscreen, reportTimeline]);
-
     // Watch party: subscribe to player events from provider
     useEffect(() => {
         if (!watchParty || !isInParty) return;
@@ -354,16 +309,29 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 case "play":
                     video.currentTime = msg.position_ms / 1000;
                     video.play().catch(() => {});
+                    lastHostPositionRef.current = msg.position_ms / 1000;
+                    lastSyncTimestampRef.current = Date.now();
                     break;
                 case "pause":
                     video.currentTime = msg.position_ms / 1000;
                     video.pause();
+                    lastHostPositionRef.current = msg.position_ms / 1000;
+                    lastSyncTimestampRef.current = Date.now();
                     break;
                 case "seek":
                     video.currentTime = msg.position_ms / 1000;
+                    lastHostPositionRef.current = msg.position_ms / 1000;
+                    lastSyncTimestampRef.current = Date.now();
                     break;
                 case "sync_response":
                     lastHostPositionRef.current = msg.position_ms / 1000;
+                    lastSyncTimestampRef.current = Date.now();
+                    break;
+                case "all_ready":
+                    waitingForAllReadyRef.current = false;
+                    setIsWaitingForReady(false);
+                    video.currentTime = 0;
+                    video.play().catch(() => {});
                     break;
             }
             setTimeout(() => { syncFromPartyRef.current = false; }, 100);
@@ -399,27 +367,35 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         }
     }, [item.ratingKey]);
 
-    // Watch party: non-host adaptive sync (adjust playback rate)
+    // Watch party: non-host adaptive sync (adjust playback rate to match host)
     useEffect(() => {
         if (!isInParty || isHost) return;
 
         const interval = window.setInterval(() => {
             const video = videoRef.current;
-            if (!video || video.paused) return;
+            if (!video || video.paused || waitingForAllReadyRef.current) return;
 
-            const drift = video.currentTime - lastHostPositionRef.current;
-            if (Math.abs(drift) > 5) {
+            // Calculate expected host position accounting for elapsed time since last sync
+            const elapsedSinceSync = (Date.now() - lastSyncTimestampRef.current) / 1000;
+            const expectedPosition = lastHostPositionRef.current + elapsedSinceSync;
+
+            const drift = video.currentTime - expectedPosition;
+
+            video.preservesPitch = true;
+            if (Math.abs(drift) > 3) {
                 // Hard seek if drift too large
-                video.currentTime = lastHostPositionRef.current;
+                video.currentTime = expectedPosition;
                 video.playbackRate = 1.0;
-            } else if (drift > 1.5) {
-                video.playbackRate = 0.95;
-            } else if (drift < -1.5) {
-                video.playbackRate = 1.05;
+            } else if (drift > 0.5) {
+                // We're ahead — slow down
+                video.playbackRate = 0.9;
+            } else if (drift < -0.5) {
+                // We're behind — speed up
+                video.playbackRate = 1.1;
             } else {
                 video.playbackRate = 1.0;
             }
-        }, 2000);
+        }, 1000);
 
         return () => {
             clearInterval(interval);
@@ -432,41 +408,30 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         const video = videoRef.current;
         if (!video) return;
 
-        // Non-host in party: block play/pause
-        if (isInParty && !isHost) {
-            toast.info("Only the host can control playback");
-            return;
-        }
-
         if (video.paused) {
             video.play();
-            if (isInParty && isHost && watchParty) {
+            if (isInParty && watchParty) {
                 watchParty.sendPlay(Math.floor(video.currentTime * 1000));
             }
         } else {
             video.pause();
-            if (isInParty && isHost && watchParty) {
+            if (isInParty && watchParty) {
                 watchParty.sendPause(Math.floor(video.currentTime * 1000));
             }
         }
-    }, [isInParty, isHost, watchParty]);
+    }, [isInParty, watchParty]);
 
     const handleSeek = useCallback((time: number) => {
         const video = videoRef.current;
         if (!video) return;
 
-        if (isInParty && !isHost) {
-            toast.info("Only the host can control playback");
-            return;
-        }
-
         video.currentTime = time;
         reportTimeline(video.paused ? "paused" : "playing");
 
-        if (isInParty && isHost && watchParty) {
+        if (isInParty && watchParty) {
             watchParty.sendSeek(Math.floor(time * 1000));
         }
-    }, [reportTimeline, isInParty, isHost, watchParty]);
+    }, [reportTimeline, isInParty, watchParty]);
 
     const handleVolumeChange = useCallback((vol: number) => {
         const video = videoRef.current;
@@ -498,6 +463,68 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         document.addEventListener("fullscreenchange", handleFsChange);
         return () => document.removeEventListener("fullscreenchange", handleFsChange);
     }, []);
+
+    // Keyboard shortcuts
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            const video = videoRef.current;
+            if (!video) return;
+
+            switch (e.key) {
+                case " ":
+                case "k":
+                    e.preventDefault();
+                    togglePlay();
+                    break;
+                case "f":
+                    e.preventDefault();
+                    toggleFullscreen();
+                    break;
+                case "m":
+                    e.preventDefault();
+                    handleMuteToggle();
+                    break;
+                case "ArrowLeft":
+                    e.preventDefault();
+                    handleSeek(Math.max(0, video.currentTime - 10));
+                    break;
+                case "ArrowRight":
+                    e.preventDefault();
+                    handleSeek(Math.min(video.duration, video.currentTime + 10));
+                    break;
+                case "ArrowUp":
+                    e.preventDefault();
+                    handleVolumeChange(Math.min(1, volume + 0.1));
+                    break;
+                case "ArrowDown":
+                    e.preventDefault();
+                    handleVolumeChange(Math.max(0, volume - 0.1));
+                    break;
+                case "N":
+                    if (e.shiftKey && onNext) {
+                        e.preventDefault();
+                        onNext();
+                    }
+                    break;
+                case "P":
+                    if (e.shiftKey && onPrevious) {
+                        e.preventDefault();
+                        onPrevious();
+                    }
+                    break;
+                case "Escape":
+                    if (isFullscreen) {
+                        document.exitFullscreen();
+                    } else {
+                        navigate("/");
+                    }
+                    break;
+            }
+        };
+
+        document.addEventListener("keydown", handleKeyDown);
+        return () => document.removeEventListener("keydown", handleKeyDown);
+    }, [volume, isPlaying, isFullscreen, handleSeek, togglePlay, toggleFullscreen, handleMuteToggle, handleVolumeChange]);
 
     const handleTimeUpdate = () => {
         const video = videoRef.current;
@@ -535,6 +562,11 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                     reportTimeline("paused");
                 }}
                 onError={handleVideoError}
+                onWaiting={() => {
+                    if (isInParty && watchParty && !waitingForAllReadyRef.current) {
+                        watchParty.sendBuffering();
+                    }
+                }}
                 onEnded={() => {
                     plexApi.scrobble(item.ratingKey).catch(() => {});
                     plexApi.updateTimeline({
@@ -559,6 +591,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 onBack={() => navigate("/")}
                 isInParty={isInParty}
                 participantCount={watchParty?.activeRoom?.participants.length ?? 0}
+                isWaitingForReady={isWaitingForReady}
             />
 
             <PlayerControls

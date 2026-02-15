@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use actix_ws::Session;
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
@@ -20,6 +20,7 @@ pub enum RoomStatus {
     Idle,
     Watching,
     Paused,
+    Buffering,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -46,6 +47,7 @@ pub struct RoomState {
     pub allowed_user_ids: Vec<i64>,
     pub participants: Vec<Participant>,
     pub episode_queue: Vec<String>,
+    pub ready_users: HashSet<i64>,
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
 
@@ -108,6 +110,7 @@ impl RoomManager {
             allowed_user_ids,
             participants: vec![host],
             episode_queue: Vec::new(),
+            ready_users: HashSet::new(),
             created_at: chrono::Utc::now(),
         };
 
@@ -215,6 +218,7 @@ impl RoomManager {
             room.duration_ms = duration_ms;
             room.position_ms = 0;
             room.status = RoomStatus::Idle;
+            room.ready_users.clear();
         }
     }
 
@@ -239,6 +243,7 @@ impl RoomManager {
                 room.media_id = next.clone();
                 room.position_ms = 0;
                 room.status = RoomStatus::Idle;
+                room.ready_users.clear();
                 return Some(next);
             }
         }
@@ -258,6 +263,41 @@ impl RoomManager {
                     && room.allowed_user_ids.contains(&user_id));
             if visible { Some(room.clone()) } else { None }
         }).collect()
+    }
+
+    /// Mark a user as ready. Returns true if all connected users are now ready.
+    pub fn mark_ready(&self, room_id: &Uuid, user_id: i64) -> bool {
+        if let Some(mut room) = self.rooms.get_mut(room_id) {
+            room.ready_users.insert(user_id);
+            let ready = room.ready_users.clone();
+            drop(room);
+            if let Some(conns) = self.connections.get(room_id) {
+                return conns.len() > 0 && conns.keys().all(|uid| ready.contains(uid));
+            }
+        }
+        false
+    }
+
+    /// Clear all ready states.
+    pub fn clear_ready(&self, room_id: &Uuid) {
+        if let Some(mut room) = self.rooms.get_mut(room_id) {
+            room.ready_users.clear();
+        }
+    }
+
+    /// Check if all connected users are ready (used after disconnect to re-check).
+    pub fn check_all_ready(&self, room_id: &Uuid) -> bool {
+        if let Some(room) = self.rooms.get(room_id) {
+            if room.status != RoomStatus::Idle || room.ready_users.is_empty() {
+                return false;
+            }
+            let ready = room.ready_users.clone();
+            drop(room);
+            if let Some(conns) = self.connections.get(room_id) {
+                return conns.len() > 0 && conns.keys().all(|uid| ready.contains(uid));
+            }
+        }
+        false
     }
 
     /// Broadcast a message to ALL connected sessions in a room.

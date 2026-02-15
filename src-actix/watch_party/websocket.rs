@@ -11,11 +11,11 @@ use super::room::{RoomManager, RoomStatus, Participant};
 #[serde(tag = "type")]
 pub enum WsMessage {
     #[serde(rename = "play")]
-    Play { position_ms: u64 },
+    Play { position_ms: u64, #[serde(default)] user_id: i64 },
     #[serde(rename = "pause")]
-    Pause { position_ms: u64 },
+    Pause { position_ms: u64, #[serde(default)] user_id: i64 },
     #[serde(rename = "seek")]
-    Seek { position_ms: u64 },
+    Seek { position_ms: u64, #[serde(default)] user_id: i64 },
     #[serde(rename = "sync_request")]
     SyncRequest,
     #[serde(rename = "sync_response")]
@@ -23,6 +23,8 @@ pub enum WsMessage {
         position_ms: u64,
         is_paused: bool,
         media_id: String,
+        #[serde(default)]
+        server_time_ms: u64,
     },
     #[serde(rename = "next_episode")]
     NextEpisode,
@@ -76,6 +78,12 @@ pub enum WsMessage {
         participants: Vec<ParticipantInfo>,
         episode_queue: Vec<String>,
     },
+    #[serde(rename = "buffering")]
+    Buffering { #[serde(default)] user_id: i64 },
+    #[serde(rename = "ready")]
+    Ready { #[serde(default)] user_id: i64 },
+    #[serde(rename = "all_ready")]
+    AllReady,
     #[serde(rename = "error")]
     Error { message: String },
 }
@@ -176,19 +184,19 @@ async fn handle_ws_messages(
             Message::Text(text) => {
                 if let Ok(ws_msg) = serde_json::from_str::<WsMessage>(&text) {
                     match ws_msg {
-                        WsMessage::Play { position_ms } => {
+                        WsMessage::Play { position_ms, .. } => {
                             rooms.update_position(&room_id, position_ms);
                             rooms.set_status(&room_id, RoomStatus::Watching);
-                            rooms.broadcast(&room_id, &WsMessage::Play { position_ms }).await;
+                            rooms.broadcast_except(&room_id, &WsMessage::Play { position_ms, user_id }, user_id).await;
                         }
-                        WsMessage::Pause { position_ms } => {
+                        WsMessage::Pause { position_ms, .. } => {
                             rooms.update_position(&room_id, position_ms);
                             rooms.set_status(&room_id, RoomStatus::Paused);
-                            rooms.broadcast(&room_id, &WsMessage::Pause { position_ms }).await;
+                            rooms.broadcast_except(&room_id, &WsMessage::Pause { position_ms, user_id }, user_id).await;
                         }
-                        WsMessage::Seek { position_ms } => {
+                        WsMessage::Seek { position_ms, .. } => {
                             rooms.update_position(&room_id, position_ms);
-                            rooms.broadcast(&room_id, &WsMessage::Seek { position_ms }).await;
+                            rooms.broadcast_except(&room_id, &WsMessage::Seek { position_ms, user_id }, user_id).await;
                         }
                         WsMessage::SyncRequest => {
                             if let Some(room) = rooms.get_room(&room_id) {
@@ -196,16 +204,18 @@ async fn handle_ws_messages(
                                     position_ms: room.position_ms,
                                     is_paused: room.status != RoomStatus::Watching,
                                     media_id: room.media_id.clone(),
+                                    server_time_ms: chrono::Utc::now().timestamp_millis() as u64,
                                 };
                                 rooms.send_to_user(&room_id, user_id, &resp).await;
                             }
                         }
-                        WsMessage::SyncResponse { position_ms, is_paused, media_id } => {
+                        WsMessage::SyncResponse { position_ms, is_paused, media_id, .. } => {
                             // Host sending authoritative sync - broadcast to others
                             if rooms.is_host(&room_id, user_id) {
                                 rooms.update_position(&room_id, position_ms);
+                                let server_time_ms = chrono::Utc::now().timestamp_millis() as u64;
                                 rooms.broadcast_except(&room_id, &WsMessage::SyncResponse {
-                                    position_ms, is_paused, media_id,
+                                    position_ms, is_paused, media_id, server_time_ms,
                                 }, user_id).await;
                             }
                         }
@@ -261,7 +271,18 @@ async fn handle_ws_messages(
                                 }).await;
                             }
                         }
-                        // Client-sent join/leave are handled on connect/disconnect
+                        WsMessage::Buffering { .. } => {
+                            rooms.broadcast_except(&room_id, &WsMessage::Buffering { user_id }, user_id).await;
+                        }
+                        WsMessage::Ready { .. } => {
+                            let all_ready = rooms.mark_ready(&room_id, user_id);
+                            if all_ready {
+                                rooms.clear_ready(&room_id);
+                                rooms.set_status(&room_id, RoomStatus::Watching);
+                                rooms.broadcast(&room_id, &WsMessage::AllReady).await;
+                            }
+                        }
+                        // Client-sent join/leave/all_ready are handled on connect/disconnect or server-only
                         _ => {}
                     }
                 }
@@ -276,6 +297,13 @@ async fn handle_ws_messages(
 
     // Cleanup on disconnect
     rooms.remove_connection(&room_id, user_id);
+
+    // Re-check ready state: if the disconnecting user was the last holdout, trigger AllReady
+    if rooms.check_all_ready(&room_id) {
+        rooms.clear_ready(&room_id);
+        rooms.set_status(&room_id, RoomStatus::Watching);
+        rooms.broadcast(&room_id, &WsMessage::AllReady).await;
+    }
 
     let username = user_info.username.clone();
 

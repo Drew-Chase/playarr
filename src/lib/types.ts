@@ -293,11 +293,11 @@ export interface WsParticipantInfo {
 }
 
 export type WsMessage =
-    | { type: "play"; position_ms: number }
-    | { type: "pause"; position_ms: number }
-    | { type: "seek"; position_ms: number }
+    | { type: "play"; position_ms: number; user_id?: number }
+    | { type: "pause"; position_ms: number; user_id?: number }
+    | { type: "seek"; position_ms: number; user_id?: number }
     | { type: "sync_request" }
-    | { type: "sync_response"; position_ms: number; is_paused: boolean; media_id: string }
+    | { type: "sync_response"; position_ms: number; is_paused: boolean; media_id: string; server_time_ms?: number }
     | { type: "next_episode" }
     | { type: "queue_add"; media_id: string }
     | { type: "queue_remove"; index: number }
@@ -309,6 +309,9 @@ export type WsMessage =
     | { type: "kicked"; reason?: string }
     | { type: "room_closed" }
     | { type: "room_state"; media_id: string; media_title?: string; position_ms: number; is_paused: boolean; participants: WsParticipantInfo[]; episode_queue: string[] }
+    | { type: "buffering"; user_id: number }
+    | { type: "ready"; user_id: number }
+    | { type: "all_ready" }
     | { type: "error"; message: string };
 
 // TMDB types

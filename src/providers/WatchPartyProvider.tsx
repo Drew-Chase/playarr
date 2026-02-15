@@ -24,6 +24,8 @@ interface WatchPartyContextType {
     sendSeek: (positionMs: number) => void;
     sendNavigate: (mediaId: string) => void;
     sendSyncResponse: (positionMs: number, isPaused: boolean, mediaId: string) => void;
+    sendBuffering: () => void;
+    sendReady: () => void;
     addToQueue: (mediaId: string) => void;
     removeFromQueue: (index: number) => void;
     nextInQueue: () => void;
@@ -154,6 +156,10 @@ export default function WatchPartyProvider({children}: { children: React.ReactNo
                     status: "idle",
                 } : prev);
                 break;
+            case "buffering":
+            case "all_ready":
+                onPlayerEvent.current?.(msg);
+                break;
             case "error":
                 toast.error(msg.message);
                 break;
@@ -224,6 +230,14 @@ export default function WatchPartyProvider({children}: { children: React.ReactNo
         send({type: "sync_response", position_ms: positionMs, is_paused: isPaused, media_id: mediaId});
     }, [send]);
 
+    const sendBuffering = useCallback(() => {
+        send({type: "buffering", user_id: 0});
+    }, [send]);
+
+    const sendReady = useCallback(() => {
+        send({type: "ready", user_id: 0});
+    }, [send]);
+
     const addToQueue = useCallback((mediaId: string) => {
         send({type: "queue_add", media_id: mediaId});
     }, [send]);
@@ -253,6 +267,8 @@ export default function WatchPartyProvider({children}: { children: React.ReactNo
             sendSeek,
             sendNavigate,
             sendSyncResponse,
+            sendBuffering,
+            sendReady,
             addToQueue,
             removeFromQueue,
             nextInQueue,
