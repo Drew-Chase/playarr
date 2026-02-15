@@ -150,50 +150,75 @@ async fn get_stream_url(
             "part": part
         })))
     } else {
-        // Quality presets: bitrate in kbps
-        let bitrate = match query.quality.as_deref() {
-            Some("4k") => "20000",
-            Some("1080p") | Some("1080") => "10000",
-            Some("720p") | Some("720") => "4000",
-            Some("480p") | Some("480") => "1500",
-            Some("original") => "200000",
-            _ => "10000",
+        // Quality presets: (bitrate in kbps, resolution WxH)
+        let (bitrate, resolution) = match query.quality.as_deref() {
+            Some("4k") => ("20000", "3840x2160"),
+            Some("1080p") | Some("1080") => ("10000", "1920x1080"),
+            Some("720p") | Some("720") => ("4000", "1280x720"),
+            Some("480p") | Some("480") => ("1500", "720x480"),
+            Some("original") => ("200000", "1920x1080"),
+            _ => ("10000", "1920x1080"),
         };
 
-        // Plex Web's profile extra format (pre-URL-encoded for query string):
-        // Raw: add-limitation(scope=videoCodec&scopeName=*&type=upperBound
-        //        &name=video.bitrate&value={bitrate}&replace=true)
-        //      +append-transcode-target-codec(type=videoProfile&context=streaming
-        //        &videoCodec=h264&audioCodec=aac&protocol=hls)
-        let profile_extra_encoded = format!(
-            "add-limitation%28scope%3DvideoCodec%26scopeName%3D*%26type%3DupperBound\
-            %26name%3Dvideo.bitrate%26value%3D{bitrate}%26replace%3Dtrue%29\
-            %2Bappend-transcode-target-codec%28type%3DvideoProfile%26context%3Dstreaming\
-            %26videoCodec%3Dh264%26audioCodec%3Daac%26protocol%3Dhls%29"
+        let height = resolution.split('x').nth(1).unwrap_or("1080");
+        let profile_extra = format!(
+            "add-limitation(scope=videoCodec&scopeName=*&type=upperBound\
+            &name=video.bitrate&value={bitrate}&replace=true)\
+            +add-limitation(scope=videoCodec&scopeName=*&type=upperBound\
+            &name=video.height&value={height}&replace=true)\
+            +append-transcode-target-codec(type=videoProfile&context=streaming\
+            &videoCodec=h264&audioCodec=aac&protocol=hls)"
         );
 
-        // URL with profile extra as query param (matching Plex Web)
-        let transcode_url = format!(
-            "{}/video/:/transcode/universal/start.m3u8?\
-            hasMDE=1&path=/library/metadata/{}&mediaIndex=0&partIndex=0\
-            &protocol=hls&fastSeek=1\
-            &directPlay=0&directStream=0&directStreamAudio=0\
-            &maxVideoBitrate={}\
-            &autoAdjustQuality=0\
-            &subtitleSize=100&audioBoost=100\
-            &mediaBufferSize=102400&location=lan\
-            &session={}\
-            &X-Plex-Client-Profile-Extra={}",
-            base_url, id, bitrate, session, profile_extra_encoded
-        );
+        let media_path = format!("/library/metadata/{}", id);
+        let transcode_params: Vec<(&str, &str)> = vec![
+            ("hasMDE", "1"),
+            ("path", &media_path),
+            ("mediaIndex", "0"),
+            ("partIndex", "0"),
+            ("protocol", "hls"),
+            ("fastSeek", "1"),
+            ("directPlay", "0"),
+            ("directStream", "0"),
+            ("directStreamAudio", "0"),
+            ("videoResolution", resolution),
+            ("videoQuality", "100"),
+            ("maxVideoBitrate", bitrate),
+            ("autoAdjustQuality", "0"),
+            ("subtitleSize", "100"),
+            ("audioBoost", "100"),
+            ("mediaBufferSize", "102400"),
+            ("location", "lan"),
+            ("session", &session),
+            ("X-Plex-Client-Profile-Extra", &profile_extra),
+            ("X-Plex-Token", &token),
+            ("X-Plex-Client-Identifier", &client_id),
+            ("X-Plex-Product", "Playarr"),
+            ("X-Plex-Platform", "Chrome"),
+        ];
 
-        // Auth as headers, profile extra in query string
+        // Step 1: Call the decision endpoint to update the transcode decision.
+        // Plex caches transcode decisions per client identifier; without this
+        // call, start.m3u8 reuses the old quality settings.
+        let decision_url = format!(
+            "{}/video/:/transcode/universal/decision",
+            base_url
+        );
+        let _ = plex.http
+            .get(&decision_url)
+            .query(&transcode_params)
+            .header("Accept", "application/json")
+            .send()
+            .await;
+
+        // Step 2: Request the HLS manifest — Plex now uses the updated decision
+        let start_url = format!(
+            "{}/video/:/transcode/universal/start.m3u8",
+            base_url
+        );
         let resp = plex.http
-            .get(&transcode_url)
-            .header("X-Plex-Token", &token)
-            .header("X-Plex-Client-Identifier", &client_id)
-            .header("X-Plex-Product", "Playarr")
-            .header("X-Plex-Platform", "Chrome")
+            .get(&start_url)
+            .query(&transcode_params)
             .send()
             .await
             .map_err(|e| anyhow::anyhow!("Transcode request failed: {}", e))?;

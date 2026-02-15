@@ -1055,3 +1055,436 @@ async fn watch_party_invalid_id_returns_400() {
     assert_eq!(resp.status(), 400);
 }
 
+// ─── Live Plex Integration Tests ─────────────────────────────────────────────
+// These tests require a running Plex server with valid config at the default
+// config path. Run with: cargo test -- --ignored
+
+/// Result of a transcode attempt: the master m3u8, variant m3u8, and sessions JSON.
+struct TranscodeResult {
+    master_m3u8: String,
+    variant_m3u8: String,
+    sessions: String,
+    transcode_url: String,
+    session_id: String,
+}
+
+/// Helper: build a transcode start URL for a given quality, fetch the variant
+/// m3u8 to trigger the actual transcode, then check sessions.
+async fn start_transcode(
+    plex: &PlexClient,
+    base_url: &str,
+    token: &str,
+    client_id: &str,
+    media_id: &str,
+    quality: &str,
+) -> TranscodeResult {
+    let (bitrate, resolution) = match quality {
+        "1080p" => ("10000", "1920x1080"),
+        "720p" => ("4000", "1280x720"),
+        "480p" => ("1500", "720x480"),
+        _ => ("10000", "1920x1080"),
+    };
+    let height = resolution.split('x').nth(1).unwrap();
+    let session = uuid::Uuid::new_v4().to_string();
+
+    let profile_extra = format!(
+        "add-limitation(scope=videoCodec&scopeName=*&type=upperBound\
+        &name=video.bitrate&value={bitrate}&replace=true)\
+        +add-limitation(scope=videoCodec&scopeName=*&type=upperBound\
+        &name=video.height&value={height}&replace=true)\
+        +append-transcode-target-codec(type=videoProfile&context=streaming\
+        &videoCodec=h264&audioCodec=aac&protocol=hls)"
+    );
+
+    let media_path = format!("/library/metadata/{}", media_id);
+    let transcode_params: Vec<(&str, &str)> = vec![
+        ("hasMDE", "1"),
+        ("path", &media_path),
+        ("mediaIndex", "0"),
+        ("partIndex", "0"),
+        ("protocol", "hls"),
+        ("fastSeek", "1"),
+        ("directPlay", "0"),
+        ("directStream", "0"),
+        ("directStreamAudio", "0"),
+        ("videoResolution", resolution),
+        ("videoQuality", "100"),
+        ("maxVideoBitrate", bitrate),
+        ("autoAdjustQuality", "0"),
+        ("subtitleSize", "100"),
+        ("audioBoost", "100"),
+        ("mediaBufferSize", "102400"),
+        ("location", "lan"),
+        ("session", &session),
+        ("X-Plex-Client-Profile-Extra", &profile_extra),
+        ("X-Plex-Token", token),
+        ("X-Plex-Client-Identifier", client_id),
+        ("X-Plex-Product", "Playarr"),
+        ("X-Plex-Platform", "Chrome"),
+    ];
+
+    // Step 1: Call the decision endpoint to update the transcode decision.
+    // Plex caches transcode decisions per client identifier; without this,
+    // start.m3u8 reuses the old quality settings.
+    let decision_url = format!("{}/video/:/transcode/universal/decision", base_url);
+    let _ = plex.http
+        .get(&decision_url)
+        .query(&transcode_params)
+        .header("Accept", "application/json")
+        .send()
+        .await;
+
+    // Step 2: Request the HLS manifest
+    let start_url = format!("{}/video/:/transcode/universal/start.m3u8", base_url);
+    let resp = plex.http
+        .get(&start_url)
+        .query(&transcode_params)
+        .send()
+        .await
+        .expect("Transcode request failed");
+
+    let actual_url = resp.url().to_string();
+    assert!(
+        resp.status().is_success(),
+        "Plex transcode returned {} for quality {}\nURL: {}",
+        resp.status(),
+        quality,
+        actual_url,
+    );
+
+    let master_m3u8 = resp.text().await.expect("Failed to read m3u8");
+
+    // Extract variant URL from master m3u8 (first non-comment, non-empty line)
+    let variant_path = master_m3u8
+        .lines()
+        .find(|line| !line.starts_with('#') && !line.is_empty())
+        .expect("No variant URL in master m3u8");
+
+    // Fetch the variant m3u8
+    let variant_url = if variant_path.starts_with("http") {
+        variant_path.to_string()
+    } else {
+        format!(
+            "{}/video/:/transcode/universal/{}",
+            base_url, variant_path
+        )
+    };
+
+    println!("  Fetching variant: {}", variant_url);
+    let variant_resp = plex.http
+        .get(&variant_url)
+        .query(&[("X-Plex-Token", token)])
+        .header("X-Plex-Client-Identifier", client_id)
+        .header("X-Plex-Product", "Playarr")
+        .send()
+        .await
+        .expect("Variant m3u8 request failed");
+
+    let variant_m3u8 = if variant_resp.status().is_success() {
+        variant_resp.text().await.unwrap_or_default()
+    } else {
+        format!("ERROR: {}", variant_resp.status())
+    };
+
+    // Extract the session base URL (e.g., session/{uuid}/base/)
+    let session_base = variant_path.trim_end_matches("index.m3u8");
+
+    // Find the first .ts segment in the variant m3u8 and fetch it to trigger
+    // the actual transcode. Plex only starts transcoding when segments are
+    // requested, not when the m3u8 playlists are fetched.
+    let first_segment = variant_m3u8
+        .lines()
+        .find(|line| line.ends_with(".ts"));
+
+    if let Some(seg) = first_segment {
+        let seg_url = format!(
+            "{}/video/:/transcode/universal/{}{}",
+            base_url, session_base, seg
+        );
+        println!("  Fetching segment to trigger transcode: {}", seg_url);
+        let seg_resp = plex.http
+            .get(&seg_url)
+            .query(&[("X-Plex-Token", token)])
+            .header("X-Plex-Client-Identifier", client_id)
+            .header("X-Plex-Product", "Playarr")
+            .send()
+            .await;
+        if let Ok(resp) = seg_resp {
+            let status = resp.status();
+            let size = resp.bytes().await.map(|b| b.len()).unwrap_or(0);
+            println!("  Segment response: status={}, size={} bytes", status, size);
+        }
+    }
+
+    // Wait for Plex to register the transcode session
+    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+
+    // Fetch active sessions to see what Plex is actually doing
+    let sessions_resp = plex.http
+        .get(&format!("{}/status/sessions", base_url))
+        .query(&[("X-Plex-Token", token)])
+        .header("Accept", "application/json")
+        .send()
+        .await
+        .expect("Sessions request failed");
+
+    let sessions_body = sessions_resp.text().await.unwrap_or_default();
+
+    // Stop the transcode session so we don't leave junk running
+    let _ = plex.http
+        .get(&format!(
+            "{}/video/:/transcode/universal/stop",
+            base_url
+        ))
+        .query(&[
+            ("session", session.as_str()),
+            ("X-Plex-Token", token),
+            ("X-Plex-Client-Identifier", client_id),
+        ])
+        .send()
+        .await;
+
+    // Small delay to let the session fully stop before the next test
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
+    TranscodeResult {
+        master_m3u8,
+        variant_m3u8,
+        sessions: sessions_body,
+        transcode_url: actual_url,
+        session_id: session,
+    }
+}
+
+#[actix_rt::test]
+#[ignore] // Requires live Plex server — run with: cargo test -- --ignored
+async fn live_plex_transcode_resolution_changes() {
+    let config = crate::config::load_config();
+    let base_url = config.plex.url.trim_end_matches('/').to_string();
+    let token = config.plex.token.clone();
+    let client_id = config.plex.client_id.clone();
+
+    assert!(!base_url.is_empty(), "Plex URL not configured");
+    assert!(!token.is_empty(), "Plex token not configured");
+
+    let shared = Arc::new(RwLock::new(config));
+    let plex = PlexClient::new(shared);
+
+    // ── Step 1: Find a video item to test with ──────────────────────────
+    let libs_req = plex.get("/library/sections").expect("build libs request");
+    let libs = plex.send_json(libs_req).await.expect("fetch libraries");
+    let sections = libs["MediaContainer"]["Directory"]
+        .as_array()
+        .expect("No libraries found");
+
+    // Find a movie or show library
+    let video_section = sections
+        .iter()
+        .find(|s| {
+            let t = s["type"].as_str().unwrap_or("");
+            t == "movie" || t == "show"
+        })
+        .expect("No movie or show library found");
+
+    let section_key = video_section["key"].as_str().unwrap();
+    let section_type = video_section["type"].as_str().unwrap();
+    println!(
+        "Using library: {} (type={}, key={})",
+        video_section["title"].as_str().unwrap_or("?"),
+        section_type,
+        section_key
+    );
+
+    // Get items from this library
+    let items_req = plex
+        .get(&format!(
+            "/library/sections/{}/all?X-Plex-Container-Start=0&X-Plex-Container-Size=5",
+            section_key
+        ))
+        .expect("build items request");
+    let items = plex.send_json(items_req).await.expect("fetch items");
+    let metadata = items["MediaContainer"]["Metadata"]
+        .as_array()
+        .expect("No items in library");
+
+    assert!(!metadata.is_empty(), "Library is empty");
+
+    // For shows, drill down to an episode
+    let media_id = if section_type == "show" {
+        let show_key = metadata[0]["ratingKey"].as_str().unwrap();
+        // Get seasons
+        let seasons_req = plex
+            .get(&format!("/library/metadata/{}/children", show_key))
+            .expect("build seasons request");
+        let seasons = plex.send_json(seasons_req).await.expect("fetch seasons");
+        let season_key = seasons["MediaContainer"]["Metadata"]
+            .as_array()
+            .and_then(|s| s.iter().find(|s| s["index"].as_i64().unwrap_or(0) > 0))
+            .expect("No seasons found")["ratingKey"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        // Get episodes
+        let eps_req = plex
+            .get(&format!("/library/metadata/{}/children", season_key))
+            .expect("build eps request");
+        let eps = plex.send_json(eps_req).await.expect("fetch episodes");
+        eps["MediaContainer"]["Metadata"]
+            .as_array()
+            .expect("No episodes")[0]["ratingKey"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    } else {
+        metadata[0]["ratingKey"].as_str().unwrap().to_string()
+    };
+
+    println!("Testing with media ratingKey: {}", media_id);
+
+    // ── Step 2: Fetch metadata to see original resolution ───────────────
+    let meta_req = plex
+        .get(&format!("/library/metadata/{}", media_id))
+        .expect("build meta request");
+    let meta = plex.send_json(meta_req).await.expect("fetch metadata");
+    let source_height = meta["MediaContainer"]["Metadata"][0]["Media"][0]["videoResolution"]
+        .as_str()
+        .unwrap_or("unknown");
+    let source_width = meta["MediaContainer"]["Metadata"][0]["Media"][0]["width"]
+        .as_i64()
+        .unwrap_or(0);
+    let source_h = meta["MediaContainer"]["Metadata"][0]["Media"][0]["height"]
+        .as_i64()
+        .unwrap_or(0);
+    println!(
+        "Source resolution: {}p ({}x{})",
+        source_height, source_width, source_h
+    );
+
+    // ── Step 3: Start transcode at 1080p ────────────────────────────────
+    println!("\n--- Requesting 1080p transcode ---");
+    let r1080 =
+        start_transcode(&plex, &base_url, &token, &client_id, &media_id, "1080p").await;
+
+    println!("1080p URL:\n  {}", r1080.transcode_url);
+    println!("1080p master m3u8:\n{}", r1080.master_m3u8);
+    println!("1080p variant m3u8 (first 500 chars):\n{}", &r1080.variant_m3u8[..r1080.variant_m3u8.len().min(500)]);
+    println!("Sessions after 1080p:\n{}", r1080.sessions);
+
+    // ── Step 4: Start transcode at 480p ─────────────────────────────────
+    println!("\n--- Requesting 480p transcode ---");
+    let r480 =
+        start_transcode(&plex, &base_url, &token, &client_id, &media_id, "480p").await;
+
+    println!("480p URL:\n  {}", r480.transcode_url);
+    println!("480p master m3u8:\n{}", r480.master_m3u8);
+    println!("480p variant m3u8 (first 500 chars):\n{}", &r480.variant_m3u8[..r480.variant_m3u8.len().min(500)]);
+    println!("Sessions after 480p:\n{}", r480.sessions);
+
+    // ── Step 5: Parse and compare ───────────────────────────────────────
+    fn extract_resolution(m3u8: &str) -> Option<String> {
+        for line in m3u8.lines() {
+            if line.contains("RESOLUTION=") {
+                let res = line
+                    .split("RESOLUTION=")
+                    .nth(1)?
+                    .split(|c: char| c == ',' || c.is_whitespace())
+                    .next()?;
+                return Some(res.to_string());
+            }
+        }
+        None
+    }
+
+    fn extract_bandwidth(m3u8: &str) -> Option<u64> {
+        for line in m3u8.lines() {
+            if line.contains("BANDWIDTH=") {
+                let bw = line
+                    .split("BANDWIDTH=")
+                    .nth(1)?
+                    .split(|c: char| c == ',' || c.is_whitespace())
+                    .next()?;
+                return bw.parse().ok();
+            }
+        }
+        None
+    }
+
+    /// Extract transcode session info from Plex /status/sessions response
+    fn extract_session_info(sessions_json: &str) -> Vec<serde_json::Value> {
+        let parsed: serde_json::Value =
+            serde_json::from_str(sessions_json).unwrap_or(json!({}));
+        parsed["MediaContainer"]["Metadata"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    let res_1080 = extract_resolution(&r1080.master_m3u8);
+    let res_480 = extract_resolution(&r480.master_m3u8);
+    let bw_1080 = extract_bandwidth(&r1080.master_m3u8);
+    let bw_480 = extract_bandwidth(&r480.master_m3u8);
+
+    println!("\n=== MASTER M3U8 RESULTS ===");
+    println!("1080p: resolution={:?}, bandwidth={:?}", res_1080, bw_1080);
+    println!("480p:  resolution={:?}, bandwidth={:?}", res_480, bw_480);
+
+    let sessions_1080 = extract_session_info(&r1080.sessions);
+    let sessions_480 = extract_session_info(&r480.sessions);
+
+    println!("\n=== SESSION INFO ===");
+    for s in &sessions_1080 {
+        println!("1080p session: videoDecision={}, width={}, height={}, throttled={}, speed={}",
+            s["TranscodeSession"]["videoDecision"],
+            s["TranscodeSession"]["width"],
+            s["TranscodeSession"]["height"],
+            s["TranscodeSession"]["throttled"],
+            s["TranscodeSession"]["speed"],
+        );
+    }
+    for s in &sessions_480 {
+        println!("480p session:  videoDecision={}, width={}, height={}, throttled={}, speed={}",
+            s["TranscodeSession"]["videoDecision"],
+            s["TranscodeSession"]["width"],
+            s["TranscodeSession"]["height"],
+            s["TranscodeSession"]["throttled"],
+            s["TranscodeSession"]["speed"],
+        );
+    }
+
+    // Primary assertion: master m3u8 should show different resolutions/bandwidths
+    let has_resolution_info = res_1080.is_some() && res_480.is_some();
+    if has_resolution_info {
+        assert_ne!(
+            res_1080.as_deref(),
+            res_480.as_deref(),
+            "Master m3u8 resolutions should differ: 1080p={:?}, 480p={:?}",
+            res_1080,
+            res_480
+        );
+    }
+
+    if let (Some(bw1), Some(bw2)) = (bw_1080, bw_480) {
+        assert!(
+            bw1 > bw2,
+            "Expected 1080p bandwidth ({}) > 480p bandwidth ({})",
+            bw1,
+            bw2
+        );
+    }
+
+    // Fallback: if master m3u8 doesn't differ, check sessions
+    if !has_resolution_info || res_1080 == res_480 {
+        // At least one session should have been captured and show "transcode" decision
+        let any_transcode = sessions_480.iter().any(|s| {
+            s["TranscodeSession"]["videoDecision"].as_str() == Some("transcode")
+        });
+        assert!(
+            any_transcode,
+            "No transcode sessions detected for 480p. Plex is ignoring quality parameters.\n\
+            Sessions 480p: {:?}",
+            sessions_480
+        );
+    }
+}
+
