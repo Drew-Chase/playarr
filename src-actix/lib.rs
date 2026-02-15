@@ -24,7 +24,7 @@ mod tests;
 pub static DEBUG: bool = cfg!(debug_assertions);
 
 pub async fn run() -> Result<()> {
-    let port: u16 = std::env::var("port")
+    let port: u16 = std::env::var("PLAYARR_PORT")
         .unwrap_or("8080".to_string())
         .parse()
         .unwrap_or(8080);
@@ -36,6 +36,8 @@ pub async fn run() -> Result<()> {
         })
         .format_timestamp(None)
         .init();
+
+    info!("Starting PlayServer v{}...", env!("CARGO_PKG_VERSION"));
 
     // Initialize shared state
     let shared_config = config::init_shared_config();

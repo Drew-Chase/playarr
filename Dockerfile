@@ -17,10 +17,10 @@ RUN TMDB_API_KEY=${TMDB_API_KEY} cargo build --release
 RUN strip target/release/playarr
 
 FROM alpine:latest
-ENV PORT=3698
+ENV PLAYARR_PORT=3698
 RUN mkdir -p /app
 COPY --from=builder /build/target/release/playarr /app/playarr
 RUN chmod +x /app/playarr
 WORKDIR /app
 EXPOSE 3698
-ENTRYPOINT ["/app/playarr"]
+CMD /app/playarr
