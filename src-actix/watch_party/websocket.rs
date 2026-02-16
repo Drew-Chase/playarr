@@ -25,7 +25,7 @@ pub enum WsMessage {
         media_id: String,
     },
     #[serde(rename = "heartbeat")]
-    Heartbeat { server_time: f64, timestamp: u64 },
+    Heartbeat { server_time: f64, timestamp: u64, media_id: String },
     #[serde(rename = "next_episode")]
     NextEpisode,
     #[serde(rename = "queue_add")]
@@ -185,8 +185,11 @@ async fn handle_ws_messages(
                 if let Ok(ws_msg) = serde_json::from_str::<WsMessage>(&text) {
                     match ws_msg {
                         WsMessage::Play { position_ms, .. } => {
+                            rooms.remove_buffering_user(&room_id, user_id);
                             rooms.update_position(&room_id, position_ms);
-                            rooms.set_status(&room_id, RoomStatus::Watching);
+                            if !rooms.has_buffering_users(&room_id) {
+                                rooms.set_status(&room_id, RoomStatus::Watching);
+                            }
                             rooms.broadcast_except(&room_id, &WsMessage::Play { position_ms, user_id }, user_id).await;
                         }
                         WsMessage::Pause { position_ms, .. } => {
@@ -218,14 +221,16 @@ async fn handle_ws_messages(
                             }
                         }
                         WsMessage::MediaChange { media_id, title, duration_ms } => {
-                            rooms.set_media(&room_id, media_id.clone(), title.clone(), duration_ms);
-                            rooms.broadcast(&room_id, &WsMessage::MediaChange {
-                                media_id: media_id.clone(), title, duration_ms,
-                            }).await;
-                            rooms.broadcast(&room_id, &WsMessage::Navigate {
-                                media_id: media_id.clone(),
-                                route: format!("/player/{}", media_id),
-                            }).await;
+                            // Only process if the media actually changed (prevents duplicate resets)
+                            if rooms.set_media_if_changed(&room_id, media_id.clone(), title.clone(), duration_ms) {
+                                rooms.broadcast(&room_id, &WsMessage::MediaChange {
+                                    media_id: media_id.clone(), title, duration_ms,
+                                }).await;
+                                rooms.broadcast(&room_id, &WsMessage::Navigate {
+                                    media_id: media_id.clone(),
+                                    route: format!("/player/{}", media_id),
+                                }).await;
+                            }
                         }
                         WsMessage::NextEpisode => {
                             if rooms.is_host(&room_id, user_id) {
@@ -264,6 +269,8 @@ async fn handle_ws_messages(
                             }
                         }
                         WsMessage::Buffering { .. } => {
+                            rooms.add_buffering_user(&room_id, user_id);
+                            rooms.set_status(&room_id, RoomStatus::Buffering);
                             rooms.broadcast_except(&room_id, &WsMessage::Buffering { user_id }, user_id).await;
                         }
                         WsMessage::Ready { .. } => {
@@ -289,6 +296,16 @@ async fn handle_ws_messages(
 
     // Cleanup on disconnect
     rooms.remove_connection(&room_id, user_id);
+
+    // Remove from buffering set; if they were the last buffering user, resume playback
+    rooms.remove_buffering_user(&room_id, user_id);
+    if !rooms.has_buffering_users(&room_id) {
+        if let Some(room) = rooms.get_room(&room_id) {
+            if room.status == RoomStatus::Buffering {
+                rooms.set_status(&room_id, RoomStatus::Watching);
+            }
+        }
+    }
 
     // Re-check ready state: if the disconnecting user was the last holdout, trigger AllReady
     if rooms.check_all_ready(&room_id) {

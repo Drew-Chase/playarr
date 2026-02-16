@@ -33,10 +33,13 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const scrobbledRef = useRef(false);
     const isTransitioningRef = useRef(false);
     const syncFromPartyRef = useRef(false);
-    const waitingForAllReadyRef = useRef(false);
-    const lastReadyMediaRef = useRef<string>("");
     const remoteRef = useRef({ t: 0, playing: false, m: performance.now() });
     const rateTimerRef = useRef<number | null>(null);
+    const prevRatingKeyRef = useRef<string>("");
+    const currentRatingKeyRef = useRef<string>(item.ratingKey);
+    const bufferingUsersRef = useRef<Set<number>>(new Set());
+    const bufferingTimerRef = useRef<number | null>(null);
+    const localBufferingRef = useRef(false);
 
     const durationRef = useRef<number>(0);
 
@@ -51,8 +54,8 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const [quality, setQuality] = useState("original");
     const [bifData, setBifData] = useState<BifData | null>(null);
     const [showQueue, setShowQueue] = useState(false);
-    const [isWaitingForReady, setIsWaitingForReady] = useState(false);
     const [isSeeking, setIsSeeking] = useState(false);
+    const [bufferingUsers, setBufferingUsers] = useState<Set<number>>(new Set());
     const [syncStatus, setSyncStatus] = useState<"in_sync" | "syncing" | "disconnected">("in_sync");
     const [displayRate, setDisplayRate] = useState(1);
 
@@ -97,6 +100,9 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         return () => { cancelled = true; };
     }, [item.ratingKey]);
 
+    // Keep current ratingKey ref in sync
+    currentRatingKeyRef.current = item.ratingKey;
+
     // Reset state when item changes
     useEffect(() => {
         savedPositionRef.current = 0;
@@ -104,12 +110,21 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         setCurrentTime(0);
         setDuration(0);
         remoteRef.current = { t: 0, playing: false, m: performance.now() };
+        bufferingUsersRef.current = new Set();
+        setBufferingUsers(new Set());
+        localBufferingRef.current = false;
+        if (bufferingTimerRef.current) {
+            clearTimeout(bufferingTimerRef.current);
+            bufferingTimerRef.current = null;
+        }
     }, [item.ratingKey]);
 
     // Load stream
     useEffect(() => {
+        const isQualityChange = prevRatingKeyRef.current === item.ratingKey && prevRatingKeyRef.current !== "";
+        prevRatingKeyRef.current = item.ratingKey;
         const abortController = new AbortController();
-        loadStream(abortController.signal);
+        loadStream(abortController.signal, isQualityChange);
         return () => {
             isTransitioningRef.current = true;
             abortController.abort();
@@ -117,7 +132,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         };
     }, [item.ratingKey, quality]);
 
-    const loadStream = async (signal?: AbortSignal) => {
+    const loadStream = async (signal?: AbortSignal, isQualityChange = false) => {
         const video = videoRef.current;
 
         // Use saved position for quality changes; for new episodes in a party, start from 0
@@ -175,6 +190,14 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         video.load();
         cleanup();
 
+        // Decide whether to auto-play after loading:
+        // - Quality change in a party: respect current remote play/pause state
+        // - New episode / not in party: always auto-play
+        const shouldAutoPlay = () => {
+            if (!isInParty || !isQualityChange) return true;
+            return remoteRef.current.playing;
+        };
+
         if ((info.type === "hls" || info.type === "directstream") && Hls.isSupported()) {
             const hls = new Hls({
                 startPosition: resumePosition,
@@ -184,17 +207,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             hls.attachMedia(video);
             hls.on(Hls.Events.MANIFEST_PARSED, () => {
                 isTransitioningRef.current = false;
-                if (isInParty && watchParty && item.ratingKey !== lastReadyMediaRef.current) {
-                    lastReadyMediaRef.current = item.ratingKey;
-                    // Only do ready-check for episode transitions (room not already playing)
-                    if (watchParty.activeRoom?.status !== "watching") {
-                        waitingForAllReadyRef.current = true;
-                        setIsWaitingForReady(true);
-                        watchParty.sendReady();
-                    } else {
-                        video.play().catch(() => {});
-                    }
-                } else {
+                if (shouldAutoPlay()) {
                     video.play().catch(() => {});
                 }
             });
@@ -220,16 +233,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             video.src = info.url;
             video.currentTime = resumePosition;
             isTransitioningRef.current = false;
-            if (isInParty && watchParty && item.ratingKey !== lastReadyMediaRef.current) {
-                lastReadyMediaRef.current = item.ratingKey;
-                if (watchParty.activeRoom?.status !== "watching") {
-                    waitingForAllReadyRef.current = true;
-                    setIsWaitingForReady(true);
-                    watchParty.sendReady();
-                } else {
-                    video.play().catch(() => {});
-                }
-            } else {
+            if (shouldAutoPlay()) {
                 video.play().catch(() => {});
             }
         }
@@ -330,7 +334,14 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     // Apply sync: proportional rate correction or hard seek
     const applySync = useCallback(() => {
         const video = videoRef.current;
-        if (!video || waitingForAllReadyRef.current) return;
+        if (!video) return;
+
+        // If anyone is buffering, keep video paused and don't sync
+        if (bufferingUsersRef.current.size > 0) {
+            if (!video.paused) video.pause();
+            setSyncStatus("syncing");
+            return;
+        }
 
         const target = rTarget();
         const diff = target - video.currentTime;
@@ -375,17 +386,29 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             syncFromPartyRef.current = true;
             switch (msg.type) {
                 case "heartbeat":
+                    // Check media_id: if we're on the wrong episode, navigate
+                    if (msg.media_id && msg.media_id !== currentRatingKeyRef.current) {
+                        navigate(`/player/${msg.media_id}`, {replace: true});
+                        break;
+                    }
                     remoteRef.current.t = msg.server_time;
                     remoteRef.current.m = performance.now();
                     remoteRef.current.playing = true;
                     applySync();
                     break;
-                case "play":
+                case "play": {
+                    // Clear this user from buffering set if they were buffering
+                    const uid = msg.user_id;
+                    if (uid && bufferingUsersRef.current.has(uid)) {
+                        bufferingUsersRef.current.delete(uid);
+                        setBufferingUsers(new Set(bufferingUsersRef.current));
+                    }
                     remoteRef.current.t = msg.position_ms / 1000;
                     remoteRef.current.playing = true;
                     remoteRef.current.m = performance.now();
                     applySync();
                     break;
+                }
                 case "pause":
                     remoteRef.current.t = msg.position_ms / 1000;
                     remoteRef.current.playing = false;
@@ -403,9 +426,18 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                     remoteRef.current.m = performance.now();
                     applySync();
                     break;
+                case "buffering": {
+                    // Another user is buffering: pause our video, show who's buffering
+                    const buid = msg.user_id;
+                    if (buid) {
+                        bufferingUsersRef.current.add(buid);
+                        setBufferingUsers(new Set(bufferingUsersRef.current));
+                    }
+                    if (!video.paused) video.pause();
+                    break;
+                }
                 case "all_ready":
-                    waitingForAllReadyRef.current = false;
-                    setIsWaitingForReady(false);
+                    // Legacy: still handle in case server sends it
                     video.currentTime = 0;
                     video.play().catch(() => {});
                     break;
@@ -417,7 +449,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         return () => {
             watchParty.onPlayerEvent.current = null;
         };
-    }, [watchParty, isInParty, applySync]);
+    }, [watchParty, isInParty, applySync, navigate]);
 
     // Watch party: notify room of current media (resets position to 0, status to idle)
     // Any member can change media, not just the host
@@ -603,11 +635,33 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 onError={handleVideoError}
                 onSeeking={() => setIsSeeking(true)}
                 onSeeked={() => setIsSeeking(false)}
-                onCanPlay={() => setIsSeeking(false)}
+                onCanPlay={() => {
+                    setIsSeeking(false);
+                    // Cancel pending buffering send
+                    if (bufferingTimerRef.current) {
+                        clearTimeout(bufferingTimerRef.current);
+                        bufferingTimerRef.current = null;
+                    }
+                    // If we sent a buffering message, notify recovery
+                    if (isInParty && watchParty && localBufferingRef.current) {
+                        localBufferingRef.current = false;
+                        const video = videoRef.current;
+                        if (video) {
+                            watchParty.sendPlay(Math.floor(video.currentTime * 1000));
+                        }
+                    }
+                }}
                 onWaiting={() => {
                     setIsSeeking(true);
-                    if (isInParty && watchParty && !waitingForAllReadyRef.current) {
-                        watchParty.sendBuffering();
+                    // Only send buffering after 1s of continuous waiting (avoid spam from seeks)
+                    if (isInParty && watchParty && !isTransitioningRef.current && !localBufferingRef.current) {
+                        if (!bufferingTimerRef.current) {
+                            bufferingTimerRef.current = window.setTimeout(() => {
+                                watchParty.sendBuffering();
+                                localBufferingRef.current = true;
+                                bufferingTimerRef.current = null;
+                            }, 1000);
+                        }
                     }
                 }}
                 onEnded={() => {
@@ -636,7 +690,12 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 onBack={() => navigate("/")}
                 isInParty={isInParty}
                 participantCount={watchParty?.activeRoom?.participants.length ?? 0}
-                isWaitingForReady={isWaitingForReady}
+                bufferingUsernames={isInParty
+                    ? [...bufferingUsers].map(uid =>
+                        watchParty?.activeRoom?.participants.find(p => p.user_id === uid)?.username ?? "Someone"
+                    )
+                    : []
+                }
                 isSeeking={isSeeking}
             />
 
@@ -661,6 +720,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 isInParty={isInParty}
                 participants={watchParty?.activeRoom?.participants}
                 hostUserId={watchParty?.activeRoom?.host_user_id}
+                bufferingUsers={isInParty ? bufferingUsers : undefined}
                 onToggleQueue={(episodes?.length || isInParty) ? () => setShowQueue(q => !q) : undefined}
                 onNext={onNext}
                 onPrevious={onPrevious}

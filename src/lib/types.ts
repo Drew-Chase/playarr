@@ -313,7 +313,7 @@ export type WsMessage =
     | { type: "buffering"; user_id: number }
     | { type: "ready"; user_id: number }
     | { type: "all_ready" }
-    | { type: "heartbeat"; server_time: number; timestamp: number }
+    | { type: "heartbeat"; server_time: number; timestamp: number; media_id: string }
     | { type: "error"; message: string };
 
 // TMDB types

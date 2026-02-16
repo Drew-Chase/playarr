@@ -49,7 +49,7 @@ pub async fn run() -> Result<()> {
     let room_manager = web::Data::new(watch_party::room::RoomManager::new());
     let config_data = web::Data::new(shared_config);
 
-    // Spawn heartbeat task: every 500ms, broadcast server time to all playing rooms
+    // Spawn heartbeat task: every 500ms, broadcast server time + media_id to all playing rooms
     let hb_rooms = room_manager.clone();
     actix_web::rt::spawn(async move {
         let mut interval = actix_web::rt::time::interval(std::time::Duration::from_millis(500));
@@ -57,10 +57,11 @@ pub async fn run() -> Result<()> {
             interval.tick().await;
             let ticks = hb_rooms.heartbeat_tick();
             let now = chrono::Utc::now().timestamp_millis() as u64;
-            for (room_id, server_time) in ticks {
+            for (room_id, server_time, media_id) in ticks {
                 hb_rooms.broadcast(&room_id, &WsMessage::Heartbeat {
                     server_time,
                     timestamp: now,
+                    media_id,
                 }).await;
             }
         }

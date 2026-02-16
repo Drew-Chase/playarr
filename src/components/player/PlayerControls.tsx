@@ -29,6 +29,7 @@ interface PlayerControlsProps {
     isInParty?: boolean;
     participants?: WatchPartyParticipant[];
     hostUserId?: number;
+    bufferingUsers?: Set<number>;
     onToggleQueue?: () => void;
     onNext?: () => void;
     onPrevious?: () => void;
@@ -59,6 +60,7 @@ export default function PlayerControls({
     isInParty,
     participants,
     hostUserId,
+    bufferingUsers,
     onToggleQueue,
     onNext,
     onPrevious,
@@ -186,7 +188,7 @@ export default function PlayerControls({
                     )}
                     <QualitySelector quality={quality} onQualityChange={onQualityChange}/>
                     {isInParty && participants && hostUserId !== undefined && (
-                        <ParticipantsPopover participants={participants} hostUserId={hostUserId}/>
+                        <ParticipantsPopover participants={participants} hostUserId={hostUserId} bufferingUsers={bufferingUsers}/>
                     )}
                     {onToggleQueue && (
                         <Button

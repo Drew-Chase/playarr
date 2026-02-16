@@ -9,11 +9,11 @@ interface PlayerOverlayProps {
     onBack: () => void;
     isInParty?: boolean;
     participantCount?: number;
-    isWaitingForReady?: boolean;
+    bufferingUsernames?: string[];
     isSeeking?: boolean;
 }
 
-export default function PlayerOverlay({item, visible, onBack, isInParty, participantCount, isWaitingForReady, isSeeking}: PlayerOverlayProps) {
+export default function PlayerOverlay({item, visible, onBack, isInParty, participantCount, bufferingUsernames, isSeeking}: PlayerOverlayProps) {
     return (
         <>
             <div
@@ -53,13 +53,15 @@ export default function PlayerOverlay({item, visible, onBack, isInParty, partici
                     )}
                 </div>
             </div>
-            {isWaitingForReady && (
+            {bufferingUsernames && bufferingUsernames.length > 0 && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-20">
                     <Spinner size="lg" color="white"/>
-                    <span className="text-white mt-4 text-sm">Waiting for everyone to load...</span>
+                    <span className="text-white mt-4 text-sm">
+                        {bufferingUsernames.join(", ")} {bufferingUsernames.length === 1 ? "is" : "are"} buffering...
+                    </span>
                 </div>
             )}
-            {isSeeking && !isWaitingForReady && (
+            {isSeeking && !(bufferingUsernames && bufferingUsernames.length > 0) && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-15">
                     <Spinner size="lg" color="white"/>
                 </div>

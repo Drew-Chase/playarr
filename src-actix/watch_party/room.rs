@@ -48,6 +48,7 @@ pub struct RoomState {
     pub participants: Vec<Participant>,
     pub episode_queue: Vec<String>,
     pub ready_users: HashSet<i64>,
+    pub buffering_users: HashSet<i64>,
     pub last_update_ms: u64,
     pub created_at: chrono::DateTime<chrono::Utc>,
 }
@@ -112,6 +113,7 @@ impl RoomManager {
             participants: vec![host],
             episode_queue: Vec::new(),
             ready_users: HashSet::new(),
+            buffering_users: HashSet::new(),
             last_update_ms: chrono::Utc::now().timestamp_millis() as u64,
             created_at: chrono::Utc::now(),
         };
@@ -229,8 +231,29 @@ impl RoomManager {
             room.position_ms = 0;
             room.status = RoomStatus::Idle;
             room.ready_users.clear();
+            room.buffering_users.clear();
             room.last_update_ms = chrono::Utc::now().timestamp_millis() as u64;
         }
+    }
+
+    /// Like set_media but only applies if the media_id actually changed.
+    /// Returns true if the media was changed, false if it was already the same.
+    pub fn set_media_if_changed(&self, room_id: &Uuid, media_id: String, title: Option<String>, duration_ms: u64) -> bool {
+        if let Some(mut room) = self.rooms.get_mut(room_id) {
+            if room.media_id == media_id {
+                return false;
+            }
+            room.media_id = media_id;
+            room.media_title = title;
+            room.duration_ms = duration_ms;
+            room.position_ms = 0;
+            room.status = RoomStatus::Idle;
+            room.ready_users.clear();
+            room.buffering_users.clear();
+            room.last_update_ms = chrono::Utc::now().timestamp_millis() as u64;
+            return true;
+        }
+        false
     }
 
     pub fn add_to_queue(&self, room_id: &Uuid, media_id: String) {
@@ -255,6 +278,7 @@ impl RoomManager {
                 room.position_ms = 0;
                 room.status = RoomStatus::Idle;
                 room.ready_users.clear();
+                room.buffering_users.clear();
                 room.last_update_ms = chrono::Utc::now().timestamp_millis() as u64;
                 return Some(next);
             }
@@ -297,6 +321,27 @@ impl RoomManager {
         }
     }
 
+    /// Add a user to the buffering set.
+    pub fn add_buffering_user(&self, room_id: &Uuid, user_id: i64) {
+        if let Some(mut room) = self.rooms.get_mut(room_id) {
+            room.buffering_users.insert(user_id);
+        }
+    }
+
+    /// Remove a user from the buffering set.
+    pub fn remove_buffering_user(&self, room_id: &Uuid, user_id: i64) {
+        if let Some(mut room) = self.rooms.get_mut(room_id) {
+            room.buffering_users.remove(&user_id);
+        }
+    }
+
+    /// Check if any users are currently buffering.
+    pub fn has_buffering_users(&self, room_id: &Uuid) -> bool {
+        self.rooms.get(room_id)
+            .map(|r| !r.buffering_users.is_empty())
+            .unwrap_or(false)
+    }
+
     /// Check if all connected users are ready (used after disconnect to re-check).
     pub fn check_all_ready(&self, room_id: &Uuid) -> bool {
         if let Some(room) = self.rooms.get(room_id) {
@@ -326,9 +371,9 @@ impl RoomManager {
     }
 
     /// Called every 500ms by the heartbeat task.
-    /// Returns (room_id, computed_position_secs) for all rooms currently playing.
+    /// Returns (room_id, computed_position_secs, media_id) for all rooms currently playing.
     /// Also snapshots position_ms to prevent drift accumulation.
-    pub fn heartbeat_tick(&self) -> Vec<(Uuid, f64)> {
+    pub fn heartbeat_tick(&self) -> Vec<(Uuid, f64, String)> {
         let now = chrono::Utc::now().timestamp_millis() as u64;
         let mut results = Vec::new();
         for mut entry in self.rooms.iter_mut() {
@@ -342,10 +387,11 @@ impl RoomManager {
             // Snapshot to prevent accumulation drift
             room.position_ms = position_ms;
             room.last_update_ms = now;
-            results.push((room_id, position_ms as f64 / 1000.0));
+            let media_id = room.media_id.clone();
+            results.push((room_id, position_ms as f64 / 1000.0, media_id));
         }
         // Filter to rooms that have connections
-        results.retain(|(id, _)| {
+        results.retain(|(id, _, _)| {
             self.connections.get(id).is_some_and(|c| !c.is_empty())
         });
         results
