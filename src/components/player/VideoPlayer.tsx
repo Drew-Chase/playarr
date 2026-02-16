@@ -62,6 +62,12 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const isInParty = watchParty?.isInParty ?? false;
     const isHost = watchParty?.isHost ?? false;
 
+    // Refs for unmount-only cleanup (avoid stale closures)
+    const watchPartyRef = useRef(watchParty);
+    watchPartyRef.current = watchParty;
+    const isInPartyRef = useRef(isInParty);
+    isInPartyRef.current = isInParty;
+
     // Get available streams
     const subtitleStreams: PlexStream[] = [];
     const audioStreams: PlexStream[] = [];
@@ -289,6 +295,15 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             }
         };
     }, [item.ratingKey, item.key, isGuest]);
+
+    // Pause watch party on true component unmount only (not on episode transitions)
+    useEffect(() => {
+        return () => {
+            if (isInPartyRef.current && watchPartyRef.current) {
+                watchPartyRef.current.sendPause(Math.floor(savedPositionRef.current * 1000));
+            }
+        };
+    }, []);
 
     // Send stop signal on browser close/refresh (skip for guests)
     useEffect(() => {

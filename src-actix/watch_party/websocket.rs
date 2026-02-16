@@ -297,15 +297,15 @@ async fn handle_ws_messages(
     // Cleanup on disconnect
     rooms.remove_connection(&room_id, user_id);
 
-    // Remove from buffering set; if they were the last buffering user, resume playback
-    rooms.remove_buffering_user(&room_id, user_id);
-    if !rooms.has_buffering_users(&room_id) {
-        if let Some(room) = rooms.get_room(&room_id) {
-            if room.status == RoomStatus::Buffering {
-                rooms.set_status(&room_id, RoomStatus::Watching);
-            }
-        }
+    // Pause the room so remaining members don't continue without this user
+    let position_ms = rooms.get_room(&room_id).map(|r| r.position_ms).unwrap_or(0);
+    if rooms.get_room(&room_id).is_some_and(|r| r.status == RoomStatus::Watching || r.status == RoomStatus::Buffering) {
+        rooms.set_status(&room_id, RoomStatus::Paused);
+        rooms.broadcast(&room_id, &WsMessage::Pause { position_ms, user_id }).await;
     }
+
+    // Remove from buffering set
+    rooms.remove_buffering_user(&room_id, user_id);
 
     // Re-check ready state: if the disconnecting user was the last holdout, trigger AllReady
     if rooms.check_all_ready(&room_id) {
