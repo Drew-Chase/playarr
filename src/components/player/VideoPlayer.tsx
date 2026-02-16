@@ -120,12 +120,10 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const loadStream = async (signal?: AbortSignal) => {
         const video = videoRef.current;
 
-        // In a watch party, always start from the beginning for new episodes
-        const resumePosition = isInParty
-            ? 0
-            : (savedPositionRef.current > 0
-                ? savedPositionRef.current
-                : (item.viewOffset ? item.viewOffset / 1000 : 0));
+        // Use saved position for quality changes; for new episodes in a party, start from 0
+        const resumePosition = savedPositionRef.current > 0
+            ? savedPositionRef.current
+            : (isInParty ? 0 : (item.viewOffset ? item.viewOffset / 1000 : 0));
 
         let info: StreamInfo;
 
@@ -421,9 +419,10 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         };
     }, [watchParty, isInParty, applySync]);
 
-    // Watch party: host notifies room of current media (resets position to 0, status to idle)
+    // Watch party: notify room of current media (resets position to 0, status to idle)
+    // Any member can change media, not just the host
     useEffect(() => {
-        if (isInParty && isHost && watchParty) {
+        if (isInParty && watchParty) {
             watchParty.sendMediaChange(item.ratingKey, item.title, item.duration);
         }
     }, [item.ratingKey]);
@@ -673,7 +672,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
 
             {isInParty && watchParty?.activeRoom && (
                 <WatchQueuePanel
-                    isOpen={showQueue}
+                    isOpen={showQueue && !(episodes && episodes.length > 0)}
                     onClose={() => setShowQueue(false)}
                     queue={watchParty.activeRoom.episode_queue}
                     isHost={isHost}
@@ -682,7 +681,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 />
             )}
 
-            {!isInParty && episodes && episodes.length > 0 && (
+            {episodes && episodes.length > 0 && (
                 <EpisodeQueuePanel
                     isOpen={showQueue}
                     onClose={() => setShowQueue(false)}

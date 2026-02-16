@@ -218,20 +218,14 @@ async fn handle_ws_messages(
                             }
                         }
                         WsMessage::MediaChange { media_id, title, duration_ms } => {
-                            if rooms.is_host(&room_id, user_id) {
-                                rooms.set_media(&room_id, media_id.clone(), title.clone(), duration_ms);
-                                rooms.broadcast(&room_id, &WsMessage::MediaChange {
-                                    media_id: media_id.clone(), title, duration_ms,
-                                }).await;
-                                rooms.broadcast(&room_id, &WsMessage::Navigate {
-                                    media_id: media_id.clone(),
-                                    route: format!("/player/{}", media_id),
-                                }).await;
-                            } else {
-                                rooms.send_to_user(&room_id, user_id, &WsMessage::Error {
-                                    message: "Only the host can change media".to_string(),
-                                }).await;
-                            }
+                            rooms.set_media(&room_id, media_id.clone(), title.clone(), duration_ms);
+                            rooms.broadcast(&room_id, &WsMessage::MediaChange {
+                                media_id: media_id.clone(), title, duration_ms,
+                            }).await;
+                            rooms.broadcast(&room_id, &WsMessage::Navigate {
+                                media_id: media_id.clone(),
+                                route: format!("/player/{}", media_id),
+                            }).await;
                         }
                         WsMessage::NextEpisode => {
                             if rooms.is_host(&room_id, user_id) {
