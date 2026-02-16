@@ -28,6 +28,9 @@ export default function EpisodeQueuePanel({
         }
     }, [isOpen]);
 
+    // Track season boundaries for headers
+    let lastSeason: number | undefined;
+
     return (
         <AnimatePresence>
             {isOpen && (
@@ -49,48 +52,58 @@ export default function EpisodeQueuePanel({
                         {episodes.map((episode) => {
                             const isCurrent = episode.ratingKey === currentRatingKey;
                             const thumbUrl = episode.thumb ? `/api/media/${episode.ratingKey}/thumb` : "";
+                            const showSeasonHeader = episode.parentIndex !== undefined && episode.parentIndex !== lastSeason;
+                            if (episode.parentIndex !== undefined) lastSeason = episode.parentIndex;
 
                             return (
-                                <div
-                                    key={episode.ratingKey}
-                                    ref={isCurrent ? currentRef : undefined}
-                                    className={`flex gap-3 p-3 cursor-pointer hover:bg-content2 transition-colors ${
-                                        isCurrent ? "bg-primary/20 border-l-3 border-primary" : ""
-                                    }`}
-                                    onClick={() => {
-                                        if (!isCurrent) onSelectEpisode(episode.ratingKey);
-                                    }}
-                                >
-                                    {/* Thumbnail */}
-                                    <div className="relative w-28 min-w-[7rem] aspect-video rounded overflow-hidden bg-content3">
-                                        {thumbUrl ? (
-                                            <img
-                                                src={thumbUrl}
-                                                alt={episode.title}
-                                                className="object-cover w-full h-full"
-                                                loading="lazy"
-                                            />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center">
-                                                <Icon icon="mdi:television" width="24" className="text-default-400"/>
-                                            </div>
-                                        )}
-                                        {isCurrent && (
-                                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                                                <Icon icon="mdi:play" width="24" className="text-white"/>
-                                            </div>
-                                        )}
-                                    </div>
+                                <div key={episode.ratingKey}>
+                                    {showSeasonHeader && (
+                                        <div className="px-4 py-2 bg-content2/50 border-b border-divider sticky top-0 z-10">
+                                            <span className="text-xs font-semibold text-default-500 uppercase">
+                                                Season {episode.parentIndex}
+                                            </span>
+                                        </div>
+                                    )}
+                                    <div
+                                        ref={isCurrent ? currentRef : undefined}
+                                        className={`flex gap-3 p-3 cursor-pointer hover:bg-content2 transition-colors ${
+                                            isCurrent ? "bg-primary/20 border-l-3 border-primary" : ""
+                                        }`}
+                                        onClick={() => {
+                                            if (!isCurrent) onSelectEpisode(episode.ratingKey);
+                                        }}
+                                    >
+                                        {/* Thumbnail */}
+                                        <div className="relative w-28 min-w-[7rem] aspect-video rounded overflow-hidden bg-content3">
+                                            {thumbUrl ? (
+                                                <img
+                                                    src={thumbUrl}
+                                                    alt={episode.title}
+                                                    className="object-cover w-full h-full"
+                                                    loading="lazy"
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center">
+                                                    <Icon icon="mdi:television" width="24" className="text-default-400"/>
+                                                </div>
+                                            )}
+                                            {isCurrent && (
+                                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                                    <Icon icon="mdi:play" width="24" className="text-white"/>
+                                                </div>
+                                            )}
+                                        </div>
 
-                                    {/* Info */}
-                                    <div className="flex-1 min-w-0 py-0.5">
-                                        <p className="text-xs text-default-400">
-                                            E{episode.index?.toString().padStart(2, "0")}
-                                            {episode.duration ? ` · ${formatDuration(episode.duration)}` : ""}
-                                        </p>
-                                        <p className={`text-sm truncate ${isCurrent ? "font-semibold text-primary" : ""}`}>
-                                            {episode.title}
-                                        </p>
+                                        {/* Info */}
+                                        <div className="flex-1 min-w-0 py-0.5">
+                                            <p className="text-xs text-default-400">
+                                                S{episode.parentIndex?.toString().padStart(2, "0")}E{episode.index?.toString().padStart(2, "0")}
+                                                {episode.duration ? ` · ${formatDuration(episode.duration)}` : ""}
+                                            </p>
+                                            <p className={`text-sm truncate ${isCurrent ? "font-semibold text-primary" : ""}`}>
+                                                {episode.title}
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
                             );

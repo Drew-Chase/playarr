@@ -31,6 +31,18 @@ async fn get_children(
     Ok(HttpResponse::Ok().json(&body["MediaContainer"]["Metadata"]))
 }
 
+#[get("/{id}/allLeaves")]
+async fn get_all_leaves(
+    req: HttpRequest,
+    plex: web::Data<PlexClient>,
+    path: web::Path<String>,
+) -> Result<impl Responder> {
+    let id = path.into_inner();
+    let user_token = PlexClient::user_token_from_request(&req).unwrap_or_default();
+    let body = plex.get_json_as_user(&format!("/library/metadata/{}/allLeaves", id), &user_token, &[]).await?;
+    Ok(HttpResponse::Ok().json(&body["MediaContainer"]["Metadata"]))
+}
+
 #[get("/{id}/related")]
 async fn get_related(
     plex: web::Data<PlexClient>,
@@ -492,6 +504,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
             .service(get_thumb)
             .service(get_art)
             .service(get_children)
+            .service(get_all_leaves)
             .service(get_related)
             .service(get_metadata),
     );

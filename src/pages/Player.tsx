@@ -1,7 +1,7 @@
 import {useMemo, useRef} from "react";
 import {useNavigate, useParams} from "react-router-dom";
 import {Spinner} from "@heroui/react";
-import {useMetadata, useChildren} from "../hooks/usePlex.ts";
+import {useMetadata, useChildren, useAllEpisodes} from "../hooks/usePlex.ts";
 import type {PlexMediaItem} from "../lib/types.ts";
 import VideoPlayer from "../components/player/VideoPlayer.tsx";
 
@@ -17,9 +17,14 @@ export default function Player() {
     const item = data ?? lastItemRef.current;
 
     const isEpisode = item?.type === "episode";
-    const {data: episodes} = useChildren(isEpisode ? (item?.parentRatingKey || "") : "");
+    // Current season episodes for next/prev navigation
+    const {data: seasonEpisodes} = useChildren(isEpisode ? (item?.parentRatingKey || "") : "");
+    // All episodes across all seasons for the queue panel
+    const {data: allEpisodes} = useAllEpisodes(isEpisode ? (item?.grandparentRatingKey || "") : "");
 
     const {hasNext, hasPrevious, onNext, onPrevious} = useMemo(() => {
+        // Use all episodes for navigation so next/prev crosses season boundaries
+        const episodes = allEpisodes || seasonEpisodes;
         if (!isEpisode || !episodes || !item) {
             return {hasNext: false, hasPrevious: false, onNext: undefined, onPrevious: undefined};
         }
@@ -37,7 +42,7 @@ export default function Player() {
                 ? () => navigate(`/player/${episodes[idx + 1].ratingKey}`, {replace: true})
                 : undefined,
         };
-    }, [episodes, item, navigate, isEpisode]);
+    }, [allEpisodes, seasonEpisodes, item, navigate, isEpisode]);
 
     if (isLoading && !item) {
         return (
@@ -62,7 +67,7 @@ export default function Player() {
             onPrevious={onPrevious}
             hasNext={hasNext}
             hasPrevious={hasPrevious}
-            episodes={episodes}
+            episodes={allEpisodes || seasonEpisodes}
         />
     );
 }

@@ -63,6 +63,8 @@ export const plexApi = {
 
     getChildren: (id: string) => api.get<PlexMediaItem[]>(`/media/${id}/children`),
 
+    getAllEpisodes: (showId: string) => api.get<PlexMediaItem[]>(`/media/${showId}/allLeaves`),
+
     getRelated: (id: string) => api.get<PlexMediaItem[]>(`/media/${id}/related`),
 
     getStreamUrl: (id: string, quality?: string, directPlay = true, directStream = false) =>

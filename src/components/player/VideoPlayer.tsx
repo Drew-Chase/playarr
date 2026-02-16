@@ -204,6 +204,14 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             return remoteRef.current.playing;
         };
 
+        // After auto-playing a new episode in a party, notify the server
+        // so the room transitions to Watching and heartbeat starts
+        const notifyPartyPlay = () => {
+            if (isInParty && watchParty && !isQualityChange) {
+                watchParty.sendPlay(Math.floor((video?.currentTime ?? 0) * 1000));
+            }
+        };
+
         if ((info.type === "hls" || info.type === "directstream") && Hls.isSupported()) {
             const hls = new Hls({
                 startPosition: resumePosition,
@@ -214,7 +222,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             hls.on(Hls.Events.MANIFEST_PARSED, () => {
                 isTransitioningRef.current = false;
                 if (shouldAutoPlay()) {
-                    video.play().catch(() => {});
+                    video.play().then(notifyPartyPlay).catch(() => {});
                 }
             });
             hls.on(Hls.Events.ERROR, (_event, data) => {
@@ -240,7 +248,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             video.currentTime = resumePosition;
             isTransitioningRef.current = false;
             if (shouldAutoPlay()) {
-                video.play().catch(() => {});
+                video.play().then(notifyPartyPlay).catch(() => {});
             }
         }
     };

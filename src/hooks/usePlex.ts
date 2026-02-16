@@ -40,6 +40,14 @@ export function useChildren(id: string) {
     });
 }
 
+export function useAllEpisodes(showId: string) {
+    return useQuery({
+        queryKey: ["plex", "allLeaves", showId],
+        queryFn: () => plexApi.getAllEpisodes(showId),
+        enabled: !!showId,
+    });
+}
+
 export function useContinueWatching() {
     return useQuery({
         queryKey: ["plex", "continueWatching"],
