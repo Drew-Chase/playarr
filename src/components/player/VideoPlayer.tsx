@@ -52,6 +52,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const [bifData, setBifData] = useState<BifData | null>(null);
     const [showQueue, setShowQueue] = useState(false);
     const [isWaitingForReady, setIsWaitingForReady] = useState(false);
+    const [isSeeking, setIsSeeking] = useState(false);
     const [syncStatus, setSyncStatus] = useState<"in_sync" | "syncing" | "disconnected">("in_sync");
     const [displayRate, setDisplayRate] = useState(1);
 
@@ -100,6 +101,9 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     useEffect(() => {
         savedPositionRef.current = 0;
         scrobbledRef.current = false;
+        setCurrentTime(0);
+        setDuration(0);
+        remoteRef.current = { t: 0, playing: false, m: performance.now() };
     }, [item.ratingKey]);
 
     // Load stream
@@ -337,7 +341,10 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
 
         if (Math.abs(diff) > 0.5) {
             // Hard seek for large drift
-            if (video.readyState >= 1) video.currentTime = target;
+            if (video.readyState >= 1) {
+                video.currentTime = target;
+                setCurrentTime(target);
+            }
             video.playbackRate = 1;
         } else if (remoteRef.current.playing) {
             // Proportional rate correction for small drift
@@ -414,10 +421,10 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         };
     }, [watchParty, isInParty, applySync]);
 
-    // Watch party: host sends navigate when entering player
+    // Watch party: host notifies room of current media (resets position to 0, status to idle)
     useEffect(() => {
         if (isInParty && isHost && watchParty) {
-            watchParty.sendNavigate(item.ratingKey);
+            watchParty.sendMediaChange(item.ratingKey, item.title, item.duration);
         }
     }, [item.ratingKey]);
 
@@ -457,6 +464,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         const video = videoRef.current;
         if (!video) return;
 
+        setCurrentTime(time);
         video.currentTime = time;
         reportTimeline(video.paused ? "paused" : "playing");
 
@@ -594,7 +602,11 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                     reportTimeline("paused");
                 }}
                 onError={handleVideoError}
+                onSeeking={() => setIsSeeking(true)}
+                onSeeked={() => setIsSeeking(false)}
+                onCanPlay={() => setIsSeeking(false)}
                 onWaiting={() => {
+                    setIsSeeking(true);
                     if (isInParty && watchParty && !waitingForAllReadyRef.current) {
                         watchParty.sendBuffering();
                     }
@@ -626,6 +638,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 isInParty={isInParty}
                 participantCount={watchParty?.activeRoom?.participants.length ?? 0}
                 isWaitingForReady={isWaitingForReady}
+                isSeeking={isSeeking}
             />
 
             <PlayerControls

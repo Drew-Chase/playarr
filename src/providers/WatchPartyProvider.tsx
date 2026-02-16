@@ -23,6 +23,7 @@ interface WatchPartyContextType {
     sendPause: (positionMs: number) => void;
     sendSeek: (positionMs: number) => void;
     sendNavigate: (mediaId: string) => void;
+    sendMediaChange: (mediaId: string, title?: string, durationMs?: number) => void;
     sendSyncResponse: (positionMs: number, isPaused: boolean, mediaId: string) => void;
     sendBuffering: () => void;
     sendReady: () => void;
@@ -227,6 +228,10 @@ export default function WatchPartyProvider({children}: { children: React.ReactNo
         send({type: "navigate", media_id: mediaId, route: `/player/${mediaId}`});
     }, [send]);
 
+    const sendMediaChange = useCallback((mediaId: string, title?: string, durationMs?: number) => {
+        send({type: "media_change", media_id: mediaId, title, duration_ms: durationMs ?? 0});
+    }, [send]);
+
     const sendSyncResponse = useCallback((positionMs: number, isPaused: boolean, mediaId: string) => {
         send({type: "sync_response", position_ms: positionMs, is_paused: isPaused, media_id: mediaId});
     }, [send]);
@@ -267,6 +272,7 @@ export default function WatchPartyProvider({children}: { children: React.ReactNo
             sendPause,
             sendSeek,
             sendNavigate,
+            sendMediaChange,
             sendSyncResponse,
             sendBuffering,
             sendReady,

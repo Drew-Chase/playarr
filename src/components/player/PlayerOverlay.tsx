@@ -10,9 +10,10 @@ interface PlayerOverlayProps {
     isInParty?: boolean;
     participantCount?: number;
     isWaitingForReady?: boolean;
+    isSeeking?: boolean;
 }
 
-export default function PlayerOverlay({item, visible, onBack, isInParty, participantCount, isWaitingForReady}: PlayerOverlayProps) {
+export default function PlayerOverlay({item, visible, onBack, isInParty, participantCount, isWaitingForReady, isSeeking}: PlayerOverlayProps) {
     return (
         <>
             <div
@@ -56,6 +57,11 @@ export default function PlayerOverlay({item, visible, onBack, isInParty, partici
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-20">
                     <Spinner size="lg" color="white"/>
                     <span className="text-white mt-4 text-sm">Waiting for everyone to load...</span>
+                </div>
+            )}
+            {isSeeking && !isWaitingForReady && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-15">
+                    <Spinner size="lg" color="white"/>
                 </div>
             )}
         </>

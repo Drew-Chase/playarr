@@ -1,13 +1,20 @@
-import {useMemo} from "react";
+import {useMemo, useRef} from "react";
 import {useNavigate, useParams} from "react-router-dom";
 import {Spinner} from "@heroui/react";
 import {useMetadata, useChildren} from "../hooks/usePlex.ts";
+import type {PlexMediaItem} from "../lib/types.ts";
 import VideoPlayer from "../components/player/VideoPlayer.tsx";
 
 export default function Player() {
     const {id} = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const {data: item, isLoading} = useMetadata(id || "");
+    const {data, isLoading} = useMetadata(id || "");
+
+    // Keep last valid item so VideoPlayer stays mounted during episode transitions
+    // (prevents volume/quality/muted state from being lost on unmount)
+    const lastItemRef = useRef<PlexMediaItem | null>(null);
+    if (data) lastItemRef.current = data;
+    const item = data ?? lastItemRef.current;
 
     const isEpisode = item?.type === "episode";
     const {data: episodes} = useChildren(isEpisode ? (item?.parentRatingKey || "") : "");
@@ -32,7 +39,7 @@ export default function Player() {
         };
     }, [episodes, item, navigate, isEpisode]);
 
-    if (isLoading) {
+    if (isLoading && !item) {
         return (
             <div className="flex justify-center items-center h-screen bg-black">
                 <Spinner size="lg" color="white"/>
