@@ -1,6 +1,7 @@
 import {Avatar, AvatarGroup, Button} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {motion} from "framer-motion";
+import {useNavigate} from "react-router-dom";
 import {useWatchPartyContext} from "../../providers/WatchPartyProvider.tsx";
 
 export default function WatchPartyOverlay() {
@@ -8,6 +9,9 @@ export default function WatchPartyOverlay() {
     if (!watchParty?.isInParty || !watchParty.activeRoom) return null;
 
     const {activeRoom, leaveParty} = watchParty;
+    const navigate = useNavigate();
+
+    const hasMedia = activeRoom.media_id && activeRoom.media_id !== "";
 
     return (
         <>
@@ -35,6 +39,17 @@ export default function WatchPartyOverlay() {
                             />
                         ))}
                     </AvatarGroup>
+                    {hasMedia && (
+                        <Button
+                            size="sm"
+                            variant="flat"
+                            color="primary"
+                            onPress={() => navigate(`/player/${activeRoom.media_id}`)}
+                            startContent={<Icon icon="mdi:play-circle" width="14"/>}
+                        >
+                            Watch
+                        </Button>
+                    )}
                     <Button
                         size="sm"
                         variant="flat"

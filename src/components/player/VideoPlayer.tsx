@@ -141,10 +141,13 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const loadStream = async (signal?: AbortSignal, isQualityChange = false) => {
         const video = videoRef.current;
 
-        // Use saved position for quality changes; for new episodes in a party, start from 0
+        // Use saved position for quality changes; for party members joining mid-stream,
+        // start at the room's current position so we don't reset everyone
         const resumePosition = savedPositionRef.current > 0
             ? savedPositionRef.current
-            : (isInParty ? 0 : (item.viewOffset ? item.viewOffset / 1000 : 0));
+            : (isInParty
+                ? (watchParty?.activeRoom?.position_ms ?? 0) / 1000
+                : (item.viewOffset ? item.viewOffset / 1000 : 0));
 
         let info: StreamInfo;
 
@@ -197,17 +200,28 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         cleanup();
 
         // Decide whether to auto-play after loading:
+        // - Not in a party: always auto-play
         // - Quality change in a party: respect current remote play/pause state
-        // - New episode / not in party: always auto-play
+        // - Joining mid-stream (watching): auto-play, heartbeat will sync position
+        // - Room paused/buffering: don't auto-play, wait for explicit play
+        // - Room idle (new episode): auto-play to kick off playback
         const shouldAutoPlay = () => {
-            if (!isInParty || !isQualityChange) return true;
-            return remoteRef.current.playing;
+            if (!isInParty) return true;
+            if (isQualityChange) return remoteRef.current.playing;
+            const roomStatus = watchParty?.activeRoom?.status;
+            return roomStatus === "watching" || roomStatus === "idle";
         };
 
         // After auto-playing a new episode in a party, notify the server
-        // so the room transitions to Watching and heartbeat starts
+        // so the room transitions from Idle to Watching and heartbeat starts.
+        // Only send when room is idle (fresh episode start). For any other
+        // status, the joiner just syncs via heartbeat — sending Play here
+        // would reset everyone because video.currentTime is still 0 at
+        // MANIFEST_PARSED time (HLS hasn't loaded segments yet).
         const notifyPartyPlay = () => {
             if (isInParty && watchParty && !isQualityChange) {
+                const roomStatus = watchParty?.activeRoom?.status;
+                if (roomStatus !== "idle") return;
                 watchParty.sendPlay(Math.floor((video?.currentTime ?? 0) * 1000));
             }
         };

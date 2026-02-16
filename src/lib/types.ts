@@ -245,7 +245,7 @@ export interface DownloadStatus {
 
 // Watch Party types
 export type WatchPartyAccessMode = "everyone" | "invite_only" | "by_user";
-export type WatchPartyStatus = "idle" | "watching" | "paused";
+export type WatchPartyStatus = "idle" | "watching" | "paused" | "buffering";
 
 export interface WatchPartyParticipant {
     user_id: number;
