@@ -2,7 +2,8 @@
 name = "playarr"
 version = "0.0.0-alpha.5"
 edition = "2024"
-authors = ["Drew Chase (Home) <dcmanproductions@gmail.com>"]
+authors = ["Drew Chase"]
+description = "A self-hosted media dashboard that unifies Plex, Sonarr, Radarr, TMDB, and popular download clients into a single interface. Built with a Rust backend and React frontend."
 build = "src-actix/build.rs"
 
 [[bin]]
@@ -24,7 +25,6 @@ serde_json = { version = ">=1.0.125" }
 pretty_env_logger = ">=0.5.0"
 include_dir = ">=0.7.4"
 walkdir = ">=2.5.0"
-awc = ">=3.1.0"
 log = ">=0.4.22"
 anyhow = ">=1.0.95"
 thiserror = ">=2.0.11"
