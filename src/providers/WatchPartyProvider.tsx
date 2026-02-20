@@ -57,6 +57,8 @@ export default function WatchPartyProvider({children}: { children: React.ReactNo
 
     // Ref for player to subscribe to playback events
     const onPlayerEvent = useRef<((msg: WsMessage) => void) | null>(null);
+    // Ref to access send() inside handleWsMessage without a circular dependency
+    const sendRef = useRef<(msg: WsMessage) => void>(() => {});
 
     const isInParty = activeRoom !== null;
     const isHost = activeRoom !== null && user !== null && activeRoom.host_user_id === user.id;
@@ -85,7 +87,9 @@ export default function WatchPartyProvider({children}: { children: React.ReactNo
         switch (msg.type) {
             case "room_state":
                 // room_state is sent on every fresh WS connection (initial + reconnect).
-                // Reset sync flag so sendSyncAck fires again for non-hosts.
+                // Reset sync flag and immediately re-sync: receiving room_state IS the
+                // sync point. We must do this here (not in the player) because the player
+                // may not be mounted yet when room_state arrives.
                 syncedRef.current = false;
                 setActiveRoom(prev => prev ? {
                     ...prev,
@@ -101,10 +105,11 @@ export default function WatchPartyProvider({children}: { children: React.ReactNo
                     })),
                     episode_queue: msg.episode_queue,
                 } : prev);
-                // Auto-sync the host: the server already marks them synced,
-                // and the player may not be mounted yet to call sendSyncAck.
-                if (isHostRef.current) {
-                    syncedRef.current = true;
+                // Mark synced for everyone: host is already synced server-side,
+                // non-hosts need the sync_ack sent to the server.
+                syncedRef.current = true;
+                if (!isHostRef.current) {
+                    sendRef.current({type: "sync_ack"});
                 }
                 onPlayerEvent.current?.(msg);
                 break;
@@ -200,6 +205,7 @@ export default function WatchPartyProvider({children}: { children: React.ReactNo
         roomId: roomIdRef.current,
         onMessage: handleWsMessage,
     });
+    sendRef.current = send;
 
     const createParty = useCallback(async (req: CreateWatchPartyRequest): Promise<WatchRoom> => {
         const room = await api.post<WatchRoom>("/watch-party/rooms", {
