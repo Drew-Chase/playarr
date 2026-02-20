@@ -18,6 +18,7 @@ const TOOLTIP_WIDTH = 160; // w-40 = 10rem = 160px
 export default function SeekBar({currentTime, duration, bifData, onSeek, onDragChange}: SeekBarProps)
 {
     const containerRef = useRef<HTMLDivElement>(null);
+    const isDraggingRef = useRef(false);
     const [hoverPosition, setHoverPosition] = useState<number | null>(null);
     const [hoverTime, setHoverTime] = useState(0);
     const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
@@ -109,14 +110,22 @@ export default function SeekBar({currentTime, duration, bifData, onSeek, onDragC
                 minValue={0}
                 maxValue={duration || 1}
                 value={currentTime}
-                onChange={(val) => onSeek(val as number)}
-                onChangeEnd={() => onDragChange?.(false)}
+                hideThumb
+                onChange={(val) => {
+                    if (!isDraggingRef.current) {
+                        isDraggingRef.current = true;
+                        onDragChange?.(true);
+                    }
+                    onSeek(val as number);
+                }}
+                onChangeEnd={() => {
+                    isDraggingRef.current = false;
+                    onDragChange?.(false);
+                }}
                 classNames={{
-                    track: "h-1 group-hover:h-2 transition-all",
-                    thumb: "w-3 h-3 after:w-2.5 after:h-2.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                    track: "h-1 group-hover:h-3 transition-all",
                 }}
                 aria-label="Seek"
-                onPointerDown={() => onDragChange?.(true)}
             />
         </div>
     );
