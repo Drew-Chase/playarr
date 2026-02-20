@@ -56,13 +56,24 @@ export default function Library() {
 
     const sortParam = sort === "random" ? "" : `${sort}:${sortDir}`;
 
-    // Fetch all items at once for client-side filtering and alphabet navigation
-    const {data, isLoading} = useQuery({
+    // Fetch all items at once for client-side filtering and alphabet navigation.
+    // keepPreviousData prevents flicker on sort changes, but we don't want stale
+    // items from a different library showing while the new one loads.
+    // Track which library key the current data belongs to so we can show a spinner
+    // when switching libraries instead of displaying stale items.
+    const dataKeyRef = useRef<string | undefined>(undefined);
+
+    const {data, isLoading, isPlaceholderData} = useQuery({
         queryKey: ["plex", "library", key, "all", sortParam],
         queryFn: () => plexApi.getLibraryItems(key!, 0, 100000, sortParam || undefined),
         enabled: !!key,
         placeholderData: keepPreviousData,
     });
+
+    // When fresh (non-placeholder) data arrives, record which library it's for
+    if (data && !isPlaceholderData) dataKeyRef.current = key;
+
+    const showSpinner = isLoading || (isPlaceholderData && dataKeyRef.current !== key);
 
     // Client-side filtering
     const filteredItems = useMemo(() => {
@@ -234,7 +245,7 @@ export default function Library() {
                 </div>
 
                 {/* Content */}
-                {isLoading && !data ? (
+                {showSpinner ? (
                     <div className="flex justify-center items-center h-64">
                         <Spinner size="lg"/>
                     </div>
