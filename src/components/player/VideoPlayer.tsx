@@ -67,11 +67,16 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const isInParty = watchParty?.isInParty ?? false;
     const isHost = watchParty?.isHost ?? false;
 
-    // Refs for unmount-only cleanup (avoid stale closures)
+    // Refs for unmount-only cleanup and stable media session handlers (avoid stale closures)
     const watchPartyRef = useRef(watchParty);
     watchPartyRef.current = watchParty;
     const isInPartyRef = useRef(isInParty);
     isInPartyRef.current = isInParty;
+    const handleSeekRef = useRef<(time: number) => void>(() => {});
+    const onNextRef = useRef(onNext);
+    onNextRef.current = onNext;
+    const onPreviousRef = useRef(onPrevious);
+    onPreviousRef.current = onPrevious;
 
     // Get available streams
     const subtitleStreams: PlexStream[] = [];
@@ -592,6 +597,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             watchParty.sendSeek(Math.floor(time * 1000));
         }
     }, [reportTimeline, isInParty, watchParty]);
+    handleSeekRef.current = handleSeek;
 
     const handleVolumeChange = useCallback((vol: number) => {
         const video = videoRef.current;
@@ -623,6 +629,80 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         document.addEventListener("fullscreenchange", handleFsChange);
         return () => document.removeEventListener("fullscreenchange", handleFsChange);
     }, []);
+
+    // Media Session API — enables hardware media keys and OS transport controls.
+    // Uses refs for all callbacks so this effect only re-runs when the media item
+    // changes, preventing constant handler teardown/re-registration that stops
+    // Windows SMTC from ever showing the overlay.
+    useEffect(() => {
+        if (!("mediaSession" in navigator)) return;
+
+        const artworkUrl = item.thumb ? `${window.location.origin}/api/media/${item.ratingKey}/thumb` : undefined;
+
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: item.type === "episode"
+                ? `S${item.parentIndex?.toString().padStart(2, "0")}E${item.index?.toString().padStart(2, "0")} — ${item.title}`
+                : item.title,
+            artist: item.type === "episode" ? (item.grandparentTitle ?? "") : (item.year?.toString() ?? ""),
+            album: item.type === "episode" ? (item.parentTitle ?? "") : undefined,
+            artwork: artworkUrl ? [{src: artworkUrl, sizes: "300x450", type: "image/jpeg"}] : [],
+        });
+
+        navigator.mediaSession.setActionHandler("play", () => {
+            videoRef.current?.play();
+            if (isInPartyRef.current && watchPartyRef.current) {
+                watchPartyRef.current.sendPlay(Math.floor((videoRef.current?.currentTime ?? 0) * 1000));
+            }
+        });
+        navigator.mediaSession.setActionHandler("pause", () => {
+            videoRef.current?.pause();
+            if (isInPartyRef.current && watchPartyRef.current) {
+                watchPartyRef.current.sendPause(Math.floor((videoRef.current?.currentTime ?? 0) * 1000));
+            }
+        });
+        navigator.mediaSession.setActionHandler("seekbackward", (details) => {
+            const offset = details.seekOffset ?? 10;
+            const video = videoRef.current;
+            if (video) handleSeekRef.current(Math.max(0, video.currentTime - offset));
+        });
+        navigator.mediaSession.setActionHandler("seekforward", (details) => {
+            const offset = details.seekOffset ?? 10;
+            const video = videoRef.current;
+            if (video) handleSeekRef.current(Math.min(video.duration, video.currentTime + offset));
+        });
+        navigator.mediaSession.setActionHandler("seekto", (details) => {
+            if (details.seekTime != null) handleSeekRef.current(details.seekTime);
+        });
+        navigator.mediaSession.setActionHandler("previoustrack", () => onPreviousRef.current?.());
+        navigator.mediaSession.setActionHandler("nexttrack", () => onNextRef.current?.());
+
+        // Update position state every 5s so the OS progress bar stays in sync
+        // without overwhelming the session with rapid updates
+        const positionInterval = window.setInterval(() => {
+            const video = videoRef.current;
+            if (!video || !video.duration) return;
+            navigator.mediaSession.setPositionState({
+                duration: video.duration,
+                playbackRate: video.playbackRate,
+                position: Math.min(video.currentTime, video.duration),
+            });
+        }, 5000);
+
+        return () => {
+            clearInterval(positionInterval);
+            const actions: MediaSessionAction[] = ["play", "pause", "seekbackward", "seekforward", "seekto", "previoustrack", "nexttrack"];
+            for (const action of actions) {
+                navigator.mediaSession.setActionHandler(action, null);
+            }
+        };
+    }, [item.ratingKey]);
+
+    // Update Media Session playback state on play/pause
+    useEffect(() => {
+        if ("mediaSession" in navigator) {
+            navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
+        }
+    }, [isPlaying]);
 
     // Keyboard shortcuts
     useEffect(() => {
