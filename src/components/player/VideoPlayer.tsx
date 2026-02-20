@@ -146,11 +146,15 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         const video = videoRef.current;
 
         // Use saved position for quality changes; for party members joining mid-stream,
-        // start at the room's current position so we don't reset everyone
+        // start at the room's current position so we don't reset everyone.
+        // Only use activeRoom.position_ms if the room is playing the SAME media
+        // (joining mid-stream). For new episodes, start at 0.
         const resumePosition = savedPositionRef.current > 0
             ? savedPositionRef.current
             : (isInParty
-                ? (watchParty?.activeRoom?.position_ms ?? 0) / 1000
+                ? (watchParty?.activeRoom?.media_id === item.ratingKey
+                    ? (watchParty?.activeRoom?.position_ms ?? 0) / 1000
+                    : 0)
                 : (item.viewOffset ? item.viewOffset / 1000 : 0));
 
         let info: StreamInfo;
