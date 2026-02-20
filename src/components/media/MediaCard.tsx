@@ -1,6 +1,6 @@
 import {useState} from "react";
 import {Progress} from "@heroui/react";
-import {useNavigate} from "react-router-dom";
+import {useNavigate, useLocation} from "react-router-dom";
 import {motion} from "framer-motion";
 import {Icon} from "@iconify-icon/react";
 import type {PlexMediaItem} from "../../lib/types.ts";
@@ -18,6 +18,7 @@ interface MediaCardProps
 export default function MediaCard({item, showProgress, width, variant = "portrait"}: MediaCardProps)
 {
     const navigate = useNavigate();
+    const location = useLocation();
     const [showResumeModal, setShowResumeModal] = useState(false);
 
     const handleClick = () =>
@@ -34,7 +35,7 @@ export default function MediaCard({item, showProgress, width, variant = "portrai
         }
         else
         {
-            navigate(`/player/${item.ratingKey}`);
+            navigate(`/player/${item.ratingKey}?from=${encodeURIComponent(location.pathname)}`);
         }
     };
 

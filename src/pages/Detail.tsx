@@ -1,8 +1,8 @@
-import {useParams, useNavigate, Link} from "react-router-dom";
+import {useParams, useNavigate, useLocation} from "react-router-dom";
 import {useRef, useState} from "react";
-import {Button, Spinner, Progress, Chip} from "@heroui/react";
+import {Button, Spinner, Progress, Chip, Breadcrumbs, BreadcrumbItem} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
-import {useMetadata, useChildren} from "../hooks/usePlex.ts";
+import {useMetadata, useChildren, useAllEpisodes} from "../hooks/usePlex.ts";
 import MetadataInfo from "../components/media/MetadataInfo.tsx";
 import EpisodeList from "../components/media/EpisodeList.tsx";
 import ContentRow from "../components/layout/ContentRow.tsx";
@@ -14,42 +14,35 @@ import {useAuth} from "../providers/AuthProvider.tsx";
 import {useQuery} from "@tanstack/react-query";
 import type {PlexMediaItem, PlexRole, PlexReview} from "../lib/types.ts";
 
-function Breadcrumbs({item}: { item: PlexMediaItem }) {
-    const crumbs: { label: string; to: string }[] = [];
+function DetailBreadcrumbs({item}: { item: PlexMediaItem }) {
+    const crumbs: { label: string; href?: string }[] = [];
 
     if (item.type === "season") {
         if (item.parentRatingKey && item.parentTitle) {
-            crumbs.push({label: item.parentTitle, to: `/detail/${item.parentRatingKey}`});
+            crumbs.push({label: item.parentTitle, href: `/detail/${item.parentRatingKey}`});
         }
-        crumbs.push({label: item.title, to: ""});
+        crumbs.push({label: item.title});
     }
     if (item.type === "episode") {
         if (item.grandparentRatingKey && item.grandparentTitle) {
-            crumbs.push({label: item.grandparentTitle, to: `/detail/${item.grandparentRatingKey}`});
+            crumbs.push({label: item.grandparentTitle, href: `/detail/${item.grandparentRatingKey}`});
         }
         if (item.parentRatingKey && item.parentTitle) {
-            crumbs.push({label: item.parentTitle, to: `/detail/${item.parentRatingKey}`});
+            crumbs.push({label: item.parentTitle, href: `/detail/${item.parentRatingKey}`});
         }
-        crumbs.push({label: item.title, to: ""});
+        crumbs.push({label: item.title});
     }
 
     if (crumbs.length === 0) return null;
 
     return (
-        <nav className="flex items-center gap-1.5 text-sm text-default-400 mb-4">
+        <Breadcrumbs size="lg" className="mb-4" classNames={{list: "gap-1"}}>
             {crumbs.map((crumb, i) => (
-                <span key={i} className="flex items-center gap-1.5">
-                    {i > 0 && <Icon icon="mdi:chevron-right" width="16" className="text-default-300"/>}
-                    {crumb.to ? (
-                        <Link to={crumb.to} className="hover:text-primary transition-colors">
-                            {crumb.label}
-                        </Link>
-                    ) : (
-                        <span className="text-default-200">{crumb.label}</span>
-                    )}
-                </span>
+                <BreadcrumbItem key={i} href={crumb.href} isCurrent={!crumb.href}>
+                    {crumb.label}
+                </BreadcrumbItem>
             ))}
-        </nav>
+        </Breadcrumbs>
     );
 }
 
@@ -320,21 +313,84 @@ function ReviewsSection({reviews}: { reviews: PlexReview[] }) {
     );
 }
 
-function ActionButtons({item, progress}: { item: PlexMediaItem; progress: number }) {
+/** Find the on-deck episode: first partially-watched, or first unwatched. */
+function findOnDeckEpisode(episodes: PlexMediaItem[]): PlexMediaItem | undefined {
+    // Prefer a partially-watched episode (has viewOffset)
+    const inProgress = episodes.find(ep => ep.viewOffset && ep.viewOffset > 0);
+    if (inProgress) return inProgress;
+    // Otherwise the first unwatched episode
+    const unwatched = episodes.find(ep => !ep.viewCount);
+    if (unwatched) return unwatched;
+    // Everything watched — return the first episode so user can rewatch
+    return episodes[0];
+}
+
+function PlayablePoster({src, alt, playTarget, className, containerClassName}: {
+    src: string;
+    alt: string;
+    playTarget: PlexMediaItem;
+    className?: string;
+    containerClassName?: string;
+}) {
     const navigate = useNavigate();
+    const location = useLocation();
+    const [showResumeModal, setShowResumeModal] = useState(false);
+
+    const handlePlay = () => {
+        if (playTarget.viewOffset && playTarget.duration) {
+            setShowResumeModal(true);
+        } else {
+            navigate(`/player/${playTarget.ratingKey}?from=${encodeURIComponent(location.pathname)}`);
+        }
+    };
+
+    return (
+        <>
+            <div className={`relative cursor-pointer group/poster ${containerClassName ?? ""}`} onClick={handlePlay}>
+                <img src={src} alt={alt} className={className}/>
+                <div className="absolute inset-0 bg-black/0 group-hover/poster:bg-black/40 transition-colors flex items-center justify-center rounded-lg">
+                    <div className="opacity-0 group-hover/poster:opacity-100 transition-opacity">
+                        <Icon icon="mdi:play-circle" width="64" className="text-white drop-shadow-lg"/>
+                    </div>
+                </div>
+            </div>
+            <ResumePlaybackModal
+                isOpen={showResumeModal}
+                onClose={() => setShowResumeModal(false)}
+                ratingKey={playTarget.ratingKey}
+                viewOffset={playTarget.viewOffset!}
+                duration={playTarget.duration!}
+            />
+        </>
+    );
+}
+
+function ActionButtons({item, progress, onDeckEpisode}: {
+    item: PlexMediaItem;
+    progress: number;
+    onDeckEpisode?: PlexMediaItem;
+}) {
+    const navigate = useNavigate();
+    const location = useLocation();
     const {isGuest} = useAuth();
     const [showResumeModal, setShowResumeModal] = useState(false);
     const [watchedOverride, setWatchedOverride] = useState<boolean | null>(null);
 
+    // For shows/seasons, use the on-deck episode for playback
+    const playTarget = onDeckEpisode ?? item;
+    const playProgress = playTarget.viewOffset && playTarget.duration
+        ? (playTarget.viewOffset / playTarget.duration) * 100
+        : 0;
+
     const isWatched = watchedOverride !== null ? watchedOverride : !!item.viewCount;
-    const effectiveProgress = watchedOverride === true ? 0 : (watchedOverride === false ? 0 : progress);
-    const showResume = watchedOverride !== null ? false : !!item.viewOffset;
+    const effectiveProgress = watchedOverride !== null ? 0 : (onDeckEpisode ? playProgress : progress);
+    const showResume = watchedOverride !== null ? false : !!playTarget.viewOffset;
 
     const handlePlay = () => {
-        if (showResume && item.duration) {
+        if (showResume && playTarget.duration) {
             setShowResumeModal(true);
         } else {
-            navigate(`/player/${item.ratingKey}`);
+            navigate(`/player/${playTarget.ratingKey}?from=${encodeURIComponent(location.pathname)}`);
         }
     };
 
@@ -347,6 +403,9 @@ function ActionButtons({item, progress}: { item: PlexMediaItem; progress: number
         setWatchedOverride(false);
         plexApi.unscrobble(item.ratingKey);
     };
+
+    // Hide watched/unwatched buttons for shows (doesn't apply)
+    const showWatchedToggle = item.type !== "show";
 
     return (
         <div className="flex flex-wrap gap-3 mt-5">
@@ -371,7 +430,7 @@ function ActionButtons({item, progress}: { item: PlexMediaItem; progress: number
                     <span className="text-xs text-default-400 ml-2">{Math.round(effectiveProgress)}%</span>
                 </div>
             )}
-            {!isGuest && (isWatched ? (
+            {!isGuest && showWatchedToggle && (isWatched ? (
                 <Button
                     variant="ghost"
                     radius="sm"
@@ -398,9 +457,9 @@ function ActionButtons({item, progress}: { item: PlexMediaItem; progress: number
             <ResumePlaybackModal
                 isOpen={showResumeModal}
                 onClose={() => setShowResumeModal(false)}
-                ratingKey={item.ratingKey}
-                viewOffset={item.viewOffset!}
-                duration={item.duration!}
+                ratingKey={playTarget.ratingKey}
+                viewOffset={playTarget.viewOffset!}
+                duration={playTarget.duration!}
             />
         </div>
     );
@@ -417,13 +476,13 @@ function EpisodeDetail({item}: { item: PlexMediaItem }) {
             <div className="flex flex-col md:flex-row gap-6">
                 {/* Episode thumbnail */}
                 {thumbUrl && (
-                    <div className="shrink-0 relative max-w-2xl rounded-lg overflow-hidden aspect-video">
-                        <img
-                            src={thumbUrl}
-                            alt={item.title}
-                            className="object-cover w-full h-full"
-                        />
-                    </div>
+                    <PlayablePoster
+                        src={thumbUrl}
+                        alt={item.title}
+                        playTarget={item}
+                        className="object-cover w-full h-full"
+                        containerClassName="shrink-0 max-w-2xl rounded-lg overflow-hidden aspect-video"
+                    />
                 )}
 
                 {/* Info */}
@@ -451,6 +510,15 @@ export default function Detail() {
         queryFn: () => plexApi.getRelated(id!),
         enabled: !!id && item?.type !== "season",
     });
+
+    // Fetch episodes for shows/seasons so we can find the on-deck episode
+    const {data: allEpisodes} = useAllEpisodes(item?.type === "show" ? (item?.ratingKey || "") : "");
+    const {data: seasonEpisodes} = useChildren(item?.type === "season" ? (item?.ratingKey || "") : "");
+    const onDeckEpisode = item?.type === "show" && allEpisodes
+        ? findOnDeckEpisode(allEpisodes)
+        : item?.type === "season" && seasonEpisodes
+            ? findOnDeckEpisode(seasonEpisodes)
+            : undefined;
 
     if (isLoading) {
         return (
@@ -488,7 +556,7 @@ export default function Detail() {
 
             {/* Content area */}
             <div className="relative z-10 -mt-96 px-6 md:px-12 lg:px-16">
-                <Breadcrumbs item={item}/>
+                <DetailBreadcrumbs item={item}/>
 
                 {item.type === "episode" ? (
                     <EpisodeDetail item={item}/>
@@ -497,13 +565,13 @@ export default function Detail() {
                     <div>
                         <div className="flex flex-col md:flex-row gap-6">
                             {/* Poster */}
-                            <div className="shrink-0">
-                                <img
-                                    src={item.thumb ? `/api/media/${item.ratingKey}/thumb` : ""}
-                                    alt={item.title}
-                                    className="h-[600px] object-cover rounded-lg shadow-2xl"
-                                />
-                            </div>
+                            <PlayablePoster
+                                src={item.thumb ? `/api/media/${item.ratingKey}/thumb` : ""}
+                                alt={item.title}
+                                playTarget={onDeckEpisode ?? item}
+                                className="h-[600px] object-cover rounded-lg shadow-2xl"
+                                containerClassName="shrink-0"
+                            />
 
                             {/* Info */}
                             <div className="flex-1 pt-4 md:pt-12">
@@ -514,8 +582,8 @@ export default function Detail() {
                                 <CrewInfo item={item}/>
                                 <GenreTags item={item}/>
                                 <MediaInfo item={item}/>
-                                {(item.type === "movie" || item.type === "season") && (
-                                    <ActionButtons item={item} progress={progress}/>
+                                {(item.type === "movie" || item.type === "show" || item.type === "season") && (
+                                    <ActionButtons item={item} progress={progress} onDeckEpisode={onDeckEpisode}/>
                                 )}
                             </div>
                         </div>

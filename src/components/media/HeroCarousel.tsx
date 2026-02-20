@@ -1,7 +1,7 @@
 import {useState, useEffect, useCallback} from "react";
 import {Button, Progress} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
-import {useNavigate} from "react-router-dom";
+import {useNavigate, useLocation} from "react-router-dom";
 import {AnimatePresence, motion} from "framer-motion";
 import type {PlexMediaItem} from "../../lib/types.ts";
 import {formatDuration, plexImage} from "../../lib/utils.ts";
@@ -17,6 +17,7 @@ export default function HeroCarousel({items}: HeroCarouselProps) {
     const [isPaused, setIsPaused] = useState(false);
     const [showResumeModal, setShowResumeModal] = useState(false);
     const navigate = useNavigate();
+    const location = useLocation();
 
     const next = useCallback(() => {
         setCurrent((c) => (c + 1) % items.length);
@@ -45,7 +46,7 @@ export default function HeroCarousel({items}: HeroCarouselProps) {
             if (item.viewOffset && item.duration) {
                 setShowResumeModal(true);
             } else {
-                navigate(`/player/${item.ratingKey}`);
+                navigate(`/player/${item.ratingKey}?from=${encodeURIComponent(location.pathname)}`);
             }
         } else {
             navigate(`/detail/${item.ratingKey}`);

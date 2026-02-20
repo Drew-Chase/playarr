@@ -25,6 +25,8 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const startTimeParam = searchParams.get("t");
+    const fromParam = searchParams.get("from");
+    const backPath = fromParam || "/";
     const {isGuest} = useAuth();
     const watchParty = useWatchPartyContext();
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -462,7 +464,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 case "heartbeat":
                     // Check media_id: if we're on the wrong episode, navigate
                     if (msg.media_id && msg.media_id !== currentRatingKeyRef.current) {
-                        navigate(`/player/${msg.media_id}`, {replace: true});
+                        navigate(`/player/${msg.media_id}${fromParam ? `?from=${encodeURIComponent(fromParam)}` : ""}`, {replace: true});
                         break;
                     }
                     remoteRef.current.t = msg.server_time;
@@ -756,7 +758,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                     if (isFullscreen) {
                         document.exitFullscreen();
                     } else {
-                        navigate("/");
+                        navigate(backPath);
                     }
                     break;
             }
@@ -863,7 +865,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             <PlayerOverlay
                 item={item}
                 visible={showControls}
-                onBack={() => navigate("/")}
+                onBack={() => navigate(backPath)}
                 isInParty={isInParty}
                 participantCount={watchParty?.activeRoom?.participants.length ?? 0}
                 bufferingUsernames={isInParty
@@ -923,7 +925,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                     onClose={() => setShowQueue(false)}
                     episodes={episodes}
                     currentRatingKey={item.ratingKey}
-                    onSelectEpisode={(ratingKey) => navigate(`/player/${ratingKey}`, {replace: true})}
+                    onSelectEpisode={(ratingKey) => navigate(`/player/${ratingKey}${fromParam ? `?from=${encodeURIComponent(fromParam)}` : ""}`, {replace: true})}
                 />
             )}
         </div>

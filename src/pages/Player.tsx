@@ -1,5 +1,5 @@
 import {useMemo, useRef} from "react";
-import {useNavigate, useParams} from "react-router-dom";
+import {useNavigate, useParams, useSearchParams} from "react-router-dom";
 import {Spinner} from "@heroui/react";
 import {useMetadata, useChildren, useAllEpisodes} from "../hooks/usePlex.ts";
 import type {PlexMediaItem} from "../lib/types.ts";
@@ -8,6 +8,8 @@ import VideoPlayer from "../components/player/VideoPlayer.tsx";
 export default function Player() {
     const {id} = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const from = searchParams.get("from");
     const {data, isLoading} = useMetadata(id || "");
 
     // Keep last valid item so VideoPlayer stays mounted during episode transitions
@@ -32,17 +34,18 @@ export default function Player() {
         if (idx < 0) {
             return {hasNext: false, hasPrevious: false, onNext: undefined, onPrevious: undefined};
         }
+        const fromParam = from ? `?from=${encodeURIComponent(from)}` : "";
         return {
             hasPrevious: idx > 0,
             hasNext: idx < episodes.length - 1,
             onPrevious: idx > 0
-                ? () => navigate(`/player/${episodes[idx - 1].ratingKey}`, {replace: true})
+                ? () => navigate(`/player/${episodes[idx - 1].ratingKey}${fromParam}`, {replace: true})
                 : undefined,
             onNext: idx < episodes.length - 1
-                ? () => navigate(`/player/${episodes[idx + 1].ratingKey}`, {replace: true})
+                ? () => navigate(`/player/${episodes[idx + 1].ratingKey}${fromParam}`, {replace: true})
                 : undefined,
         };
-    }, [allEpisodes, seasonEpisodes, item, navigate, isEpisode]);
+    }, [allEpisodes, seasonEpisodes, item, navigate, isEpisode, from]);
 
     if (isLoading && !item) {
         return (
