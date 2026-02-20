@@ -1,5 +1,5 @@
 import {useParams, useNavigate, Link} from "react-router-dom";
-import {useRef} from "react";
+import {useRef, useState} from "react";
 import {Button, Spinner, Progress, Chip} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {useMetadata, useChildren} from "../hooks/usePlex.ts";
@@ -323,6 +323,30 @@ function ReviewsSection({reviews}: { reviews: PlexReview[] }) {
 function ActionButtons({item, progress}: { item: PlexMediaItem; progress: number }) {
     const navigate = useNavigate();
     const {isGuest} = useAuth();
+    const [showResumeModal, setShowResumeModal] = useState(false);
+    const [watchedOverride, setWatchedOverride] = useState<boolean | null>(null);
+
+    const isWatched = watchedOverride !== null ? watchedOverride : !!item.viewCount;
+    const effectiveProgress = watchedOverride === true ? 0 : (watchedOverride === false ? 0 : progress);
+    const showResume = watchedOverride !== null ? false : !!item.viewOffset;
+
+    const handlePlay = () => {
+        if (showResume && item.duration) {
+            setShowResumeModal(true);
+        } else {
+            navigate(`/player/${item.ratingKey}`);
+        }
+    };
+
+    const handleMarkWatched = () => {
+        setWatchedOverride(true);
+        plexApi.scrobble(item.ratingKey);
+    };
+
+    const handleMarkUnwatched = () => {
+        setWatchedOverride(false);
+        plexApi.unscrobble(item.ratingKey);
+    };
 
     return (
         <div className="flex flex-wrap gap-3 mt-5">
@@ -331,30 +355,30 @@ function ActionButtons({item, progress}: { item: PlexMediaItem; progress: number
                 radius="sm"
                 size="lg"
                 startContent={<Icon icon="mdi:play" width="24"/>}
-                onPress={() => navigate(`/player/${item.ratingKey}`)}
+                onPress={handlePlay}
                 className="font-semibold"
             >
-                {item.viewOffset ? "Resume" : "Play"}
+                {showResume ? "Resume" : "Play"}
             </Button>
-            {!isGuest && progress > 0 && (
+            {!isGuest && effectiveProgress > 0 && (
                 <div className="flex items-center">
                     <Progress
                         size="sm"
-                        value={progress}
+                        value={effectiveProgress}
                         className="w-32"
                         classNames={{indicator: "bg-primary"}}
                     />
-                    <span className="text-xs text-default-400 ml-2">{Math.round(progress)}%</span>
+                    <span className="text-xs text-default-400 ml-2">{Math.round(effectiveProgress)}%</span>
                 </div>
             )}
-            {!isGuest && (item.viewCount ? (
+            {!isGuest && (isWatched ? (
                 <Button
                     variant="ghost"
                     radius="sm"
                     color={"secondary"}
                     size="lg"
                     startContent={<Icon icon="mdi:eye-off" width="20"/>}
-                    onPress={() => plexApi.unscrobble(item.ratingKey)}
+                    onPress={handleMarkUnwatched}
                 >
                     Mark Unwatched
                 </Button>
@@ -365,7 +389,7 @@ function ActionButtons({item, progress}: { item: PlexMediaItem; progress: number
                     color={"secondary"}
                     size="lg"
                     startContent={<Icon icon="mdi:eye" width="20"/>}
-                    onPress={() => plexApi.scrobble(item.ratingKey)}
+                    onPress={handleMarkWatched}
                     className="border-2 border-white/90"
                 >
                     Mark Watched
