@@ -36,7 +36,7 @@ export default function JoinPartyModal({isOpen, onClose}: JoinPartyModalProps) {
         queryKey: ["watchPartyRooms"],
         queryFn: () => api.get<WatchRoom[]>("/watch-party/rooms"),
         enabled: isOpen,
-        refetchInterval: 5000,
+        refetchInterval: 1000,
     });
 
     const handleJoinRoom = async (roomId: string) => {
