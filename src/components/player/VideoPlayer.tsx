@@ -66,6 +66,9 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const [syncStatus, setSyncStatus] = useState<"in_sync" | "syncing" | "disconnected">("in_sync");
     const [displayRate, setDisplayRate] = useState(1);
 
+    const isDraggingRef = useRef(false);
+    const clickTimerRef = useRef<number | null>(null);
+
     const isInParty = watchParty?.isInParty ?? false;
     const isHost = watchParty?.isHost ?? false;
 
@@ -374,14 +377,14 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         return () => window.removeEventListener("beforeunload", handleBeforeUnload);
     }, [item.ratingKey, item.key, isGuest]);
 
-    // Auto-hide controls
+    // Auto-hide controls (suppressed while dragging the seek bar)
     useEffect(() => {
         let timeout: number;
         const handleMouseMove = () => {
             setShowControls(true);
             clearTimeout(timeout);
             timeout = window.setTimeout(() => {
-                if (isPlaying) setShowControls(false);
+                if (isPlaying && !isDraggingRef.current) setShowControls(false);
             }, 3000);
         };
 
@@ -391,6 +394,11 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             clearTimeout(timeout);
         };
     }, [isPlaying]);
+
+    const handleDragChange = useCallback((dragging: boolean) => {
+        isDraggingRef.current = dragging;
+        if (dragging) setShowControls(true);
+    }, []);
 
     // Compute expected remote position accounting for elapsed time
     const rTarget = useCallback(() => {
@@ -868,8 +876,22 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                         onNext?.();
                     }
                 }}
-                onClick={togglePlay}
-                onDoubleClick={toggleFullscreen}
+                onClick={() => {
+                    // Delay single-click so double-click can cancel it
+                    if (clickTimerRef.current) return;
+                    clickTimerRef.current = window.setTimeout(() => {
+                        clickTimerRef.current = null;
+                        togglePlay();
+                    }, 200);
+                }}
+                onDoubleClick={() => {
+                    // Cancel pending single-click and toggle fullscreen instead
+                    if (clickTimerRef.current) {
+                        clearTimeout(clickTimerRef.current);
+                        clickTimerRef.current = null;
+                    }
+                    toggleFullscreen();
+                }}
             />
 
             <PlayerOverlay
@@ -916,6 +938,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 hasPrevious={hasPrevious}
                 syncStatus={isInParty ? syncStatus : undefined}
                 displayRate={isInParty ? displayRate : undefined}
+                onDragChange={handleDragChange}
             />
 
             {isInParty && watchParty?.activeRoom && (

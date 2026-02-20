@@ -37,6 +37,7 @@ interface PlayerControlsProps {
     hasPrevious?: boolean;
     syncStatus?: "in_sync" | "syncing" | "disconnected";
     displayRate?: number;
+    onDragChange?: (isDragging: boolean) => void;
 }
 
 export default function PlayerControls({
@@ -68,6 +69,7 @@ export default function PlayerControls({
     hasPrevious,
     syncStatus,
     displayRate,
+    onDragChange,
 }: PlayerControlsProps) {
     return (
         <div
@@ -81,6 +83,7 @@ export default function PlayerControls({
                 duration={duration}
                 bifData={bifData}
                 onSeek={onSeek}
+                onDragChange={onDragChange}
             />
 
             <div className="flex items-center justify-between">

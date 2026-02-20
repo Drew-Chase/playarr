@@ -1,23 +1,29 @@
-import {useCallback, useEffect, useRef, useState} from "react";
+import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import {Slider} from "@heroui/react";
 import {formatTimestamp} from "../../lib/utils.ts";
 import {getBifImageAtTime} from "../../lib/bif-parser.ts";
 import type {BifData} from "../../lib/types.ts";
 
-interface SeekBarProps {
+interface SeekBarProps
+{
     currentTime: number;
     duration: number;
     bifData: BifData | null;
     onSeek: (time: number) => void;
+    onDragChange?: (isDragging: boolean) => void;
 }
 
-export default function SeekBar({currentTime, duration, bifData, onSeek}: SeekBarProps) {
+const TOOLTIP_WIDTH = 160; // w-40 = 10rem = 160px
+
+export default function SeekBar({currentTime, duration, bifData, onSeek, onDragChange}: SeekBarProps)
+{
     const containerRef = useRef<HTMLDivElement>(null);
     const [hoverPosition, setHoverPosition] = useState<number | null>(null);
     const [hoverTime, setHoverTime] = useState(0);
     const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
 
-    const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    const handleMouseMove = useCallback((e: React.MouseEvent) =>
+    {
         const container = containerRef.current;
         if (!container || duration <= 0) return;
         const rect = container.getBoundingClientRect();
@@ -26,19 +32,40 @@ export default function SeekBar({currentTime, duration, bifData, onSeek}: SeekBa
         setHoverTime(fraction * duration);
     }, [duration]);
 
-    const handleMouseLeave = useCallback(() => {
+    const handleMouseLeave = useCallback(() =>
+    {
         setHoverPosition(null);
     }, []);
 
+    // Clamp tooltip left so it stays within the container bounds
+    const tooltipStyle = useMemo(() =>
+    {
+        if (hoverPosition === null) return {};
+        const container = containerRef.current;
+        if (!container) return {left: `${hoverPosition}%`, transform: "translateX(-50%)"};
+
+        const containerWidth = container.offsetWidth;
+        const halfTooltip = TOOLTIP_WIDTH / 2;
+        const pxPosition = (hoverPosition / 100) * containerWidth;
+
+        // Clamp: ensure tooltip doesn't overflow left or right
+        const clampedPx = Math.max(halfTooltip, Math.min(containerWidth - halfTooltip, pxPosition));
+
+        return {left: `${clampedPx}px`, transform: "translateX(-50%)"};
+    }, [hoverPosition]);
+
     // Generate thumbnail blob URL on hover
-    useEffect(() => {
-        if (hoverPosition === null || !bifData) {
+    useEffect(() =>
+    {
+        if (hoverPosition === null || !bifData)
+        {
             setThumbnailUrl(null);
             return;
         }
 
         const blob = getBifImageAtTime(bifData, hoverTime * 1000);
-        if (!blob) {
+        if (!blob)
+        {
             setThumbnailUrl(null);
             return;
         }
@@ -59,14 +86,14 @@ export default function SeekBar({currentTime, duration, bifData, onSeek}: SeekBa
             {/* Hover tooltip */}
             {hoverPosition !== null && (
                 <div
-                    className="absolute bottom-full mb-2 -translate-x-1/2 pointer-events-none z-10 flex flex-col items-center"
-                    style={{left: `${hoverPosition}%`}}
+                    className="absolute bottom-full mb-2 pointer-events-none z-10 flex flex-col items-center"
+                    style={tooltipStyle}
                 >
                     {thumbnailUrl && (
                         <img
                             src={thumbnailUrl}
                             alt=""
-                            className="w-40 h-auto rounded border border-white/20 mb-1"
+                            className="w-40 min-w-40 h-auto rounded border border-white/20 mb-1 shrink-0"
                         />
                     )}
                     <div className="bg-black/80 text-white text-xs px-2 py-1 rounded text-center whitespace-nowrap">
@@ -83,11 +110,13 @@ export default function SeekBar({currentTime, duration, bifData, onSeek}: SeekBa
                 maxValue={duration || 1}
                 value={currentTime}
                 onChange={(val) => onSeek(val as number)}
+                onChangeEnd={() => onDragChange?.(false)}
                 classNames={{
                     track: "h-1 group-hover:h-2 transition-all",
-                    thumb: "w-3 h-3 after:w-2.5 after:h-2.5 opacity-0 group-hover:opacity-100 transition-opacity",
+                    thumb: "w-3 h-3 after:w-2.5 after:h-2.5 opacity-0 group-hover:opacity-100 transition-opacity"
                 }}
                 aria-label="Seek"
+                onPointerDown={() => onDragChange?.(true)}
             />
         </div>
     );

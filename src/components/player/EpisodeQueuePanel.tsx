@@ -1,5 +1,5 @@
-import {useEffect, useRef} from "react";
-import {Button} from "@heroui/react";
+import {useEffect, useMemo, useRef} from "react";
+import {Accordion, AccordionItem, Button} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {motion, AnimatePresence} from "framer-motion";
 import type {PlexMediaItem} from "../../lib/types.ts";
@@ -22,14 +22,31 @@ export default function EpisodeQueuePanel({
 }: EpisodeQueuePanelProps) {
     const currentRef = useRef<HTMLDivElement>(null);
 
+    // Group episodes by season
+    const seasons = useMemo(() => {
+        const map = new Map<number, PlexMediaItem[]>();
+        for (const ep of episodes) {
+            const season = ep.parentIndex ?? 0;
+            if (!map.has(season)) map.set(season, []);
+            map.get(season)!.push(ep);
+        }
+        return map;
+    }, [episodes]);
+
+    // Find the season that contains the currently playing episode
+    const activeSeason = useMemo(() => {
+        const current = episodes.find(e => e.ratingKey === currentRatingKey);
+        return current?.parentIndex ?? seasons.keys().next().value ?? 0;
+    }, [episodes, currentRatingKey, seasons]);
+
+    // Scroll to the current episode after panel opens and accordion expands
     useEffect(() => {
         if (isOpen && currentRef.current) {
-            currentRef.current.scrollIntoView({block: "center", behavior: "smooth"});
+            setTimeout(() => {
+                currentRef.current?.scrollIntoView({block: "center", behavior: "smooth"});
+            }, 300);
         }
     }, [isOpen]);
-
-    // Track season boundaries for headers
-    let lastSeason: number | undefined;
 
     return (
         <AnimatePresence>
@@ -49,65 +66,75 @@ export default function EpisodeQueuePanel({
                     </div>
 
                     <div className="flex-1 overflow-y-auto">
-                        {episodes.map((episode) => {
-                            const isCurrent = episode.ratingKey === currentRatingKey;
-                            const thumbUrl = episode.thumb ? `/api/media/${episode.ratingKey}/thumb` : "";
-                            const showSeasonHeader = episode.parentIndex !== undefined && episode.parentIndex !== lastSeason;
-                            if (episode.parentIndex !== undefined) lastSeason = episode.parentIndex;
+                        <Accordion
+                            selectionMode="single"
+                            defaultSelectedKeys={[String(activeSeason)]}
+                            className="px-0"
+                            itemClasses={{
+                                base: "py-0",
+                                title: "text-sm font-semibold",
+                                trigger: "px-4 py-2 data-[hover=true]:bg-content2/50",
+                                content: "p-0",
+                            }}
+                        >
+                            {[...seasons.entries()].map(([season, eps]) => (
+                                <AccordionItem
+                                    key={String(season)}
+                                    title={`Season ${season}`}
+                                    subtitle={`${eps.length} episode${eps.length !== 1 ? "s" : ""}`}
+                                >
+                                    {eps.map((episode) => {
+                                        const isCurrent = episode.ratingKey === currentRatingKey;
+                                        const thumbUrl = episode.thumb ? `/api/media/${episode.ratingKey}/thumb` : "";
 
-                            return (
-                                <div key={episode.ratingKey}>
-                                    {showSeasonHeader && (
-                                        <div className="px-4 py-2 bg-content2/50 border-b border-divider sticky top-0 z-10">
-                                            <span className="text-xs font-semibold text-default-500 uppercase">
-                                                Season {episode.parentIndex}
-                                            </span>
-                                        </div>
-                                    )}
-                                    <div
-                                        ref={isCurrent ? currentRef : undefined}
-                                        className={`flex gap-3 p-3 cursor-pointer hover:bg-content2 transition-colors ${
-                                            isCurrent ? "bg-primary/20 border-l-3 border-primary" : ""
-                                        }`}
-                                        onClick={() => {
-                                            if (!isCurrent) onSelectEpisode(episode.ratingKey);
-                                        }}
-                                    >
-                                        {/* Thumbnail */}
-                                        <div className="relative w-28 min-w-[7rem] aspect-video rounded overflow-hidden bg-content3">
-                                            {thumbUrl ? (
-                                                <img
-                                                    src={thumbUrl}
-                                                    alt={episode.title}
-                                                    className="object-cover w-full h-full"
-                                                    loading="lazy"
-                                                />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center">
-                                                    <Icon icon="mdi:television" width="24" className="text-default-400"/>
+                                        return (
+                                            <div
+                                                key={episode.ratingKey}
+                                                ref={isCurrent ? currentRef : undefined}
+                                                className={`flex gap-3 p-3 cursor-pointer hover:bg-content2 transition-colors ${
+                                                    isCurrent ? "bg-primary/20 border-l-3 border-primary" : ""
+                                                }`}
+                                                onClick={() => {
+                                                    if (!isCurrent) onSelectEpisode(episode.ratingKey);
+                                                }}
+                                            >
+                                                {/* Thumbnail */}
+                                                <div className="relative w-28 min-w-[7rem] aspect-video rounded overflow-hidden bg-content3">
+                                                    {thumbUrl ? (
+                                                        <img
+                                                            src={thumbUrl}
+                                                            alt={episode.title}
+                                                            className="object-cover w-full h-full"
+                                                            loading="lazy"
+                                                        />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center">
+                                                            <Icon icon="mdi:television" width="24" className="text-default-400"/>
+                                                        </div>
+                                                    )}
+                                                    {isCurrent && (
+                                                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                                            <Icon icon="mdi:play" width="24" className="text-white"/>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            )}
-                                            {isCurrent && (
-                                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                                                    <Icon icon="mdi:play" width="24" className="text-white"/>
-                                                </div>
-                                            )}
-                                        </div>
 
-                                        {/* Info */}
-                                        <div className="flex-1 min-w-0 py-0.5">
-                                            <p className="text-xs text-default-400">
-                                                S{episode.parentIndex?.toString().padStart(2, "0")}E{episode.index?.toString().padStart(2, "0")}
-                                                {episode.duration ? ` · ${formatDuration(episode.duration)}` : ""}
-                                            </p>
-                                            <p className={`text-sm truncate ${isCurrent ? "font-semibold text-primary" : ""}`}>
-                                                {episode.title}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
+                                                {/* Info */}
+                                                <div className="flex-1 min-w-0 py-0.5">
+                                                    <p className="text-xs text-default-400">
+                                                        E{episode.index?.toString().padStart(2, "0")}
+                                                        {episode.duration ? ` · ${formatDuration(episode.duration)}` : ""}
+                                                    </p>
+                                                    <p className={`text-sm truncate ${isCurrent ? "font-semibold text-primary" : ""}`}>
+                                                        {episode.title}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </AccordionItem>
+                            ))}
+                        </Accordion>
                     </div>
                 </motion.div>
             )}
