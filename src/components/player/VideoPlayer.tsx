@@ -535,11 +535,11 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         };
     }, [watchParty, isInParty, applySync, navigate]);
 
-    // Watch party: notify room of current media (host only).
-    // Only the host should tell the server about media changes to avoid
-    // newly joining clients accidentally resetting room state.
+    // Watch party: notify room of current media change.
+    // Any synced user can change the video — the sync flag system prevents
+    // newly joining clients from accidentally resetting room state.
     useEffect(() => {
-        if (isInParty && watchParty && isHost) {
+        if (isInParty && watchParty) {
             watchParty.sendMediaChange(item.ratingKey, item.title, item.duration);
         }
     }, [item.ratingKey]);
