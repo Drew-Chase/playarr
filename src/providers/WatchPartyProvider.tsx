@@ -159,7 +159,16 @@ export default function WatchPartyProvider({children}: { children: React.ReactNo
                 break;
             case "buffering":
             case "all_ready":
+                onPlayerEvent.current?.(msg);
+                break;
             case "heartbeat":
+                // Keep activeRoom.position_ms fresh so late-joiners start near the right spot
+                if (msg.server_time != null) {
+                    setActiveRoom(prev => prev ? {
+                        ...prev,
+                        position_ms: Math.floor(msg.server_time * 1000),
+                    } : prev);
+                }
                 onPlayerEvent.current?.(msg);
                 break;
             case "error":

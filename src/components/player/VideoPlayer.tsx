@@ -40,6 +40,9 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const bufferingUsersRef = useRef<Set<number>>(new Set());
     const bufferingTimerRef = useRef<number | null>(null);
     const localBufferingRef = useRef(false);
+    // True once the video has played at least one frame (onTimeUpdate fired).
+    // Prevents sending buffering/play messages during initial load.
+    const hasPlayedRef = useRef(false);
 
     const durationRef = useRef<number>(0);
 
@@ -113,6 +116,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     useEffect(() => {
         savedPositionRef.current = 0;
         scrobbledRef.current = false;
+        hasPlayedRef.current = false;
         setCurrentTime(0);
         setDuration(0);
         remoteRef.current = { t: 0, playing: false, m: performance.now() };
@@ -488,8 +492,9 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         };
     }, [watchParty, isInParty, applySync, navigate]);
 
-    // Watch party: notify room of current media (resets position to 0, status to idle)
-    // Any member can change media, not just the host
+    // Watch party: notify room of current media.
+    // Server's set_media_if_changed() only resets position when media_id actually
+    // changes, so this is safe to always send (no-op for same media).
     useEffect(() => {
         if (isInParty && watchParty) {
             watchParty.sendMediaChange(item.ratingKey, item.title, item.duration);
@@ -637,6 +642,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const handleTimeUpdate = () => {
         const video = videoRef.current;
         if (!video) return;
+        if (!hasPlayedRef.current) hasPlayedRef.current = true;
         setCurrentTime(video.currentTime);
         savedPositionRef.current = video.currentTime;
 
@@ -680,7 +686,8 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                         bufferingTimerRef.current = null;
                     }
                     // If we sent a buffering message, notify recovery
-                    if (isInParty && watchParty && localBufferingRef.current) {
+                    // Skip during initial load (hasPlayedRef false) to avoid sending Play with wrong position
+                    if (isInParty && watchParty && localBufferingRef.current && hasPlayedRef.current) {
                         localBufferingRef.current = false;
                         const video = videoRef.current;
                         if (video) {
@@ -691,7 +698,8 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 onWaiting={() => {
                     setIsSeeking(true);
                     // Only send buffering after 1s of continuous waiting (avoid spam from seeks)
-                    if (isInParty && watchParty && !isTransitioningRef.current && !localBufferingRef.current) {
+                    // Skip during initial load (hasPlayedRef false) to avoid pausing others while loading
+                    if (isInParty && watchParty && !isTransitioningRef.current && !localBufferingRef.current && hasPlayedRef.current) {
                         if (!bufferingTimerRef.current) {
                             bufferingTimerRef.current = window.setTimeout(() => {
                                 watchParty.sendBuffering();
