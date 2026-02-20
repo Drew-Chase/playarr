@@ -246,8 +246,10 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 if (shouldAutoPlay()) {
                     video.play().then(notifyPartyPlay).catch(() => {});
                 }
-                // Request authoritative position from server after load
-                if (isInParty && watchParty && !isQualityChange) {
+                // Request authoritative position when joining mid-stream.
+                // Skip for new episodes (resumePosition 0) — the room is Idle
+                // and the sync response would incorrectly pause the video.
+                if (isInParty && watchParty && !isQualityChange && resumePosition > 0) {
                     watchParty.sendSyncRequest();
                 }
             });
@@ -276,8 +278,8 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             if (shouldAutoPlay()) {
                 video.play().then(notifyPartyPlay).catch(() => {});
             }
-            // Request authoritative position from server after load
-            if (isInParty && watchParty && !isQualityChange) {
+            // Request authoritative position from server after load (only when joining mid-stream)
+            if (isInParty && watchParty && !isQualityChange && resumePosition > 0) {
                 watchParty.sendSyncRequest();
             }
         }
