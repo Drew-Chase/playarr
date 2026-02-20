@@ -91,6 +91,7 @@ export interface PlexMediaItem {
     ratingKey: string;
     key: string;
     title: string;
+    titleSort?: string;
     type: "movie" | "show" | "season" | "episode";
     summary: string;
     year: number;

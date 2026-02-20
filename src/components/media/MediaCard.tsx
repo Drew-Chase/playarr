@@ -130,6 +130,12 @@ export default function MediaCard({item, showProgress, width, variant = "portrai
                         src={thumbUrl}
                         loading="lazy"
                     />
+                    {/* Watched indicator */}
+                    {item.viewCount != null && item.viewCount > 0 && !progress && (
+                        <div className="absolute top-1.5 right-1.5 z-10">
+                            <Icon icon="mdi:check-circle" width="20" className="text-primary drop-shadow-md"/>
+                        </div>
+                    )}
                     {/* Hover play overlay */}
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
                         <button className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={handlePlay}>
