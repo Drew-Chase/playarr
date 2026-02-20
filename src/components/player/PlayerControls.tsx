@@ -143,19 +143,18 @@ export default function PlayerControls({
                         />
                     </Button>
                     <Slider
-                        size="sm"
+                        size="md"
                         color="foreground"
                         step={0.01}
                         minValue={0}
                         maxValue={1}
+                        showTooltip
+                        getTooltipValue={() => `Volume ${Math.round(volume * 100)}%`}
                         value={isMuted ? 0 : volume}
                         onChange={(val) => onVolumeChange(val as number)}
                         className="w-24"
-                        classNames={{
-                            track: "h-1",
-                            thumb: "w-3 h-3 after:w-2.5 after:h-2.5",
-                        }}
                         aria-label="Volume"
+                        hideThumb
                     />
 
                     <span className="text-white text-xs ml-2">
