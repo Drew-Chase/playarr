@@ -1,7 +1,7 @@
 import {Button, Slider} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {formatTimestamp} from "../../lib/utils.ts";
-import type {PlexStream, BifData, WatchPartyParticipant} from "../../lib/types.ts";
+import type {BifData, PlexStream, WatchPartyParticipant} from "../../lib/types.ts";
 import SubtitleSelector from "./SubtitleSelector.tsx";
 import AudioSelector from "./AudioSelector.tsx";
 import QualitySelector from "./QualitySelector.tsx";
