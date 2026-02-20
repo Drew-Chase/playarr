@@ -84,6 +84,11 @@ pub enum WsMessage {
     Ready { #[serde(default)] user_id: i64 },
     #[serde(rename = "all_ready")]
     AllReady,
+    #[serde(rename = "sync_ack")]
+    SyncAck,
+    /// Client-side keepalive — ignored by server, prevents idle disconnects.
+    #[serde(rename = "ping")]
+    Ping,
     #[serde(rename = "error")]
     Error { message: String },
 }
@@ -108,7 +113,7 @@ pub async fn ws_handler(
         .ok_or_else(|| actix_web::error::ErrorUnauthorized("Not signed in"))?;
 
     // Verify room exists
-    let room = rooms.get_room(&room_id)
+    let _room = rooms.get_room(&room_id)
         .ok_or_else(|| actix_web::error::ErrorNotFound("Room not found"))?;
 
     // Check access permission
@@ -130,6 +135,12 @@ pub async fn ws_handler(
     // Register session for broadcasting
     rooms.add_connection(&room_id, user_id, session.clone());
 
+    // The host is auto-synced (they are the authority); non-hosts must send
+    // a SyncAck after receiving and applying the room state snapshot.
+    if rooms.is_host(&room_id, user_id) {
+        rooms.mark_synced(&room_id, user_id);
+    }
+
     // Add participant to room state
     rooms.add_participant(&room_id, Participant {
         user_id,
@@ -146,21 +157,29 @@ pub async fn ws_handler(
     };
     rooms.broadcast_except(&room_id, &join_msg, user_id).await;
 
-    // Send room state snapshot to the joining client
-    let snapshot = WsMessage::RoomStateSnapshot {
-        media_id: room.media_id.clone(),
-        media_title: room.media_title.clone(),
-        position_ms: room.position_ms,
-        is_paused: room.status != RoomStatus::Watching,
-        participants: room.participants.iter().map(|p| ParticipantInfo {
-            user_id: p.user_id,
-            username: p.username.clone(),
-            thumb: p.thumb.clone(),
-            is_host: p.user_id == room.host_user_id,
-        }).collect(),
-        episode_queue: room.episode_queue.clone(),
-    };
-    rooms.send_to_user(&room_id, user_id, &snapshot).await;
+    // Send room state snapshot to the joining client (fresh read for accurate position)
+    if let Some(fresh_room) = rooms.get_room(&room_id) {
+        let computed_ms = if fresh_room.status == RoomStatus::Watching {
+            let now = chrono::Utc::now().timestamp_millis() as u64;
+            fresh_room.position_ms + now.saturating_sub(fresh_room.last_update_ms)
+        } else {
+            fresh_room.position_ms
+        };
+        let snapshot = WsMessage::RoomStateSnapshot {
+            media_id: fresh_room.media_id.clone(),
+            media_title: fresh_room.media_title.clone(),
+            position_ms: computed_ms,
+            is_paused: fresh_room.status != RoomStatus::Watching,
+            participants: fresh_room.participants.iter().map(|p| ParticipantInfo {
+                user_id: p.user_id,
+                username: p.username.clone(),
+                thumb: p.thumb.clone(),
+                is_host: p.user_id == fresh_room.host_user_id,
+            }).collect(),
+            episode_queue: fresh_room.episode_queue.clone(),
+        };
+        rooms.send_to_user(&room_id, user_id, &snapshot).await;
+    }
 
     // Spawn message handling loop
     let rooms_clone = rooms.into_inner();
@@ -185,6 +204,9 @@ async fn handle_ws_messages(
                 if let Ok(ws_msg) = serde_json::from_str::<WsMessage>(&text) {
                     match ws_msg {
                         WsMessage::Play { position_ms, .. } => {
+                            if !rooms.is_synced(&room_id, user_id) {
+                                continue;
+                            }
                             rooms.remove_buffering_user(&room_id, user_id);
                             rooms.update_position(&room_id, position_ms);
                             if !rooms.has_buffering_users(&room_id) {
@@ -193,18 +215,30 @@ async fn handle_ws_messages(
                             rooms.broadcast_except(&room_id, &WsMessage::Play { position_ms, user_id }, user_id).await;
                         }
                         WsMessage::Pause { position_ms, .. } => {
+                            if !rooms.is_synced(&room_id, user_id) {
+                                continue;
+                            }
                             rooms.update_position(&room_id, position_ms);
                             rooms.set_status(&room_id, RoomStatus::Paused);
                             rooms.broadcast_except(&room_id, &WsMessage::Pause { position_ms, user_id }, user_id).await;
                         }
                         WsMessage::Seek { position_ms, .. } => {
+                            if !rooms.is_synced(&room_id, user_id) {
+                                continue;
+                            }
                             rooms.update_position(&room_id, position_ms);
                             rooms.broadcast_except(&room_id, &WsMessage::Seek { position_ms, user_id }, user_id).await;
                         }
                         WsMessage::SyncRequest => {
                             if let Some(room) = rooms.get_room(&room_id) {
+                                let computed_ms = if room.status == RoomStatus::Watching {
+                                    let now = chrono::Utc::now().timestamp_millis() as u64;
+                                    room.position_ms + now.saturating_sub(room.last_update_ms)
+                                } else {
+                                    room.position_ms
+                                };
                                 let resp = WsMessage::SyncResponse {
-                                    position_ms: room.position_ms,
+                                    position_ms: computed_ms,
                                     is_paused: room.status != RoomStatus::Watching,
                                     media_id: room.media_id.clone(),
                                 };
@@ -221,6 +255,9 @@ async fn handle_ws_messages(
                             }
                         }
                         WsMessage::MediaChange { media_id, title, duration_ms } => {
+                            if !rooms.is_synced(&room_id, user_id) {
+                                continue;
+                            }
                             // Only process if the media actually changed (prevents duplicate resets)
                             if rooms.set_media_if_changed(&room_id, media_id.clone(), title.clone(), duration_ms) {
                                 rooms.broadcast(&room_id, &WsMessage::MediaChange {
@@ -269,6 +306,9 @@ async fn handle_ws_messages(
                             }
                         }
                         WsMessage::Buffering { .. } => {
+                            if !rooms.is_synced(&room_id, user_id) {
+                                continue;
+                            }
                             rooms.add_buffering_user(&room_id, user_id);
                             rooms.set_status(&room_id, RoomStatus::Buffering);
                             rooms.broadcast_except(&room_id, &WsMessage::Buffering { user_id }, user_id).await;
@@ -280,6 +320,9 @@ async fn handle_ws_messages(
                                 rooms.set_status(&room_id, RoomStatus::Watching);
                                 rooms.broadcast(&room_id, &WsMessage::AllReady).await;
                             }
+                        }
+                        WsMessage::SyncAck => {
+                            rooms.mark_synced(&room_id, user_id);
                         }
                         // Client-sent join/leave/all_ready are handled on connect/disconnect or server-only
                         _ => {}
@@ -297,10 +340,12 @@ async fn handle_ws_messages(
     // Cleanup on disconnect
     rooms.remove_connection(&room_id, user_id);
 
-    // Pause the room so remaining members don't continue without this user
-    let position_ms = rooms.get_room(&room_id).map(|r| r.position_ms).unwrap_or(0);
+    // Pause the room so remaining members don't continue without this user.
+    // set_status snapshots the computed position (position_ms + elapsed) for
+    // Watching→Paused transitions, so we must read position_ms AFTER it runs.
     if rooms.get_room(&room_id).is_some_and(|r| r.status == RoomStatus::Watching || r.status == RoomStatus::Buffering) {
         rooms.set_status(&room_id, RoomStatus::Paused);
+        let position_ms = rooms.get_room(&room_id).map(|r| r.position_ms).unwrap_or(0);
         rooms.broadcast(&room_id, &WsMessage::Pause { position_ms, user_id }).await;
     }
 

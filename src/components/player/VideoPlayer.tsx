@@ -223,7 +223,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         // would reset everyone because video.currentTime is still 0 at
         // MANIFEST_PARSED time (HLS hasn't loaded segments yet).
         const notifyPartyPlay = () => {
-            if (isInParty && watchParty && !isQualityChange) {
+            if (isInParty && watchParty && isHost && !isQualityChange) {
                 const roomStatus = watchParty?.activeRoom?.status;
                 if (roomStatus !== "idle") return;
                 watchParty.sendPlay(Math.floor((video?.currentTime ?? 0) * 1000));
@@ -241,6 +241,10 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 isTransitioningRef.current = false;
                 if (shouldAutoPlay()) {
                     video.play().then(notifyPartyPlay).catch(() => {});
+                }
+                // Request authoritative position from server after load
+                if (isInParty && watchParty && !isQualityChange) {
+                    watchParty.sendSyncRequest();
                 }
             });
             hls.on(Hls.Events.ERROR, (_event, data) => {
@@ -267,6 +271,10 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             isTransitioningRef.current = false;
             if (shouldAutoPlay()) {
                 video.play().then(notifyPartyPlay).catch(() => {});
+            }
+            // Request authoritative position from server after load
+            if (isInParty && watchParty && !isQualityChange) {
+                watchParty.sendSyncRequest();
             }
         }
     };
@@ -322,10 +330,11 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         };
     }, [item.ratingKey, item.key, isGuest]);
 
-    // Pause watch party on true component unmount only (not on episode transitions)
+    // Pause watch party on true component unmount only (not on episode transitions).
+    // Guard: only send if we have a real position (> 0) to avoid resetting the room.
     useEffect(() => {
         return () => {
-            if (isInPartyRef.current && watchPartyRef.current) {
+            if (isInPartyRef.current && watchPartyRef.current && savedPositionRef.current > 0) {
                 watchPartyRef.current.sendPause(Math.floor(savedPositionRef.current * 1000));
             }
         };
@@ -420,6 +429,15 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     useEffect(() => {
         if (!watchParty || !isInParty) return;
 
+        // Seed remoteRef from current room state so applySync has a valid target
+        // even before the first heartbeat/room_state arrives
+        const room = watchParty.activeRoom;
+        if (room) {
+            remoteRef.current.t = (room.position_ms ?? 0) / 1000;
+            remoteRef.current.playing = room.status === "watching";
+            remoteRef.current.m = performance.now();
+        }
+
         const handlePartyEvent = (msg: WsMessage) => {
             const video = videoRef.current;
             if (!video) return;
@@ -461,11 +479,21 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                     remoteRef.current.m = performance.now();
                     applySync();
                     break;
+                case "room_state":
+                    remoteRef.current.t = msg.position_ms / 1000;
+                    remoteRef.current.playing = !msg.is_paused;
+                    remoteRef.current.m = performance.now();
+                    applySync();
+                    // Tell the server we've synced — unblocks state-changing messages
+                    watchParty?.sendSyncAck();
+                    break;
                 case "sync_response":
                     remoteRef.current.t = msg.position_ms / 1000;
                     remoteRef.current.playing = !msg.is_paused;
                     remoteRef.current.m = performance.now();
                     applySync();
+                    // Tell the server we've synced — unblocks state-changing messages
+                    watchParty?.sendSyncAck();
                     break;
                 case "buffering": {
                     // Another user is buffering: pause our video, show who's buffering
@@ -475,6 +503,15 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                         setBufferingUsers(new Set(bufferingUsersRef.current));
                     }
                     if (!video.paused) video.pause();
+                    break;
+                }
+                case "leave": {
+                    // Clear this user from buffering set when they disconnect
+                    const luid = msg.user_id;
+                    if (luid && bufferingUsersRef.current.has(luid)) {
+                        bufferingUsersRef.current.delete(luid);
+                        setBufferingUsers(new Set(bufferingUsersRef.current));
+                    }
                     break;
                 }
                 case "all_ready":
@@ -492,11 +529,11 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         };
     }, [watchParty, isInParty, applySync, navigate]);
 
-    // Watch party: notify room of current media.
-    // Server's set_media_if_changed() only resets position when media_id actually
-    // changes, so this is safe to always send (no-op for same media).
+    // Watch party: notify room of current media (host only).
+    // Only the host should tell the server about media changes to avoid
+    // newly joining clients accidentally resetting room state.
     useEffect(() => {
-        if (isInParty && watchParty) {
+        if (isInParty && watchParty && isHost) {
             watchParty.sendMediaChange(item.ratingKey, item.title, item.duration);
         }
     }, [item.ratingKey]);
@@ -685,21 +722,25 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                         clearTimeout(bufferingTimerRef.current);
                         bufferingTimerRef.current = null;
                     }
-                    // If we sent a buffering message, notify recovery
-                    // Skip during initial load (hasPlayedRef false) to avoid sending Play with wrong position
-                    if (isInParty && watchParty && localBufferingRef.current && hasPlayedRef.current) {
+                    // If we sent a buffering message, notify recovery.
+                    // Skip during initial load (hasPlayedRef false) to avoid sending Play with wrong position.
+                    // Also skip if the buffering was caused by a party-initiated sync seek.
+                    if (isInParty && watchParty && localBufferingRef.current && hasPlayedRef.current && !syncFromPartyRef.current) {
                         localBufferingRef.current = false;
                         const video = videoRef.current;
                         if (video) {
                             watchParty.sendPlay(Math.floor(video.currentTime * 1000));
                         }
+                    } else if (localBufferingRef.current) {
+                        localBufferingRef.current = false;
                     }
                 }}
                 onWaiting={() => {
                     setIsSeeking(true);
-                    // Only send buffering after 1s of continuous waiting (avoid spam from seeks)
-                    // Skip during initial load (hasPlayedRef false) to avoid pausing others while loading
-                    if (isInParty && watchParty && !isTransitioningRef.current && !localBufferingRef.current && hasPlayedRef.current) {
+                    // Only send buffering after 1s of continuous waiting (avoid spam from seeks).
+                    // Skip during initial load (hasPlayedRef false) to avoid pausing others while loading.
+                    // Skip if the waiting was caused by a party-initiated sync seek (syncFromPartyRef).
+                    if (isInParty && watchParty && !isTransitioningRef.current && !localBufferingRef.current && hasPlayedRef.current && !syncFromPartyRef.current) {
                         if (!bufferingTimerRef.current) {
                             bufferingTimerRef.current = window.setTimeout(() => {
                                 watchParty.sendBuffering();

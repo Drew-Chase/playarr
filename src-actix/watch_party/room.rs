@@ -56,6 +56,9 @@ pub struct RoomState {
 pub struct RoomManager {
     pub rooms: DashMap<Uuid, RoomState>,
     connections: DashMap<Uuid, HashMap<i64, Session>>,
+    /// Tracks which users have completed their initial sync after joining.
+    /// Users not in this set are blocked from sending state-changing messages.
+    synced_users: DashMap<Uuid, HashSet<i64>>,
     invite_codes: DashMap<String, Uuid>,
 }
 
@@ -68,6 +71,7 @@ impl RoomManager {
         Self {
             rooms: DashMap::new(),
             connections: DashMap::new(),
+            synced_users: DashMap::new(),
             invite_codes: DashMap::new(),
         }
     }
@@ -167,16 +171,38 @@ impl RoomManager {
             .unwrap_or(false)
     }
 
+    /// Returns true if the user has completed initial sync (sent a SyncAck).
+    /// Unsynced users are blocked from sending state-changing messages.
+    pub fn is_synced(&self, room_id: &Uuid, user_id: i64) -> bool {
+        self.synced_users
+            .get(room_id)
+            .map(|users| users.contains(&user_id))
+            .unwrap_or(false)
+    }
+
+    /// Mark a user as synced after they acknowledge receiving the room state.
+    pub fn mark_synced(&self, room_id: &Uuid, user_id: i64) {
+        self.synced_users
+            .entry(*room_id)
+            .or_insert_with(HashSet::new)
+            .insert(user_id);
+    }
+
     pub fn add_connection(&self, room_id: &Uuid, user_id: i64, session: Session) {
         self.connections
             .entry(*room_id)
             .or_insert_with(HashMap::new)
             .insert(user_id, session);
+        // New connections start as unsynced — they must send SyncAck after
+        // receiving and applying the room state snapshot.
     }
 
     pub fn remove_connection(&self, room_id: &Uuid, user_id: i64) {
         if let Some(mut conns) = self.connections.get_mut(room_id) {
             conns.remove(&user_id);
+        }
+        if let Some(mut users) = self.synced_users.get_mut(room_id) {
+            users.remove(&user_id);
         }
     }
 
@@ -196,6 +222,7 @@ impl RoomManager {
                 drop(room);
                 self.rooms.remove(room_id);
                 self.connections.remove(room_id);
+                self.synced_users.remove(room_id);
                 if let Some(code) = invite_code {
                     self.invite_codes.remove(&code);
                 }
@@ -469,6 +496,7 @@ impl RoomManager {
         }
 
         self.connections.remove(room_id);
+        self.synced_users.remove(room_id);
         self.rooms.remove(room_id);
     }
 

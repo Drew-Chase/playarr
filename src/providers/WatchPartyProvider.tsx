@@ -24,7 +24,9 @@ interface WatchPartyContextType {
     sendSeek: (positionMs: number) => void;
     sendNavigate: (mediaId: string) => void;
     sendMediaChange: (mediaId: string, title?: string, durationMs?: number) => void;
+    sendSyncRequest: () => void;
     sendSyncResponse: (positionMs: number, isPaused: boolean, mediaId: string) => void;
+    sendSyncAck: () => void;
     sendBuffering: () => void;
     sendReady: () => void;
     addToQueue: (mediaId: string) => void;
@@ -48,6 +50,7 @@ export default function WatchPartyProvider({children}: { children: React.ReactNo
     const location = useLocation();
     const [activeRoom, setActiveRoom] = useState<WatchRoom | null>(null);
     const roomIdRef = useRef<string | null>(null);
+    const syncedRef = useRef(false);
 
     const {isOpen: isCreateOpen, onOpen: onCreateOpen, onClose: onCreateClose} = useDisclosure();
     const {isOpen: isJoinOpen, onOpen: onJoinOpen, onClose: onJoinClose} = useDisclosure();
@@ -58,6 +61,10 @@ export default function WatchPartyProvider({children}: { children: React.ReactNo
     const isInParty = activeRoom !== null;
     const isHost = activeRoom !== null && user !== null && activeRoom.host_user_id === user.id;
 
+    // Keep a ref in sync so useCallback closures always see current host status
+    const isHostRef = useRef(false);
+    isHostRef.current = isHost;
+
     // Restore session from sessionStorage
     useEffect(() => {
         const savedRoomId = sessionStorage.getItem("watchPartyRoomId");
@@ -66,6 +73,7 @@ export default function WatchPartyProvider({children}: { children: React.ReactNo
                 .then(room => {
                     setActiveRoom(room);
                     roomIdRef.current = room.id;
+                    syncedRef.current = false;
                 })
                 .catch(() => {
                     sessionStorage.removeItem("watchPartyRoomId");
@@ -76,6 +84,9 @@ export default function WatchPartyProvider({children}: { children: React.ReactNo
     const handleWsMessage = useCallback((msg: WsMessage) => {
         switch (msg.type) {
             case "room_state":
+                // room_state is sent on every fresh WS connection (initial + reconnect).
+                // Reset sync flag so sendSyncAck fires again for non-hosts.
+                syncedRef.current = false;
                 setActiveRoom(prev => prev ? {
                     ...prev,
                     media_id: msg.media_id,
@@ -90,6 +101,12 @@ export default function WatchPartyProvider({children}: { children: React.ReactNo
                     })),
                     episode_queue: msg.episode_queue,
                 } : prev);
+                // Auto-sync the host: the server already marks them synced,
+                // and the player may not be mounted yet to call sendSyncAck.
+                if (isHostRef.current) {
+                    syncedRef.current = true;
+                }
+                onPlayerEvent.current?.(msg);
                 break;
             case "join": {
                 setActiveRoom(prev => {
@@ -115,6 +132,8 @@ export default function WatchPartyProvider({children}: { children: React.ReactNo
                         participants: prev.participants.filter(p => p.user_id !== msg.user_id),
                     };
                 });
+                // Forward to player so it can clear this user from bufferingUsers
+                onPlayerEvent.current?.(msg);
                 toast.info(`${msg.username} left the watch party`);
                 break;
             case "navigate":
@@ -190,6 +209,7 @@ export default function WatchPartyProvider({children}: { children: React.ReactNo
         });
         setActiveRoom(room);
         roomIdRef.current = room.id;
+        syncedRef.current = false;
         sessionStorage.setItem("watchPartyRoomId", room.id);
         toast.success("Watch party created!");
         return room;
@@ -199,6 +219,7 @@ export default function WatchPartyProvider({children}: { children: React.ReactNo
         const room = await api.get<WatchRoom>(`/watch-party/rooms/${roomId}`);
         setActiveRoom(room);
         roomIdRef.current = room.id;
+        syncedRef.current = false;
         sessionStorage.setItem("watchPartyRoomId", room.id);
         toast.success("Joined watch party!");
     }, []);
@@ -222,14 +243,17 @@ export default function WatchPartyProvider({children}: { children: React.ReactNo
     }, [activeRoom, disconnect]);
 
     const sendPlay = useCallback((positionMs: number) => {
+        if (!syncedRef.current && !isHostRef.current) return;
         send({type: "play", position_ms: positionMs});
     }, [send]);
 
     const sendPause = useCallback((positionMs: number) => {
+        if (!syncedRef.current && !isHostRef.current) return;
         send({type: "pause", position_ms: positionMs});
     }, [send]);
 
     const sendSeek = useCallback((positionMs: number) => {
+        if (!syncedRef.current && !isHostRef.current) return;
         send({type: "seek", position_ms: positionMs});
     }, [send]);
 
@@ -238,14 +262,26 @@ export default function WatchPartyProvider({children}: { children: React.ReactNo
     }, [send]);
 
     const sendMediaChange = useCallback((mediaId: string, title?: string, durationMs?: number) => {
+        if (!syncedRef.current && !isHostRef.current) return;
         send({type: "media_change", media_id: mediaId, title, duration_ms: durationMs ?? 0});
+    }, [send]);
+
+    const sendSyncRequest = useCallback(() => {
+        send({type: "sync_request"});
     }, [send]);
 
     const sendSyncResponse = useCallback((positionMs: number, isPaused: boolean, mediaId: string) => {
         send({type: "sync_response", position_ms: positionMs, is_paused: isPaused, media_id: mediaId});
     }, [send]);
 
+    const sendSyncAck = useCallback(() => {
+        if (syncedRef.current) return;
+        syncedRef.current = true;
+        send({type: "sync_ack"});
+    }, [send]);
+
     const sendBuffering = useCallback(() => {
+        if (!syncedRef.current) return;
         send({type: "buffering", user_id: 0});
     }, [send]);
 
@@ -282,7 +318,9 @@ export default function WatchPartyProvider({children}: { children: React.ReactNo
             sendSeek,
             sendNavigate,
             sendMediaChange,
+            sendSyncRequest,
             sendSyncResponse,
+            sendSyncAck,
             sendBuffering,
             sendReady,
             addToQueue,
