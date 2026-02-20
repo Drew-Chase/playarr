@@ -1,5 +1,6 @@
-import {useState} from "react";
+import {type ReactNode, useState} from "react";
 import {Icon} from "@iconify-icon/react";
+import {Link} from "react-router-dom";
 import type {PlexMediaItem} from "../../lib/types.ts";
 import {formatDuration} from "../../lib/utils.ts";
 
@@ -17,10 +18,10 @@ export default function MetadataInfo({item}: MetadataInfoProps) {
         <div>
             <h1 className="text-3xl md:text-4xl font-bold mb-3">{title}</h1>
 
-            <div className="flex flex-wrap items-center gap-2 mb-4 text-sm text-default-400">
+            <div className="flex flex-wrap items-center gap-2 mb-4 text-default-800">
                 {metaParts.map((part, i) => (
                     <span key={i} className="flex items-center gap-2">
-                        {i > 0 && <span className="text-default-300">|</span>}
+                        {i > 0 && <span className="text-default-500">|</span>}
                         {part}
                     </span>
                 ))}
@@ -42,7 +43,7 @@ export default function MetadataInfo({item}: MetadataInfoProps) {
 
             {item.summary && (
                 <div className="max-w-2xl">
-                    <p className={`text-sm text-default-500 leading-relaxed ${expanded ? "" : "line-clamp-3"}`}>
+                    <p className={`text-sm text-default-700 leading-relaxed ${expanded ? "" : "line-clamp-3"}`}>
                         {item.summary}
                     </p>
                     {item.summary.length > 200 && (
@@ -60,10 +61,6 @@ export default function MetadataInfo({item}: MetadataInfoProps) {
 }
 
 function getTitle(item: PlexMediaItem): string {
-    if (item.type === "episode") {
-        const ep = `S${item.parentIndex?.toString().padStart(2, "0")}E${item.index?.toString().padStart(2, "0")}`;
-        return `${ep} \u00B7 ${item.title}`;
-    }
     if (item.type === "season") {
         const count = item.leafCount;
         return count ? `${item.title} \u00B7 ${count} episode${count !== 1 ? "s" : ""}` : item.title;
@@ -71,10 +68,25 @@ function getTitle(item: PlexMediaItem): string {
     return item.title;
 }
 
-function getMetaParts(item: PlexMediaItem): string[] {
-    const parts: string[] = [];
+function getMetaParts(item: PlexMediaItem): ReactNode[] {
+    const parts: ReactNode[] = [];
     if (item.type === "episode") {
-        if (item.grandparentTitle) parts.push(item.grandparentTitle);
+        if (item.grandparentTitle) {
+            parts.push(
+                <Link key="show" to={`/detail/${item.grandparentRatingKey}`} className="hover:text-primary transition-colors">
+                    {item.grandparentTitle}
+                </Link>
+            );
+        }
+        const seasonEp = [
+            item.parentIndex != null && (
+                <Link key="season" to={`/detail/${item.parentRatingKey}`} className="hover:text-primary transition-colors">
+                    Season {item.parentIndex}
+                </Link>
+            ),
+            item.index != null && ` Episode ${item.index}`,
+        ].filter(Boolean);
+        if (seasonEp.length > 0) parts.push(<span key="sep">{seasonEp}</span>);
         if (item.duration) parts.push(formatDuration(item.duration));
     } else if (item.type === "season") {
         if (item.parentTitle) parts.push(item.parentTitle);

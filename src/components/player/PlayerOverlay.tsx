@@ -1,7 +1,7 @@
 import {Button, Chip, Spinner} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
+import {Link} from "react-router-dom";
 import type {PlexMediaItem} from "../../lib/types.ts";
-import {getDisplayTitle} from "../../lib/utils.ts";
 
 interface PlayerOverlayProps {
     item: PlexMediaItem;
@@ -32,14 +32,33 @@ export default function PlayerOverlay({item, visible, onBack, isInParty, partici
                         >
                             <Icon icon="mdi:arrow-left" width="24"/>
                         </Button>
-                        <div>
-                            <p className="text-white font-semibold text-sm">
-                                {getDisplayTitle(item)}
-                            </p>
-                            {item.type === "episode" && (
-                                <p className="text-white/60 text-xs">{item.title}</p>
-                            )}
-                        </div>
+                        {item.type === "episode" ? (
+                            <div className="flex items-center gap-1.5 text-sm">
+                                {item.grandparentTitle && (
+                                    <Link to={`/detail/${item.grandparentRatingKey}`} className="text-white font-semibold hover:text-primary transition-colors">
+                                        {item.grandparentTitle}
+                                    </Link>
+                                )}
+                                {item.parentIndex != null && (
+                                    <>
+                                        <span className="text-white/40">·</span>
+                                        <Link to={`/detail/${item.parentRatingKey}`} className="text-white/70 hover:text-primary transition-colors">
+                                            S{item.parentIndex.toString().padStart(2, "0")}
+                                        </Link>
+                                    </>
+                                )}
+                                {item.index != null && (
+                                    <>
+                                        <span className="text-white/40">·</span>
+                                        <Link to={`/detail/${item.ratingKey}`} className="text-white/70 hover:text-primary transition-colors">
+                                            E{item.index.toString().padStart(2, "0")} — {item.title}
+                                        </Link>
+                                    </>
+                                )}
+                            </div>
+                        ) : (
+                            <p className="text-white font-semibold text-sm">{item.title}</p>
+                        )}
                     </div>
                     {isInParty && (
                         <Chip

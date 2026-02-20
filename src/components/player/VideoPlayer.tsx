@@ -632,6 +632,15 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         return () => document.removeEventListener("fullscreenchange", handleFsChange);
     }, []);
 
+    // Exit fullscreen when navigating away from the player
+    useEffect(() => {
+        return () => {
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+            }
+        };
+    }, []);
+
     // Media Session API — enables hardware media keys and OS transport controls.
     // Uses refs for all callbacks so this effect only re-runs when the media item
     // changes, preventing constant handler teardown/re-registration that stops
@@ -860,6 +869,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                     }
                 }}
                 onClick={togglePlay}
+                onDoubleClick={toggleFullscreen}
             />
 
             <PlayerOverlay

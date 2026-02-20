@@ -38,7 +38,7 @@ function DetailBreadcrumbs({item}: { item: PlexMediaItem }) {
     return (
         <Breadcrumbs size="lg" className="mb-4" classNames={{list: "gap-1"}}>
             {crumbs.map((crumb, i) => (
-                <BreadcrumbItem key={i} href={crumb.href} isCurrent={!crumb.href}>
+                <BreadcrumbItem key={i} href={crumb.href} isCurrent={!crumb.href} classNames={{item: "text-white/90 data-[current=true]:text-white data-[current=true]:font-bold"}}>
                     {crumb.label}
                 </BreadcrumbItem>
             ))}
@@ -107,14 +107,14 @@ function CrewInfo({item}: { item: PlexMediaItem }) {
         <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm mt-3">
             {directors && directors.length > 0 && (
                 <div className="flex gap-2">
-                    <span className="text-default-400">Directed by</span>
-                    <span className="text-default-200">{directors.map(d => d.tag).join(", ")}</span>
+                    <span className="text-default-500">Directed by</span>
+                    <span className="text-default-600 font-bold">{directors.map(d => d.tag).join(", ")}</span>
                 </div>
             )}
             {writers && writers.length > 0 && (
                 <div className="flex gap-2">
-                    <span className="text-default-400">Written by</span>
-                    <span className="text-default-200">{writers.map(w => w.tag).join(", ")}</span>
+                    <span className="text-default-500">Written by</span>
+                    <span className="text-default-600 font-bold">{writers.map(w => w.tag).join(", ")}</span>
                 </div>
             )}
         </div>
@@ -153,14 +153,14 @@ function MediaInfo({item}: { item: PlexMediaItem }) {
         <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm mt-4">
             {resolution && (
                 <div className="flex gap-2">
-                    <span className="text-default-400">Video</span>
-                    <span className="text-default-200">{resolution} ({videoCodec})</span>
+                    <span className="text-default-500">Video</span>
+                    <span className="text-default-600 font-bold">{resolution} ({videoCodec})</span>
                 </div>
             )}
             {(audioTitle || audioCodec) && (
                 <div className="flex gap-2">
-                    <span className="text-default-400">Audio</span>
-                    <span className="text-default-200">{audioTitle || audioCodec}</span>
+                    <span className="text-default-500">Audio</span>
+                    <span className="text-default-600 font-bold">{audioTitle || audioCodec}</span>
                 </div>
             )}
         </div>
