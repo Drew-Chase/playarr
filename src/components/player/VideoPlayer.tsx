@@ -1,6 +1,6 @@
 import {useCallback, useEffect, useRef, useState} from "react";
 import Hls from "hls.js";
-import {useNavigate} from "react-router-dom";
+import {useNavigate, useSearchParams} from "react-router-dom";
 import {plexApi} from "../../lib/plex.ts";
 import {checkDirectPlayability} from "../../lib/codec-support.ts";
 import {parseBif} from "../../lib/bif-parser.ts";
@@ -23,6 +23,8 @@ interface VideoPlayerProps {
 
 export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevious, episodes}: VideoPlayerProps) {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const startTimeParam = searchParams.get("t");
     const {isGuest} = useAuth();
     const watchParty = useWatchPartyContext();
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -155,7 +157,9 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 ? (watchParty?.activeRoom?.media_id === item.ratingKey
                     ? (watchParty?.activeRoom?.position_ms ?? 0) / 1000
                     : 0)
-                : (item.viewOffset ? item.viewOffset / 1000 : 0));
+                : (startTimeParam !== null
+                    ? Number(startTimeParam)
+                    : (item.viewOffset ? item.viewOffset / 1000 : 0)));
 
         let info: StreamInfo;
 

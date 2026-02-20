@@ -7,6 +7,7 @@ import MetadataInfo from "../components/media/MetadataInfo.tsx";
 import EpisodeList from "../components/media/EpisodeList.tsx";
 import ContentRow from "../components/layout/ContentRow.tsx";
 import MediaCard from "../components/media/MediaCard.tsx";
+import ResumePlaybackModal from "../components/media/ResumePlaybackModal.tsx";
 import {plexApi} from "../lib/plex.ts";
 import {plexImage} from "../lib/utils.ts";
 import {useAuth} from "../providers/AuthProvider.tsx";
@@ -370,6 +371,13 @@ function ActionButtons({item, progress}: { item: PlexMediaItem; progress: number
                     Mark Watched
                 </Button>
             ))}
+            <ResumePlaybackModal
+                isOpen={showResumeModal}
+                onClose={() => setShowResumeModal(false)}
+                ratingKey={item.ratingKey}
+                viewOffset={item.viewOffset!}
+                duration={item.duration!}
+            />
         </div>
     );
 }

@@ -6,6 +6,7 @@ import {AnimatePresence, motion} from "framer-motion";
 import type {PlexMediaItem} from "../../lib/types.ts";
 import {formatDuration, plexImage} from "../../lib/utils.ts";
 import {useTmdbLogo} from "../../hooks/useTmdbLogo.ts";
+import ResumePlaybackModal from "./ResumePlaybackModal.tsx";
 
 interface HeroCarouselProps {
     items: PlexMediaItem[];
@@ -14,6 +15,7 @@ interface HeroCarouselProps {
 export default function HeroCarousel({items}: HeroCarouselProps) {
     const [current, setCurrent] = useState(0);
     const [isPaused, setIsPaused] = useState(false);
+    const [showResumeModal, setShowResumeModal] = useState(false);
     const navigate = useNavigate();
 
     const next = useCallback(() => {
@@ -40,13 +42,18 @@ export default function HeroCarousel({items}: HeroCarouselProps) {
 
     const handlePlay = () => {
         if (item.type === "episode" || item.type === "movie") {
-            navigate(`/player/${item.ratingKey}`);
+            if (item.viewOffset && item.duration) {
+                setShowResumeModal(true);
+            } else {
+                navigate(`/player/${item.ratingKey}`);
+            }
         } else {
             navigate(`/detail/${item.ratingKey}`);
         }
     };
 
     return (
+        <>
         <div
             className="relative w-full h-[70vh] min-h-[700px] -mt-16 overflow-hidden group"
             onMouseEnter={() => setIsPaused(true)}
@@ -202,5 +209,13 @@ export default function HeroCarousel({items}: HeroCarouselProps) {
                 </div>
             )}
         </div>
+        <ResumePlaybackModal
+            isOpen={showResumeModal}
+            onClose={() => setShowResumeModal(false)}
+            ratingKey={item.ratingKey}
+            viewOffset={item.viewOffset!}
+            duration={item.duration!}
+        />
+        </>
     );
 }
