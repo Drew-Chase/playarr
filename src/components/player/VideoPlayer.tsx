@@ -54,11 +54,18 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
-    const [volume, setVolume] = useState(1);
-    const [isMuted, setIsMuted] = useState(false);
+    const [volume, setVolume] = useState(() => {
+        const saved = localStorage.getItem("playarr-volume");
+        return saved !== null ? Number(saved) : 1;
+    });
+    const [isMuted, setIsMuted] = useState(() => localStorage.getItem("playarr-muted") === "true");
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [showControls, setShowControls] = useState(true);
-    const [quality, setQuality] = useState("original");
+    const [quality, setQuality] = useState(() => {
+        const saved = localStorage.getItem("playarr-quality");
+        const validOptions = ["original", "1080p", "720p", "480p"];
+        return saved && validOptions.includes(saved) ? saved : "original";
+    });
     const [bifData, setBifData] = useState<BifData | null>(null);
     const [showQueue, setShowQueue] = useState(false);
     const [isSeeking, setIsSeeking] = useState(false);
@@ -68,6 +75,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
 
     const isDraggingRef = useRef(false);
     const clickTimerRef = useRef<number | null>(null);
+    const hideTimerRef = useRef<number | null>(null);
 
     const isInParty = watchParty?.isInParty ?? false;
     const isHost = watchParty?.isHost ?? false;
@@ -109,6 +117,15 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             duration: Math.floor((video.duration || 0) * 1000),
         }).catch(() => {});
     }, [item.ratingKey, item.key, isGuest]);
+
+    // Apply saved volume/mute to video element on mount
+    useEffect(() => {
+        const video = videoRef.current;
+        if (video) {
+            video.volume = volume;
+            video.muted = isMuted;
+        }
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Load BIF data for timeline previews
     useEffect(() => {
@@ -379,11 +396,11 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
 
     // Auto-hide controls (suppressed while dragging the seek bar)
     useEffect(() => {
-        let timeout: number;
         const handleMouseMove = () => {
             setShowControls(true);
-            clearTimeout(timeout);
-            timeout = window.setTimeout(() => {
+            if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+            hideTimerRef.current = window.setTimeout(() => {
+                hideTimerRef.current = null;
                 if (isPlaying && !isDraggingRef.current) setShowControls(false);
             }, 3000);
         };
@@ -391,14 +408,27 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         document.addEventListener("mousemove", handleMouseMove);
         return () => {
             document.removeEventListener("mousemove", handleMouseMove);
-            clearTimeout(timeout);
+            if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
         };
     }, [isPlaying]);
 
     const handleDragChange = useCallback((dragging: boolean) => {
         isDraggingRef.current = dragging;
-        if (dragging) setShowControls(true);
-    }, []);
+        if (dragging) {
+            // Keep controls visible and cancel any pending hide
+            setShowControls(true);
+            if (hideTimerRef.current) {
+                clearTimeout(hideTimerRef.current);
+                hideTimerRef.current = null;
+            }
+        } else {
+            // Drag ended — restart hide timer
+            hideTimerRef.current = window.setTimeout(() => {
+                hideTimerRef.current = null;
+                if (isPlaying) setShowControls(false);
+            }, 3000);
+        }
+    }, [isPlaying]);
 
     // Compute expected remote position accounting for elapsed time
     const rTarget = useCallback(() => {
@@ -615,6 +645,8 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             video.volume = vol;
             setVolume(vol);
             setIsMuted(vol === 0);
+            localStorage.setItem("playarr-volume", String(vol));
+            localStorage.setItem("playarr-muted", String(vol === 0));
         }
     }, []);
 
@@ -623,6 +655,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         if (video) {
             video.muted = !video.muted;
             setIsMuted(video.muted);
+            localStorage.setItem("playarr-muted", String(video.muted));
         }
     }, []);
 
@@ -926,7 +959,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 onVolumeChange={handleVolumeChange}
                 onMuteToggle={handleMuteToggle}
                 onToggleFullscreen={toggleFullscreen}
-                onQualityChange={setQuality}
+                onQualityChange={(q) => { setQuality(q); localStorage.setItem("playarr-quality", q); }}
                 isInParty={isInParty}
                 participants={watchParty?.activeRoom?.participants}
                 hostUserId={watchParty?.activeRoom?.host_user_id}
