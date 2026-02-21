@@ -21,6 +21,7 @@ import {useAuth} from "../providers/AuthProvider.tsx";
 import {useWatchPartyContext} from "../providers/WatchPartyProvider.tsx";
 import {useLibraries} from "../hooks/usePlex.ts";
 import SettingsModal from "./settings/SettingsModal.tsx";
+import DownloadsDrawer from "./downloads/DownloadsDrawer.tsx";
 
 export default function Navigation()
 {
@@ -33,6 +34,7 @@ export default function Navigation()
     const watchParty = useWatchPartyContext();
     const {data: libraries} = useLibraries();
     const {isOpen: isSettingsOpen, onOpen: onSettingsOpen, onClose: onSettingsClose} = useDisclosure();
+    const {isOpen: isDownloadsOpen, onOpen: onDownloadsOpen, onClose: onDownloadsClose} = useDisclosure();
 
     const handleSearch = (e: React.FormEvent) =>
     {
@@ -208,7 +210,7 @@ export default function Navigation()
                             </DropdownTrigger>
                             <DropdownMenu aria-label="User menu">
                                 {[
-                                    <DropdownItem key="downloads" onPress={() => navigate("/downloads")}
+                                    <DropdownItem key="downloads" onPress={onDownloadsOpen}
                                                   startContent={<Icon icon="mdi:download" width="18"/>}>
                                         Downloads
                                     </DropdownItem>,
@@ -296,16 +298,16 @@ export default function Navigation()
                         </Link>
                     </NavbarMenuItem>
                     <NavbarMenuItem>
-                        <Link
-                            to="/downloads"
-                            className={`flex items-center gap-3 w-full py-2 ${
-                                isActive("/downloads") ? "text-primary" : "text-foreground"
-                            }`}
-                            onClick={() => setIsMenuOpen(false)}
+                        <button
+                            className="flex items-center gap-3 w-full py-2 text-foreground"
+                            onClick={() => {
+                                setIsMenuOpen(false);
+                                onDownloadsOpen();
+                            }}
                         >
                             <Icon icon="mdi:download" width="18"/>
                             Downloads
-                        </Link>
+                        </button>
                     </NavbarMenuItem>
                     {watchParty?.isInParty ? (
                         <>
@@ -395,6 +397,7 @@ export default function Navigation()
                 </NavbarMenu>
             </Navbar>
             <SettingsModal isOpen={isSettingsOpen} onClose={onSettingsClose}/>
+            <DownloadsDrawer isOpen={isDownloadsOpen} onClose={onDownloadsClose}/>
         </>
     );
 }

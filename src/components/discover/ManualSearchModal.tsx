@@ -122,7 +122,7 @@ function GrabButton({release, service}: { release: ReleaseResource; service: "so
         setGrabbing(true);
         try
         {
-            await api.post(`/${service}/release`, {guid: release.guid, indexerId: 0});
+            await api.post(`/${service}/release`, {guid: release.guid, indexerId: release.indexerId});
             setGrabbed(true);
             toast.success("Release grabbed");
         } catch
@@ -136,16 +136,15 @@ function GrabButton({release, service}: { release: ReleaseResource; service: "so
 
     if (grabbed) return <Icon icon="mdi:check" width="18" className="text-success"/>;
     return (
-        <button
-            onClick={handleGrab}
+        <Button
+            onPress={handleGrab}
+            isIconOnly
+            variant={"light"}
+            isLoading={grabbing}
             disabled={grabbing}
-            className="inline-flex items-center justify-center w-8 h-8 rounded-md hover:bg-default-400/30 transition-colors disabled:opacity-50"
         >
-            {grabbing
-                ? <Spinner size="sm" color="primary"/>
-                : <Icon icon="mdi:download" width="16"/>
-            }
-        </button>
+            <Icon icon="mdi:download" width={16}/>
+        </Button>
     );
 }
 
@@ -430,7 +429,7 @@ export default function ManualSearchModal({
                                                     <Chip size="sm" variant="flat" className="text-[10px] bg-primary/20 text-primary">{qualityName}</Chip>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <div className="flex items-center justify-end gap-1">
+                                                    <div className="flex flex-row items-center justify-end gap-4">
                                                         {isRejected && (
                                                             <Tooltip content={release.rejections!.join("\n")}>
                                                                 <span><Icon icon="mdi:alert-circle" width="16" className="text-danger"/></span>

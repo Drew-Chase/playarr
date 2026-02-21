@@ -280,10 +280,20 @@ export interface DownloadItem {
     client_type: string;
 }
 
+export interface DownloadHistoryItem {
+    name: string;
+    status: string;
+    size: number;
+    completed_at: string | null;
+    client_name: string;
+    client_type: string;
+}
+
 export interface DownloadStatus {
     total_speed: number;
     queue_size: number;
-    items: DownloadItem[];
+    queue: DownloadItem[];
+    history: DownloadHistoryItem[];
 }
 
 // Watch Party types
@@ -568,6 +578,7 @@ export interface ReleaseResource {
     guid: string;
     title: string;
     indexer: string;
+    indexerId: number;
     size: number;
     age: number;
     ageHours: number;

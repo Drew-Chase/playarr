@@ -22,11 +22,27 @@ pub struct DownloadItem {
     pub client_type: String,
 }
 
+#[derive(Debug, Serialize, Clone)]
+pub struct DownloadHistoryItem {
+    pub name: String,
+    pub status: String,
+    pub size: u64,
+    pub completed_at: Option<String>,
+    pub client_name: String,
+    pub client_type: String,
+}
+
+pub struct ClientDownloads {
+    pub queue: Vec<DownloadItem>,
+    pub history: Vec<DownloadHistoryItem>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct DownloadStatus {
     pub total_speed: u64,
     pub queue_size: usize,
-    pub items: Vec<DownloadItem>,
+    pub queue: Vec<DownloadItem>,
+    pub history: Vec<DownloadHistoryItem>,
 }
 
 #[get("")]
@@ -34,13 +50,14 @@ async fn get_downloads(
     config: web::Data<SharedConfig>,
 ) -> Result<impl Responder> {
     let cfg = config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
-    let mut all_items: Vec<DownloadItem> = Vec::new();
+    let mut all_queue: Vec<DownloadItem> = Vec::new();
+    let mut all_history: Vec<DownloadHistoryItem> = Vec::new();
 
     for client_cfg in &cfg.download_clients {
         if !client_cfg.enabled {
             continue;
         }
-        let items = match client_cfg.client_type {
+        let result = match client_cfg.client_type {
             DownloadClientType::Sabnzbd => {
                 sabnzbd::fetch_downloads(&client_cfg.url, &client_cfg.api_key).await
             }
@@ -55,12 +72,16 @@ async fn get_downloads(
             }
         };
 
-        match items {
-            Ok(mut items) => {
-                for item in &mut items {
+        match result {
+            Ok(mut downloads) => {
+                for item in &mut downloads.queue {
                     item.client_name = client_cfg.name.clone();
                 }
-                all_items.extend(items);
+                for item in &mut downloads.history {
+                    item.client_name = client_cfg.name.clone();
+                }
+                all_queue.extend(downloads.queue);
+                all_history.extend(downloads.history);
             }
             Err(e) => {
                 log::warn!("Failed to fetch from {}: {}", client_cfg.name, e);
@@ -68,11 +89,12 @@ async fn get_downloads(
         }
     }
 
-    let total_speed: u64 = all_items.iter().map(|i| i.speed).sum();
+    let total_speed: u64 = all_queue.iter().map(|i| i.speed).sum();
     let status = DownloadStatus {
         total_speed,
-        queue_size: all_items.len(),
-        items: all_items,
+        queue_size: all_queue.len(),
+        queue: all_queue,
+        history: all_history,
     };
 
     Ok(HttpResponse::Ok().json(status))
@@ -82,7 +104,6 @@ async fn get_downloads(
 async fn get_status(
     config: web::Data<SharedConfig>,
 ) -> Result<impl Responder> {
-    // Light version - just speeds and counts
     let cfg = config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
     let active_count: usize = cfg.download_clients.iter().filter(|c| c.enabled).count();
     Ok(HttpResponse::Ok().json(serde_json::json!({
