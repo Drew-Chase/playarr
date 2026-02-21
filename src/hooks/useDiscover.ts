@@ -11,6 +11,7 @@ import type {
     RootFolder,
     ReleaseResource,
     QueueResponse,
+    ServiceUrls,
 } from "../lib/types.ts";
 
 export function useTmdbMovieDetail(tmdbId: string | undefined) {
@@ -34,6 +35,14 @@ export function useTmdbSeason(tmdbId: string | undefined, seasonNumber: number |
         queryKey: ["tmdb", "tv", tmdbId, "season", seasonNumber],
         queryFn: () => api.get<TmdbSeasonDetail>(`/discover/tv/${tmdbId}/season/${seasonNumber}`),
         enabled: !!tmdbId && seasonNumber !== undefined,
+    });
+}
+
+export function useServiceUrls() {
+    return useQuery({
+        queryKey: ["service-urls"],
+        queryFn: () => api.get<ServiceUrls>("/service-urls"),
+        staleTime: 300_000,
     });
 }
 

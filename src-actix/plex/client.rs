@@ -455,7 +455,7 @@ impl PlexClient {
     }
 
     /// Get the machineIdentifier of the configured PMS, cached after first call.
-    async fn get_server_machine_id(&self) -> Option<String> {
+    pub async fn get_server_machine_id(&self) -> Option<String> {
         // Check cache
         if let Ok(cache) = self.machine_id_cache.read() {
             if let Some(ref id) = *cache {

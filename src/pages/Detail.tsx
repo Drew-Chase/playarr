@@ -3,7 +3,7 @@ import {useRef, useState} from "react";
 import {Button, Spinner, Progress, Chip, Breadcrumbs, BreadcrumbItem, Modal, ModalContent, ModalBody, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, DropdownSection} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {useMetadata, useChildren, useAllEpisodes, useShowOnDeck, useTmdbTrailer} from "../hooks/usePlex.ts";
-import {useSonarrSeriesByTmdb, useRadarrMovieByTmdb, useSonarrEpisodes} from "../hooks/useDiscover.ts";
+import {useSonarrSeriesByTmdb, useRadarrMovieByTmdb, useSonarrEpisodes, useServiceUrls} from "../hooks/useDiscover.ts";
 import MetadataInfo from "../components/media/MetadataInfo.tsx";
 import EpisodeList from "../components/media/EpisodeList.tsx";
 import ContentRow from "../components/layout/ContentRow.tsx";
@@ -383,7 +383,7 @@ function formatEpisodeCode(ep: PlexMediaItem): string {
     return `S${s}E${e}`;
 }
 
-function ActionButtons({item, progress, onDeckEpisode, plexTrailer, tmdbTrailer, onAutoSearch, onManualSearch, serviceName}: {
+function ActionButtons({item, progress, onDeckEpisode, plexTrailer, tmdbTrailer, onAutoSearch, onManualSearch, serviceName, plexUrl, serviceUrl}: {
     item: PlexMediaItem;
     progress: number;
     onDeckEpisode?: PlexMediaItem;
@@ -392,6 +392,8 @@ function ActionButtons({item, progress, onDeckEpisode, plexTrailer, tmdbTrailer,
     onAutoSearch?: () => void;
     onManualSearch?: () => void;
     serviceName?: "Sonarr" | "Radarr";
+    plexUrl?: string;
+    serviceUrl?: string;
 }) {
     const navigate = useNavigate();
     const location = useLocation();
@@ -503,6 +505,8 @@ function ActionButtons({item, progress, onDeckEpisode, plexTrailer, tmdbTrailer,
                         if (key === "manual-search") onManualSearch?.();
                         if (key === "mark-watched") handleMarkWatched();
                         if (key === "mark-unwatched") handleMarkUnwatched();
+                        if (key === "open-plex" && plexUrl) window.open(plexUrl, "_blank");
+                        if (key === "open-service" && serviceUrl) window.open(serviceUrl, "_blank");
                     }}>
                         {(onAutoSearch || onManualSearch) ? (
                             <DropdownSection title={serviceName || "Search"} showDivider>
@@ -514,6 +518,11 @@ function ActionButtons({item, progress, onDeckEpisode, plexTrailer, tmdbTrailer,
                                 {onManualSearch ? (
                                     <DropdownItem key="manual-search" startContent={<Icon icon="mdi:text-search" width="18"/>}>
                                         Manual Search
+                                    </DropdownItem>
+                                ) : null}
+                                {serviceUrl ? (
+                                    <DropdownItem key="open-service" startContent={<Icon icon="mdi:open-in-new" width="18"/>}>
+                                        Open in {serviceName}
                                     </DropdownItem>
                                 ) : null}
                             </DropdownSection>
@@ -528,6 +537,11 @@ function ActionButtons({item, progress, onDeckEpisode, plexTrailer, tmdbTrailer,
                                 {isCollectionType || isWatched ? (
                                     <DropdownItem key="mark-unwatched" startContent={<Icon icon="mdi:eye-off" width="18"/>}>
                                         Mark Unwatched
+                                    </DropdownItem>
+                                ) : null}
+                                {plexUrl ? (
+                                    <DropdownItem key="open-plex" startContent={<Icon icon="mdi:open-in-new" width="18"/>}>
+                                        Open in Plex
                                     </DropdownItem>
                                 ) : null}
                             </DropdownSection>
@@ -614,6 +628,9 @@ export default function Detail() {
     // Manual search modal state
     const [searchModalOpen, setSearchModalOpen] = useState(false);
 
+    // Service URLs for external links
+    const {data: serviceUrls} = useServiceUrls();
+
     // Extract TMDB ID from Plex Guid for Sonarr/Radarr matching
     const tmdbId = item ? extractTmdbId(item) : undefined;
     // For episodes/seasons, get the show's TMDB ID from parent
@@ -654,6 +671,19 @@ export default function Detail() {
 
     const canSearch = !!searchModalProps;
     const searchService: "Sonarr" | "Radarr" | undefined = radarrMovie ? "Radarr" : sonarrSeries ? "Sonarr" : undefined;
+
+    // Build external URLs for "Open in Plex" / "Open in Sonarr/Radarr" (only for shows and movies)
+    const isTopLevel = item?.type === "show" || item?.type === "movie";
+    const plexExternalUrl = isTopLevel && serviceUrls?.plex_url && serviceUrls?.plex_machine_id
+        ? `${serviceUrls.plex_url}/web/index.html#!/server/${serviceUrls.plex_machine_id}/details?key=${encodeURIComponent(`/library/metadata/${item.ratingKey}`)}`
+        : undefined;
+    const serviceExternalUrl = isTopLevel && serviceUrls
+        ? sonarrSeries && serviceUrls.sonarr_url
+            ? `${serviceUrls.sonarr_url}/series/${sonarrSeries.titleSlug}`
+            : radarrMovie && serviceUrls.radarr_url
+                ? `${serviceUrls.radarr_url}/movie/${radarrMovie.titleSlug}`
+                : undefined
+        : undefined;
 
     const handleAutoSearch = async () => {
         try {
@@ -761,7 +791,7 @@ export default function Detail() {
                                 <GenreTags item={item}/>
                                 <MediaInfo item={item}/>
                                 {(item.type === "movie" || item.type === "show" || item.type === "season") && (
-                                    <ActionButtons item={item} progress={progress} onDeckEpisode={onDeckEpisode} plexTrailer={plexTrailer} tmdbTrailer={tmdbTrailer} onAutoSearch={canSearch ? handleAutoSearch : undefined} onManualSearch={canSearch ? () => setSearchModalOpen(true) : undefined} serviceName={searchService}/>
+                                    <ActionButtons item={item} progress={progress} onDeckEpisode={onDeckEpisode} plexTrailer={plexTrailer} tmdbTrailer={tmdbTrailer} onAutoSearch={canSearch ? handleAutoSearch : undefined} onManualSearch={canSearch ? () => setSearchModalOpen(true) : undefined} serviceName={searchService} plexUrl={plexExternalUrl} serviceUrl={serviceExternalUrl}/>
                                 )}
                             </div>
                         </div>

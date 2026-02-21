@@ -58,6 +58,13 @@ export interface SubtitleSearchResult {
     ai_translated: boolean;
 }
 
+export interface ServiceUrls {
+    plex_url: string;
+    plex_machine_id: string | null;
+    sonarr_url: string;
+    radarr_url: string;
+}
+
 export interface ConnectionTestResult {
     success: boolean;
     message: string;
@@ -508,6 +515,7 @@ export interface SonarrSeason {
 export interface SonarrSeries {
     id: number;
     title: string;
+    titleSlug: string;
     tvdbId: number;
     tmdbId: number;
     monitored: boolean;
@@ -536,6 +544,7 @@ export interface SonarrEpisode {
 export interface RadarrMovie {
     id: number;
     title: string;
+    titleSlug: string;
     tmdbId: number;
     imdbId: string;
     monitored: boolean;

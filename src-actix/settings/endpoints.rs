@@ -4,6 +4,7 @@ use crate::config::{save_config, SharedConfig};
 use crate::config::models::*;
 use crate::http_error::Result;
 use crate::plex::client::PlexClient;
+use serde_json::json;
 
 /// Verify the requesting user is the admin. Returns Err(Unauthorized) if not.
 fn require_admin(req: &HttpRequest, config: &SharedConfig) -> Result<()> {
@@ -337,7 +338,31 @@ async fn test_connection(
     }
 }
 
+/// Returns service base URLs and Plex machineIdentifier for building external links.
+/// Available to all authenticated users (no admin check).
+#[get("/service-urls")]
+async fn get_service_urls(
+    config: web::Data<SharedConfig>,
+    plex: web::Data<PlexClient>,
+) -> Result<impl Responder> {
+    let cfg = config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+    let plex_url = cfg.plex.url.trim_end_matches('/').to_string();
+    let sonarr_url = cfg.sonarr.url.trim_end_matches('/').to_string();
+    let radarr_url = cfg.radarr.url.trim_end_matches('/').to_string();
+    drop(cfg);
+
+    let machine_id = plex.get_server_machine_id().await;
+
+    Ok(HttpResponse::Ok().json(json!({
+        "plex_url": plex_url,
+        "plex_machine_id": machine_id,
+        "sonarr_url": sonarr_url,
+        "radarr_url": radarr_url,
+    })))
+}
+
 pub fn configure(cfg: &mut web::ServiceConfig) {
+    cfg.service(get_service_urls);
     cfg.service(
         web::scope("/settings")
             .service(get_settings)
