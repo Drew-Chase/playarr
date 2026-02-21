@@ -13,5 +13,5 @@ jobs:
       - name: Build and push the image
         run: |
           docker login -u drew-chase -p ${{ secrets.GH_PAT }} ghcr.io
-          docker build --build-arg TMDB_API_KEY=${{ secrets.TMDB_API_KEY }} -t ghcr.io/drew-chase/playarr:latest .
+          docker build --build-arg TMDB_API_KEY=${{ secrets.TMDB_API_KEY }} OPENSUBTITLES_API_KEY=${{ secrets.OPENSUBTITLES_API_KEY }} -t ghcr.io/drew-chase/playarr:latest .
           docker push ghcr.io/drew-chase/playarr:latest

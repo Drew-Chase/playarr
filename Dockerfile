@@ -13,7 +13,7 @@ RUN pnpm i --no-frozen-lockfile --force
 # Build the project
 # This will build both the frontend and the backend
 RUN pnpm run "build:frontend"
-RUN TMDB_API_KEY=${TMDB_API_KEY} cargo build --release
+RUN TMDB_API_KEY=${TMDB_API_KEY} OPENSUBTITLES_API_KEY=${OPENSUBTITLES_API_KEY} cargo build --release
 RUN strip target/release/playarr
 
 FROM alpine:latest
