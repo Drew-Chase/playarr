@@ -1,5 +1,6 @@
 import {useQuery} from "@tanstack/react-query";
 import {plexApi} from "../lib/plex.ts";
+import type {PlexMediaItem} from "../lib/types.ts";
 
 export function useLibraries() {
     return useQuery({
@@ -82,5 +83,19 @@ export function useSearch(query: string) {
         queryKey: ["plex", "search", query],
         queryFn: () => plexApi.search(query),
         enabled: query.length >= 2,
+    });
+}
+
+export function useTmdbTrailer(item: PlexMediaItem | undefined) {
+    const tmdbGuid = item?.Guid?.find(g => g.id.startsWith("tmdb://"));
+    const tmdbId = tmdbGuid ? parseInt(tmdbGuid.id.replace("tmdb://", ""), 10) : null;
+    const mediaType = item?.type === "movie" ? "movie" : "tv";
+    const hasPlexExtras = (item?.Extras?.Video?.length ?? 0) > 0;
+
+    return useQuery({
+        queryKey: ["tmdb", "videos", tmdbId],
+        queryFn: () => plexApi.getTmdbVideos(tmdbId!, mediaType),
+        enabled: !!tmdbId && !hasPlexExtras,
+        select: (data) => data.results[0] ?? null,
     });
 }

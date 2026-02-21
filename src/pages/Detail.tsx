@@ -1,8 +1,8 @@
 import {useParams, useNavigate, useLocation} from "react-router-dom";
 import {useRef, useState} from "react";
-import {Button, Spinner, Progress, Chip, Breadcrumbs, BreadcrumbItem} from "@heroui/react";
+import {Button, Spinner, Progress, Chip, Breadcrumbs, BreadcrumbItem, Modal, ModalContent, ModalBody} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
-import {useMetadata, useChildren, useAllEpisodes, useShowOnDeck} from "../hooks/usePlex.ts";
+import {useMetadata, useChildren, useAllEpisodes, useShowOnDeck, useTmdbTrailer} from "../hooks/usePlex.ts";
 import MetadataInfo from "../components/media/MetadataInfo.tsx";
 import EpisodeList from "../components/media/EpisodeList.tsx";
 import ContentRow from "../components/layout/ContentRow.tsx";
@@ -12,7 +12,7 @@ import {plexApi} from "../lib/plex.ts";
 import {plexImage, formatDuration} from "../lib/utils.ts";
 import {useAuth} from "../providers/AuthProvider.tsx";
 import {useQuery} from "@tanstack/react-query";
-import type {PlexMediaItem, PlexRole, PlexReview} from "../lib/types.ts";
+import type {PlexMediaItem, PlexExtra, PlexRole, PlexReview, TmdbVideo} from "../lib/types.ts";
 
 function DetailBreadcrumbs({item}: { item: PlexMediaItem }) {
     const crumbs: { label: string; href?: string }[] = [];
@@ -371,16 +371,19 @@ function formatEpisodeCode(ep: PlexMediaItem): string {
     return `S${s}E${e}`;
 }
 
-function ActionButtons({item, progress, onDeckEpisode}: {
+function ActionButtons({item, progress, onDeckEpisode, plexTrailer, tmdbTrailer}: {
     item: PlexMediaItem;
     progress: number;
     onDeckEpisode?: PlexMediaItem;
+    plexTrailer?: PlexExtra;
+    tmdbTrailer?: TmdbVideo | null;
 }) {
     const navigate = useNavigate();
     const location = useLocation();
     const {isGuest} = useAuth();
     const [showResumeModal, setShowResumeModal] = useState(false);
     const [watchedOverride, setWatchedOverride] = useState<boolean | null>(null);
+    const [youtubeOpen, setYoutubeOpen] = useState(false);
 
     // For shows/seasons, use the on-deck episode for playback
     const playTarget = onDeckEpisode ?? item;
@@ -439,6 +442,24 @@ function ActionButtons({item, progress, onDeckEpisode}: {
             >
                 {playLabel}
             </Button>
+            {(plexTrailer || tmdbTrailer) && (
+                <Button
+                    variant="ghost"
+                    radius="sm"
+                    size="lg"
+                    startContent={<Icon icon="mdi:play-outline" width="20"/>}
+                    onPress={() => {
+                        if (plexTrailer) {
+                            navigate(`/player/${plexTrailer.ratingKey}?from=${encodeURIComponent(location.pathname)}`);
+                        } else {
+                            setYoutubeOpen(true);
+                        }
+                    }}
+                    className="border-2 border-white/90"
+                >
+                    Trailer
+                </Button>
+            )}
             {!isGuest && effectiveProgress > 0 && (
                 <div className="flex items-center">
                     <Progress
@@ -481,6 +502,25 @@ function ActionButtons({item, progress, onDeckEpisode}: {
                 viewOffset={playTarget.viewOffset!}
                 duration={playTarget.duration!}
             />
+            {tmdbTrailer && (
+                <Modal
+                    isOpen={youtubeOpen}
+                    onClose={() => setYoutubeOpen(false)}
+                    size="5xl"
+                    backdrop="blur"
+                >
+                    <ModalContent>
+                        <ModalBody className="p-0">
+                            <video
+                                className="w-full rounded-lg"
+                                src={`/api/discover/youtube-stream/${tmdbTrailer.key}`}
+                                controls
+                                autoPlay
+                            />
+                        </ModalBody>
+                    </ModalContent>
+                </Modal>
+            )}
         </div>
     );
 }
@@ -550,6 +590,10 @@ export default function Detail() {
                 ? findOnDeckEpisode(seasonEpisodes)
                 : undefined;
 
+    // Trailer: prefer Plex extras, fall back to TMDB YouTube trailer
+    const plexTrailer = item?.Extras?.Video?.find(v => v.subtype === "trailer");
+    const {data: tmdbTrailer} = useTmdbTrailer(item);
+
     if (isLoading) {
         return (
             <div className="flex justify-center items-center h-64">
@@ -613,7 +657,7 @@ export default function Detail() {
                                 <GenreTags item={item}/>
                                 <MediaInfo item={item}/>
                                 {(item.type === "movie" || item.type === "show" || item.type === "season") && (
-                                    <ActionButtons item={item} progress={progress} onDeckEpisode={onDeckEpisode}/>
+                                    <ActionButtons item={item} progress={progress} onDeckEpisode={onDeckEpisode} plexTrailer={plexTrailer} tmdbTrailer={tmdbTrailer}/>
                                 )}
                             </div>
                         </div>

@@ -110,6 +110,16 @@ export interface PlexMarker {
     endTimeOffset: number;    // milliseconds
 }
 
+export interface PlexExtra {
+    ratingKey: string;
+    key: string;
+    title: string;
+    subtype: string;
+    type: string;
+    duration: number;
+    thumb?: string;
+}
+
 export interface PlexMediaItem {
     ratingKey: string;
     key: string;
@@ -148,6 +158,7 @@ export interface PlexMediaItem {
     Genre?: PlexTag[];
     Review?: PlexReview[];
     Marker?: PlexMarker[];
+    Extras?: { Video?: PlexExtra[] };
 }
 
 export interface PlexMedia {
@@ -342,6 +353,16 @@ export type WsMessage =
     | { type: "ping" }
     | { type: "heartbeat"; server_time: number; timestamp: number; media_id: string }
     | { type: "error"; message: string };
+
+export interface TmdbVideo {
+    id: string;
+    key: string;
+    name: string;
+    site: string;
+    type: string;
+    official: boolean;
+    published_at: string;
+}
 
 // TMDB types
 export interface TmdbItem {

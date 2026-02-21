@@ -11,6 +11,7 @@ import type {
     TimelineUpdate,
     SetupData,
     SubtitleSearchResult,
+    TmdbVideo,
 } from "./types.ts";
 
 // Generate a unique session ID per browser tab so each tab gets its own
@@ -69,6 +70,12 @@ export const plexApi = {
     getShowOnDeck: (id: string) => api.get<PlexMediaItem | null>(`/media/${id}/onDeck`),
 
     getRelated: (id: string) => api.get<PlexMediaItem[]>(`/media/${id}/related`),
+
+    getTmdbVideos: (tmdbId: number, mediaType: "movie" | "tv") =>
+        api.get<{ results: TmdbVideo[] }>("/discover/videos", {
+            tmdb_id: tmdbId.toString(),
+            type: mediaType,
+        }),
 
     getStreamUrl: (id: string, quality?: string, directPlay = true, directStream = false) =>
         api.get<StreamInfo>(`/media/${id}/stream`, {

@@ -165,12 +165,120 @@ async fn logo(
     })))
 }
 
+#[derive(serde::Deserialize)]
+struct VideosQuery {
+    tmdb_id: u64,
+    #[serde(rename = "type")]
+    media_type: String,
+}
+
+#[get("/videos")]
+async fn videos(
+    query: web::Query<VideosQuery>,
+) -> Result<impl Responder> {
+    let media_type = match query.media_type.as_str() {
+        "movie" => "movie",
+        "tv" => "tv",
+        _ => return Err(crate::http_error::Error::BadRequest(
+            "type must be 'movie' or 'tv'".to_string(),
+        )),
+    };
+
+    let client = tmdb_client();
+    let resp = client
+        .get(format!("{}/{}/{}/videos", TMDB_BASE, media_type, query.tmdb_id))
+        .query(&[("api_key", TMDB_API_KEY)])
+        .send()
+        .await
+        .map_err(|e| anyhow::anyhow!("TMDB request failed: {}", e))?;
+
+    if resp.status() == reqwest::StatusCode::NOT_FOUND {
+        return Ok(HttpResponse::Ok().json(serde_json::json!({ "results": [] })));
+    }
+
+    let body = resp
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|e| anyhow::anyhow!("TMDB parse failed: {}", e))?;
+
+    let results: Vec<&serde_json::Value> = body["results"]
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter(|v| {
+                    v["site"].as_str() == Some("YouTube")
+                        && matches!(v["type"].as_str(), Some("Trailer") | Some("Teaser"))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    Ok(HttpResponse::Ok().json(serde_json::json!({ "results": results })))
+}
+
+/// Stream a YouTube video through rusty_ytdl so the frontend can play it
+/// via a native `<video>` element. rusty_ytdl handles all YouTube auth
+/// and header requirements internally, avoiding 403 errors.
+#[get("/youtube-stream/{video_id}")]
+async fn youtube_stream(
+    path: web::Path<String>,
+) -> Result<HttpResponse> {
+    let video_id = path.into_inner();
+    let yt_url = format!("https://www.youtube.com/watch?v={}", video_id);
+
+    let options = rusty_ytdl::VideoOptions {
+        quality: rusty_ytdl::VideoQuality::Highest,
+        filter: rusty_ytdl::VideoSearchOptions::VideoAudio,
+        ..Default::default()
+    };
+
+    let video = rusty_ytdl::Video::new_with_options(&yt_url, options)
+        .map_err(|e| anyhow::anyhow!("YouTube parse error: {}", e))?;
+
+    // Get video info for content type
+    let info = video.get_info().await
+        .map_err(|e| anyhow::anyhow!("YouTube info error: {}", e))?;
+
+    let format = info.formats.iter()
+        .filter(|f| f.has_video && f.has_audio)
+        .max_by_key(|f| f.bitrate)
+        .ok_or_else(|| anyhow::anyhow!("No video+audio format found"))?;
+
+    let content_type = format!("{}/{}", format.mime_type.mime.type_(), format.mime_type.mime.subtype());
+    let content_length = format.content_length.as_ref()
+        .and_then(|cl| cl.parse::<u64>().ok());
+
+    // Use rusty_ytdl's stream which handles YouTube auth internally
+    let stream = video.stream().await
+        .map_err(|e| anyhow::anyhow!("YouTube stream error: {}", e))?;
+
+    let byte_stream = futures_util::stream::unfold(stream, |s| async move {
+        match s.chunk().await {
+            Ok(Some(chunk)) => Some((
+                Ok::<_, actix_web::Error>(web::Bytes::from(chunk.to_vec())),
+                s,
+            )),
+            _ => None,
+        }
+    });
+
+    let mut builder = HttpResponse::Ok();
+    builder.insert_header(("Content-Type", content_type));
+    if let Some(len) = content_length {
+        builder.insert_header(("Content-Length", len.to_string()));
+    }
+
+    Ok(builder.streaming(byte_stream))
+}
+
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/discover")
             .service(trending)
             .service(upcoming)
             .service(recent)
-            .service(logo),
+            .service(logo)
+            .service(videos)
+            .service(youtube_stream),
     );
 }
