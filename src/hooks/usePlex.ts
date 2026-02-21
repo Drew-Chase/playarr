@@ -48,6 +48,14 @@ export function useAllEpisodes(showId: string) {
     });
 }
 
+export function useShowOnDeck(id: string) {
+    return useQuery({
+        queryKey: ["plex", "onDeck", id],
+        queryFn: () => plexApi.getShowOnDeck(id),
+        enabled: !!id,
+    });
+}
+
 export function useContinueWatching() {
     return useQuery({
         queryKey: ["plex", "continueWatching"],

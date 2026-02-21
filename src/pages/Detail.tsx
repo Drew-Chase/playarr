@@ -2,14 +2,14 @@ import {useParams, useNavigate, useLocation} from "react-router-dom";
 import {useRef, useState} from "react";
 import {Button, Spinner, Progress, Chip, Breadcrumbs, BreadcrumbItem} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
-import {useMetadata, useChildren, useAllEpisodes} from "../hooks/usePlex.ts";
+import {useMetadata, useChildren, useAllEpisodes, useShowOnDeck} from "../hooks/usePlex.ts";
 import MetadataInfo from "../components/media/MetadataInfo.tsx";
 import EpisodeList from "../components/media/EpisodeList.tsx";
 import ContentRow from "../components/layout/ContentRow.tsx";
 import MediaCard from "../components/media/MediaCard.tsx";
 import ResumePlaybackModal from "../components/media/ResumePlaybackModal.tsx";
 import {plexApi} from "../lib/plex.ts";
-import {plexImage} from "../lib/utils.ts";
+import {plexImage, formatDuration} from "../lib/utils.ts";
 import {useAuth} from "../providers/AuthProvider.tsx";
 import {useQuery} from "@tanstack/react-query";
 import type {PlexMediaItem, PlexRole, PlexReview} from "../lib/types.ts";
@@ -365,6 +365,12 @@ function PlayablePoster({src, alt, playTarget, className, containerClassName}: {
     );
 }
 
+function formatEpisodeCode(ep: PlexMediaItem): string {
+    const s = ep.parentIndex?.toString().padStart(2, "0") ?? "?";
+    const e = ep.index?.toString().padStart(2, "0") ?? "?";
+    return `S${s}E${e}`;
+}
+
 function ActionButtons({item, progress, onDeckEpisode}: {
     item: PlexMediaItem;
     progress: number;
@@ -407,6 +413,20 @@ function ActionButtons({item, progress, onDeckEpisode}: {
     // Hide watched/unwatched buttons for shows (doesn't apply)
     const showWatchedToggle = item.type !== "show";
 
+    // Build the play button label
+    let playLabel: string;
+    if (onDeckEpisode) {
+        const code = formatEpisodeCode(onDeckEpisode);
+        if (showResume && onDeckEpisode.viewOffset && onDeckEpisode.duration) {
+            const remaining = onDeckEpisode.duration - onDeckEpisode.viewOffset;
+            playLabel = `Resume ${code} - ${onDeckEpisode.title} (${formatDuration(remaining)} left)`;
+        } else {
+            playLabel = `Play ${code} - ${onDeckEpisode.title}`;
+        }
+    } else {
+        playLabel = showResume ? "Resume" : "Play";
+    }
+
     return (
         <div className="flex flex-wrap gap-3 mt-5">
             <Button
@@ -417,7 +437,7 @@ function ActionButtons({item, progress, onDeckEpisode}: {
                 onPress={handlePlay}
                 className="font-semibold"
             >
-                {showResume ? "Resume" : "Play"}
+                {playLabel}
             </Button>
             {!isGuest && effectiveProgress > 0 && (
                 <div className="flex items-center">
@@ -511,14 +531,24 @@ export default function Detail() {
         enabled: !!id && item?.type !== "season",
     });
 
-    // Fetch episodes for shows/seasons so we can find the on-deck episode
-    const {data: allEpisodes} = useAllEpisodes(item?.type === "show" ? (item?.ratingKey || "") : "");
-    const {data: seasonEpisodes} = useChildren(item?.type === "season" ? (item?.ratingKey || "") : "");
-    const onDeckEpisode = item?.type === "show" && allEpisodes
-        ? findOnDeckEpisode(allEpisodes)
-        : item?.type === "season" && seasonEpisodes
-            ? findOnDeckEpisode(seasonEpisodes)
-            : undefined;
+    // Use Plex's on-deck API for shows (handles specials correctly)
+    const {data: showOnDeck} = useShowOnDeck(
+        item?.type === "show" || item?.type === "season" ? (item?.ratingKey || "") : ""
+    );
+    // Fallback: fetch all episodes so we can pick the first unwatched locally
+    const {data: allEpisodes} = useAllEpisodes(
+        item?.type === "show" && !showOnDeck ? (item?.ratingKey || "") : ""
+    );
+    const {data: seasonEpisodes} = useChildren(
+        item?.type === "season" && !showOnDeck ? (item?.ratingKey || "") : ""
+    );
+    const onDeckEpisode = showOnDeck
+        ? showOnDeck
+        : item?.type === "show" && allEpisodes
+            ? findOnDeckEpisode(allEpisodes)
+            : item?.type === "season" && seasonEpisodes
+                ? findOnDeckEpisode(seasonEpisodes)
+                : undefined;
 
     if (isLoading) {
         return (

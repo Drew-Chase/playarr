@@ -43,6 +43,55 @@ async fn get_all_leaves(
     Ok(HttpResponse::Ok().json(&body["MediaContainer"]["Metadata"]))
 }
 
+/// Find the on-deck episode for a specific show or season by searching
+/// Plex's continue-watching and on-deck hubs for a matching episode.
+#[get("/{id}/onDeck")]
+async fn get_on_deck(
+    req: HttpRequest,
+    plex: web::Data<PlexClient>,
+    path: web::Path<String>,
+) -> Result<impl Responder> {
+    let id = path.into_inner();
+    let user_token = PlexClient::user_token_from_request(&req).unwrap_or_default();
+
+    // Search continue-watching hub first (partially watched episodes)
+    if let Ok(body) = plex
+        .get_json_as_user("/hubs/continueWatching", &user_token, &[("X-Plex-Container-Size", "50")])
+        .await
+    {
+        let items = body["MediaContainer"]["Hub"]
+            .as_array()
+            .and_then(|hubs| hubs.first())
+            .and_then(|hub| hub["Metadata"].as_array());
+        if let Some(items) = items {
+            if let Some(ep) = items.iter().find(|item| {
+                item["grandparentRatingKey"].as_str() == Some(&*id)
+                    || item["parentRatingKey"].as_str() == Some(&*id)
+            }) {
+                return Ok(HttpResponse::Ok().json(ep));
+            }
+        }
+    }
+
+    // Fall back to on-deck hub (next unwatched episode)
+    if let Ok(body) = plex
+        .get_json_as_user("/library/onDeck", &user_token, &[("X-Plex-Container-Size", "50")])
+        .await
+    {
+        if let Some(items) = body["MediaContainer"]["Metadata"].as_array() {
+            if let Some(ep) = items.iter().find(|item| {
+                item["grandparentRatingKey"].as_str() == Some(&*id)
+                    || item["parentRatingKey"].as_str() == Some(&*id)
+            }) {
+                return Ok(HttpResponse::Ok().json(ep));
+            }
+        }
+    }
+
+    // No on-deck episode found (all watched or none started)
+    Ok(HttpResponse::Ok().json(serde_json::json!(null)))
+}
+
 #[get("/{id}/related")]
 async fn get_related(
     plex: web::Data<PlexClient>,
@@ -505,6 +554,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
             .service(get_art)
             .service(get_children)
             .service(get_all_leaves)
+            .service(get_on_deck)
             .service(get_related)
             .service(get_metadata),
     );
