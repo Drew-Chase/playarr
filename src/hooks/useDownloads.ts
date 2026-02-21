@@ -6,7 +6,7 @@ export function useDownloads(enabled = true) {
     return useQuery({
         queryKey: ["downloads"],
         queryFn: () => api.get<DownloadStatus>("/downloads"),
-        refetchInterval: 5000,
+        refetchInterval: 2000,
         enabled,
     });
 }

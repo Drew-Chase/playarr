@@ -1,9 +1,9 @@
-import {useParams, useNavigate, useLocation} from "react-router-dom";
+import {useLocation, useNavigate, useParams} from "react-router-dom";
 import {useRef, useState} from "react";
-import {Button, Spinner, Progress, Chip, Breadcrumbs, BreadcrumbItem, Modal, ModalContent, ModalBody, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, DropdownSection} from "@heroui/react";
+import {BreadcrumbItem, Breadcrumbs, Button, Chip, Dropdown, DropdownItem, DropdownMenu, DropdownSection, DropdownTrigger, Modal, ModalBody, ModalContent, Progress, Spinner} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
-import {useMetadata, useChildren, useAllEpisodes, useShowOnDeck, useTmdbTrailer} from "../hooks/usePlex.ts";
-import {useSonarrSeriesByTmdb, useRadarrMovieByTmdb, useSonarrEpisodes, useServiceUrls} from "../hooks/useDiscover.ts";
+import {useAllEpisodes, useChildren, useMetadata, useShowOnDeck, useTmdbTrailer} from "../hooks/usePlex.ts";
+import {useRadarrMovieByTmdb, useServiceUrls, useSonarrEpisodes, useSonarrSeriesByTmdb} from "../hooks/useDiscover.ts";
 import MetadataInfo from "../components/media/MetadataInfo.tsx";
 import EpisodeList from "../components/media/EpisodeList.tsx";
 import ContentRow from "../components/layout/ContentRow.tsx";
@@ -12,11 +12,11 @@ import ResumePlaybackModal from "../components/media/ResumePlaybackModal.tsx";
 import ManualSearchModal from "../components/discover/ManualSearchModal.tsx";
 import {plexApi} from "../lib/plex.ts";
 import {api} from "../lib/api.ts";
-import {plexImage, formatDuration} from "../lib/utils.ts";
+import {formatDuration, plexImage} from "../lib/utils.ts";
 import {useAuth} from "../providers/AuthProvider.tsx";
 import {useQuery} from "@tanstack/react-query";
 import {toast} from "sonner";
-import type {PlexMediaItem, PlexExtra, PlexRole, PlexReview, TmdbVideo} from "../lib/types.ts";
+import type {PlexExtra, PlexMediaItem, PlexReview, PlexRole, TmdbVideo} from "../lib/types.ts";
 
 function extractTmdbId(item: PlexMediaItem): number | undefined {
     const guid = item.Guid?.find(g => g.id.startsWith("tmdb://"));
@@ -58,7 +58,7 @@ function DetailBreadcrumbs({item}: { item: PlexMediaItem }) {
     );
 }
 
-function SeasonsGrid({showId, sonarrSeriesId}: { showId: string; sonarrSeriesId?: number }) {
+function SeasonsGrid({showId, sonarrSeriesId, showTmdbId}: { showId: string; sonarrSeriesId?: number; showTmdbId?: string }) {
     const navigate = useNavigate();
     const {data: seasons, isLoading} = useChildren(showId);
 
@@ -66,7 +66,7 @@ function SeasonsGrid({showId, sonarrSeriesId}: { showId: string; sonarrSeriesId?
     if (!seasons || seasons.length === 0) return null;
 
     if (seasons.length === 1) {
-        return <EpisodeList seasonId={seasons[0].ratingKey} sonarrSeriesId={sonarrSeriesId}/>;
+        return <EpisodeList seasonId={seasons[0].ratingKey} sonarrSeriesId={sonarrSeriesId} showTmdbId={showTmdbId} seasonNumber={seasons[0].index}/>;
     }
 
     return (
@@ -383,6 +383,7 @@ function formatEpisodeCode(ep: PlexMediaItem): string {
     return `S${s}E${e}`;
 }
 
+// @ts-ignore
 function ActionButtons({item, progress, onDeckEpisode, plexTrailer, tmdbTrailer, onAutoSearch, onManualSearch, serviceName, plexUrl, serviceUrl}: {
     item: PlexMediaItem;
     progress: number;
@@ -458,24 +459,26 @@ function ActionButtons({item, progress, onDeckEpisode, plexTrailer, tmdbTrailer,
             >
                 {playLabel}
             </Button>
-            {(plexTrailer || tmdbTrailer) && (
-                <Button
-                    variant="ghost"
-                    radius="sm"
-                    size="lg"
-                    startContent={<Icon icon="mdi:play-outline" width="20"/>}
-                    onPress={() => {
-                        if (plexTrailer) {
-                            navigate(`/player/${plexTrailer.ratingKey}?from=${encodeURIComponent(location.pathname)}`);
-                        } else {
-                            setYoutubeOpen(true);
-                        }
-                    }}
-                    className="border-2 border-white/90"
-                >
-                    Trailer
-                </Button>
-            )}
+            {/* TODO: Fix trailer fix trailer implementation */}
+            {/*{(plexTrailer || tmdbTrailer) && (*/}
+            {/*    <Button*/}
+            {/*        variant="ghost"*/}
+            {/*        radius="sm"*/}
+            {/*        size="lg"*/}
+            {/*        startContent={<Icon icon="mdi:play-outline" width="20"/>}*/}
+            {/*        isDisabled*/}
+            {/*        onPress={() => {*/}
+            {/*            if (plexTrailer) {*/}
+            {/*                navigate(`/player/${plexTrailer.ratingKey}?from=${encodeURIComponent(location.pathname)}`);*/}
+            {/*            } else {*/}
+            {/*                setYoutubeOpen(true);*/}
+            {/*            }*/}
+            {/*        }}*/}
+            {/*        className="border-2 border-white/90"*/}
+            {/*    >*/}
+            {/*        Trailer*/}
+            {/*    </Button>*/}
+            {/*)}*/}
             {!isGuest && effectiveProgress > 0 && (
                 <div className="flex items-center">
                     <Progress
@@ -813,14 +816,14 @@ export default function Detail() {
                     {item.type === "show" && (
                         <div>
                             <h2 className="text-xl font-semibold mb-4">Seasons</h2>
-                            <SeasonsGrid showId={item.ratingKey} sonarrSeriesId={sonarrSeries?.id}/>
+                            <SeasonsGrid showId={item.ratingKey} sonarrSeriesId={sonarrSeries?.id} showTmdbId={tmdbId?.toString()}/>
                         </div>
                     )}
 
                     {item.type === "season" && (
                         <div>
                             <h2 className="text-xl font-semibold mb-4">Episodes</h2>
-                            <EpisodeList seasonId={item.ratingKey} sonarrSeriesId={sonarrSeries?.id}/>
+                            <EpisodeList seasonId={item.ratingKey} sonarrSeriesId={sonarrSeries?.id} showTmdbId={showTmdbId?.toString()} seasonNumber={item.index}/>
                         </div>
                     )}
                 </div>

@@ -292,6 +292,7 @@ export interface DownloadHistoryItem {
 export interface DownloadStatus {
     total_speed: number;
     queue_size: number;
+    paused: boolean;
     queue: DownloadItem[];
     history: DownloadHistoryItem[];
 }

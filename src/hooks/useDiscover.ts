@@ -143,7 +143,7 @@ export function useSonarrQueue() {
     return useQuery({
         queryKey: ["sonarr", "queue"],
         queryFn: () => api.get<QueueResponse>("/sonarr/queue"),
-        refetchInterval: 5000,
+        refetchInterval: 2000,
     });
 }
 
@@ -151,6 +151,6 @@ export function useRadarrQueue() {
     return useQuery({
         queryKey: ["radarr", "queue"],
         queryFn: () => api.get<QueueResponse>("/radarr/queue"),
-        refetchInterval: 5000,
+        refetchInterval: 2000,
     });
 }

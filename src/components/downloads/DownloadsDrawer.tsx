@@ -1,3 +1,4 @@
+import {useState} from "react";
 import {
     Drawer,
     DrawerContent,
@@ -7,11 +8,16 @@ import {
     Tab,
     Tabs,
     Chip,
+    Button,
+    Tooltip,
 } from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {useDownloads} from "../../hooks/useDownloads.ts";
+import {api} from "../../lib/api.ts";
 import {formatFileSize, formatSpeed} from "../../lib/utils.ts";
 import type {DownloadHistoryItem as DownloadHistoryItemType} from "../../lib/types.ts";
+import {toast} from "sonner";
+import {useQueryClient} from "@tanstack/react-query";
 import DownloadList from "./DownloadList.tsx";
 
 interface DownloadsDrawerProps {
@@ -60,6 +66,23 @@ function HistoryItem({item}: { item: DownloadHistoryItemType }) {
 
 export default function DownloadsDrawer({isOpen, onClose}: DownloadsDrawerProps) {
     const {data, isLoading} = useDownloads(isOpen);
+    const queryClient = useQueryClient();
+    const [pauseLoading, setPauseLoading] = useState(false);
+
+    const handlePauseResume = async () => {
+        if (!data) return;
+        setPauseLoading(true);
+        try {
+            const action = data.paused ? "resume" : "pause";
+            await api.post("/downloads/pause", {action});
+            await queryClient.invalidateQueries({queryKey: ["downloads"]});
+            toast.success(data.paused ? "Queue resumed" : "Queue paused");
+        } catch {
+            toast.error("Failed to update queue");
+        } finally {
+            setPauseLoading(false);
+        }
+    };
 
     return (
         <Drawer
@@ -67,7 +90,7 @@ export default function DownloadsDrawer({isOpen, onClose}: DownloadsDrawerProps)
             onClose={onClose}
             placement="right"
             size="lg"
-            backdrop="opaque"
+            backdrop="blur"
         >
             <DrawerContent>
                 <DrawerHeader className="flex items-center justify-between border-b border-divider pb-3">
@@ -75,11 +98,27 @@ export default function DownloadsDrawer({isOpen, onClose}: DownloadsDrawerProps)
                         <Icon icon="mdi:download" width="24"/>
                         <span className="text-lg font-semibold">Downloads</span>
                     </div>
-                    {data && data.total_speed > 0 && (
-                        <span className="text-sm text-default-400">
-                            {formatSpeed(data.total_speed)}
-                        </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                        {data && data.total_speed > 0 && (
+                            <span className="text-sm text-default-400">
+                                {formatSpeed(data.total_speed)}
+                            </span>
+                        )}
+                        {data && data.queue.length > 0 && (
+                            <Tooltip content={data.paused ? "Resume queue" : "Pause queue"}>
+                                <Button
+                                    isIconOnly
+                                    size="sm"
+                                    variant="flat"
+                                    color={data.paused ? "success" : "warning"}
+                                    onPress={handlePauseResume}
+                                    isLoading={pauseLoading}
+                                >
+                                    <Icon icon={data.paused ? "mdi:play" : "mdi:pause"} width="18"/>
+                                </Button>
+                            </Tooltip>
+                        )}
+                    </div>
                 </DrawerHeader>
                 <DrawerBody className="py-4 px-3">
                     {isLoading ? (

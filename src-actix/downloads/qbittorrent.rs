@@ -1,5 +1,23 @@
 use super::{ClientDownloads, DownloadHistoryItem, DownloadItem};
 
+pub async fn pause_queue(url: &str) -> anyhow::Result<()> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()?;
+    let api_url = format!("{}/api/v2/torrents/pause?hashes=all", url.trim_end_matches('/'));
+    client.post(&api_url).send().await?;
+    Ok(())
+}
+
+pub async fn resume_queue(url: &str) -> anyhow::Result<()> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()?;
+    let api_url = format!("{}/api/v2/torrents/resume?hashes=all", url.trim_end_matches('/'));
+    client.post(&api_url).send().await?;
+    Ok(())
+}
+
 pub async fn fetch_downloads(url: &str) -> anyhow::Result<ClientDownloads> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
@@ -97,5 +115,6 @@ pub async fn fetch_downloads(url: &str) -> anyhow::Result<ClientDownloads> {
         }
     }
 
-    Ok(ClientDownloads { queue, history })
+    let paused = !queue.is_empty() && queue.iter().all(|i| i.status == "paused");
+    Ok(ClientDownloads { paused, queue, history })
 }

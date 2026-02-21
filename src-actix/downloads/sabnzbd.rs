@@ -1,5 +1,23 @@
 use super::{ClientDownloads, DownloadHistoryItem, DownloadItem};
 
+pub async fn pause_queue(url: &str, api_key: &str) -> anyhow::Result<()> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()?;
+    let api_url = format!("{}/api?mode=pause&apikey={}", url.trim_end_matches('/'), api_key);
+    client.get(&api_url).send().await?;
+    Ok(())
+}
+
+pub async fn resume_queue(url: &str, api_key: &str) -> anyhow::Result<()> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()?;
+    let api_url = format!("{}/api?mode=resume&apikey={}", url.trim_end_matches('/'), api_key);
+    client.get(&api_url).send().await?;
+    Ok(())
+}
+
 pub async fn fetch_downloads(url: &str, api_key: &str) -> anyhow::Result<ClientDownloads> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
@@ -18,8 +36,10 @@ pub async fn fetch_downloads(url: &str, api_key: &str) -> anyhow::Result<ClientD
 
     // Parse queue
     let mut queue = Vec::new();
+    let mut paused = false;
     if let Ok(resp) = queue_resp {
         if let Ok(json) = resp.json::<serde_json::Value>().await {
+            paused = json["queue"]["paused"].as_bool().unwrap_or(false);
             if let Some(slots) = json["queue"]["slots"].as_array() {
                 let speed_str = json["queue"]["kbpersec"].as_str().unwrap_or("0");
                 let speed = (speed_str.parse::<f64>().unwrap_or(0.0) * 1024.0) as u64;
@@ -86,5 +106,5 @@ pub async fn fetch_downloads(url: &str, api_key: &str) -> anyhow::Result<ClientD
         }
     }
 
-    Ok(ClientDownloads { queue, history })
+    Ok(ClientDownloads { paused, queue, history })
 }

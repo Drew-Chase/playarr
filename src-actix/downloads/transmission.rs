@@ -1,5 +1,44 @@
 use super::{ClientDownloads, DownloadHistoryItem, DownloadItem};
 
+async fn send_rpc(url: &str, username: &str, password: &str, body: &serde_json::Value) -> anyhow::Result<()> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()?;
+    let api_url = format!("{}/transmission/rpc", url.trim_end_matches('/'));
+
+    let mut req = client.post(&api_url).json(body);
+    if !username.is_empty() {
+        req = req.basic_auth(username, Some(password));
+    }
+
+    let resp = req.send().await?;
+    if resp.status().as_u16() == 409 {
+        let session_id = resp.headers()
+            .get("X-Transmission-Session-Id")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("")
+            .to_string();
+        let mut retry = client.post(&api_url)
+            .header("X-Transmission-Session-Id", &session_id)
+            .json(body);
+        if !username.is_empty() {
+            retry = retry.basic_auth(username, Some(password));
+        }
+        retry.send().await?;
+    }
+    Ok(())
+}
+
+pub async fn pause_queue(url: &str, username: &str, password: &str) -> anyhow::Result<()> {
+    let body = serde_json::json!({"method": "torrent-stop", "arguments": {}});
+    send_rpc(url, username, password, &body).await
+}
+
+pub async fn resume_queue(url: &str, username: &str, password: &str) -> anyhow::Result<()> {
+    let body = serde_json::json!({"method": "torrent-start", "arguments": {}});
+    send_rpc(url, username, password, &body).await
+}
+
 pub async fn fetch_downloads(url: &str, username: &str, password: &str) -> anyhow::Result<ClientDownloads> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
@@ -120,5 +159,6 @@ fn parse_transmission_response(resp: &serde_json::Value) -> anyhow::Result<Clien
         }
     }
 
-    Ok(ClientDownloads { queue, history })
+    let paused = !queue.is_empty() && queue.iter().all(|i| i.status == "paused");
+    Ok(ClientDownloads { paused, queue, history })
 }

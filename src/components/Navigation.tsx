@@ -56,7 +56,7 @@ export default function Navigation()
             <Navbar
                 onMenuOpenChange={setIsMenuOpen}
                 maxWidth="full"
-                className="bg-background/80 backdrop-blur-md border-none fixed top-0 z-[99]"
+                className="bg-background/80 backdrop-blur-md border-none fixed top-0 z-[20]"
                 height="4rem"
             >
                 <NavbarContent>
@@ -197,6 +197,16 @@ export default function Navigation()
                             </Button>
                         )}
                     </NavbarItem>
+                    <NavbarItem>
+                        <Button
+                            isIconOnly
+                            variant="light"
+                            size="sm"
+                            onPress={onDownloadsOpen}
+                        >
+                            <Icon icon="mdi:download" width="20"/>
+                        </Button>
+                    </NavbarItem>
                     {isAuthenticated && user && (
                         <Dropdown>
                             <DropdownTrigger>
@@ -210,10 +220,6 @@ export default function Navigation()
                             </DropdownTrigger>
                             <DropdownMenu aria-label="User menu">
                                 {[
-                                    <DropdownItem key="downloads" onPress={onDownloadsOpen}
-                                                  startContent={<Icon icon="mdi:download" width="18"/>}>
-                                        Downloads
-                                    </DropdownItem>,
                                     <DropdownSection key="watch-party-section" title={"Watch Party"} showDivider>
                                         {(watchParty?.isInParty ? [
                                             <DropdownItem key="leave-party" color="warning" className="text-warning"

@@ -1,18 +1,44 @@
 use super::{ClientDownloads, DownloadHistoryItem, DownloadItem};
 
+fn build_api_url(url: &str, username: &str, password: &str) -> String {
+    let base = url.trim_end_matches('/');
+    if !username.is_empty() {
+        format!("{}:{}/jsonrpc", base.replacen("://", &format!("://{}:{}@", username, password), 1), "")
+    } else {
+        format!("{}/jsonrpc", base)
+    }
+}
+
+pub async fn pause_queue(url: &str, username: &str, password: &str) -> anyhow::Result<()> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()?;
+    let api_url = build_api_url(url, username, password);
+    client.post(&api_url)
+        .json(&serde_json::json!({"method": "pausedownload", "params": []}))
+        .send().await?;
+    Ok(())
+}
+
+pub async fn resume_queue(url: &str, username: &str, password: &str) -> anyhow::Result<()> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()?;
+    let api_url = build_api_url(url, username, password);
+    client.post(&api_url)
+        .json(&serde_json::json!({"method": "resumedownload", "params": []}))
+        .send().await?;
+    Ok(())
+}
+
 pub async fn fetch_downloads(url: &str, username: &str, password: &str) -> anyhow::Result<ClientDownloads> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()?;
 
-    let base = url.trim_end_matches('/');
-    let api_url = if !username.is_empty() {
-        format!("{}:{}/jsonrpc", base.replacen("://", &format!("://{}:{}@", username, password), 1), "")
-    } else {
-        format!("{}/jsonrpc", base)
-    };
+    let api_url = build_api_url(url, username, password);
 
-    // Fetch queue and history in parallel
+    // Fetch queue, history, and status in parallel
     let queue_req = client
         .post(&api_url)
         .json(&serde_json::json!({"method": "listgroups", "params": []}))
@@ -21,8 +47,12 @@ pub async fn fetch_downloads(url: &str, username: &str, password: &str) -> anyho
         .post(&api_url)
         .json(&serde_json::json!({"method": "history", "params": [false]}))
         .send();
+    let status_req = client
+        .post(&api_url)
+        .json(&serde_json::json!({"method": "status", "params": []}))
+        .send();
 
-    let (queue_resp, history_resp) = tokio::join!(queue_req, history_req);
+    let (queue_resp, history_resp, status_resp) = tokio::join!(queue_req, history_req, status_req);
 
     // Parse queue
     let mut queue = Vec::new();
@@ -95,5 +125,13 @@ pub async fn fetch_downloads(url: &str, username: &str, password: &str) -> anyho
         }
     }
 
-    Ok(ClientDownloads { queue, history })
+    // Parse status for paused state
+    let mut paused = false;
+    if let Ok(resp) = status_resp {
+        if let Ok(json) = resp.json::<serde_json::Value>().await {
+            paused = json["result"]["DownloadPaused"].as_bool().unwrap_or(false);
+        }
+    }
+
+    Ok(ClientDownloads { paused, queue, history })
 }

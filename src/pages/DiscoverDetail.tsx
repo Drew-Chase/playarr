@@ -1,22 +1,15 @@
-import {useParams, useNavigate} from "react-router-dom";
-import {useRef, useState, useMemo} from "react";
-import {Button, Spinner, Chip, Modal, ModalContent, ModalBody, Tooltip, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, DropdownSection} from "@heroui/react";
+import {useNavigate, useParams} from "react-router-dom";
+import {useMemo, useRef, useState} from "react";
+import {Button, Chip, Dropdown, DropdownItem, DropdownMenu, DropdownSection, DropdownTrigger, Spinner, Tooltip} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {useQueryClient} from "@tanstack/react-query";
 import {toast} from "sonner";
 import {api} from "../lib/api.ts";
 import {tmdbImage} from "../lib/utils.ts";
-import {
-    useTmdbMovieDetail,
-    useTmdbTvDetail,
-    useTmdbSeason,
-    useSonarrSeriesByTmdb,
-    useRadarrMovieByTmdb,
-    useSonarrEpisodes,
-} from "../hooks/useDiscover.ts";
+import {useRadarrMovieByTmdb, useSonarrEpisodes, useSonarrSeriesByTmdb, useTmdbMovieDetail, useTmdbSeason, useTmdbTvDetail} from "../hooks/useDiscover.ts";
 import RequestModal from "../components/discover/RequestModal.tsx";
 import ManualSearchModal from "../components/discover/ManualSearchModal.tsx";
-import type {TmdbCastMember, TmdbVideo, TmdbSeasonSummary, SonarrEpisode} from "../lib/types.ts";
+import type {SonarrEpisode, TmdbCastMember, TmdbSeasonSummary} from "../lib/types.ts";
 
 function CastSection({cast}: { cast: TmdbCastMember[] }) {
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -384,8 +377,8 @@ export default function DiscoverDetail() {
     const queryClient = useQueryClient();
     const [showRequestModal, setShowRequestModal] = useState(false);
     const [manualSearchOpen, setManualSearchOpen] = useState(false);
-    const [youtubeOpen, setYoutubeOpen] = useState(false);
-    const [selectedTrailer, setSelectedTrailer] = useState<TmdbVideo | null>(null);
+    // const [youtubeOpen, setYoutubeOpen] = useState(false);
+    // const [selectedTrailer, setSelectedTrailer] = useState<TmdbVideo | null>(null);
 
     const isMovie = mediaType === "movie";
     const isTv = mediaType === "tv";
@@ -411,9 +404,8 @@ export default function DiscoverDetail() {
     const year = isMovie ? movie?.release_date?.slice(0, 4) : tv?.first_air_date?.slice(0, 4);
     const cast = isMovie ? movie?.credits?.cast : tv?.credits?.cast;
     const directors = isMovie ? movie?.credits?.crew?.filter(c => c.job === "Director") : [];
-    const videos = isMovie ? movie?.videos?.results : tv?.videos?.results;
-    const trailer = videos?.find(v => v.type === "Trailer" && v.site === "YouTube")
-        || videos?.find(v => v.type === "Teaser" && v.site === "YouTube");
+    // const videos = isMovie ? movie?.videos?.results : tv?.videos?.results;
+    // const trailer = videos?.find(v => v.type === "Trailer" && v.site === "YouTube") || videos?.find(v => v.type === "Teaser" && v.site === "YouTube");
 
     const handleSearchAll = async () => {
         try {
@@ -600,21 +592,21 @@ export default function DiscoverDetail() {
                                     </Button>
                                 </>
                             )}
-                            {trailer && (
-                                <Button
-                                    variant="ghost"
-                                    radius="sm"
-                                    size="lg"
-                                    startContent={<Icon icon="mdi:play-outline" width="20"/>}
-                                    onPress={() => {
-                                        setSelectedTrailer(trailer);
-                                        setYoutubeOpen(true);
-                                    }}
-                                    className="border-2 border-white/90"
-                                >
-                                    Trailer
-                                </Button>
-                            )}
+                            {/*{trailer && (*/}
+                            {/*    <Button*/}
+                            {/*        variant="ghost"*/}
+                            {/*        radius="sm"*/}
+                            {/*        size="lg"*/}
+                            {/*        startContent={<Icon icon="mdi:play-outline" width="20"/>}*/}
+                            {/*        onPress={() => {*/}
+                            {/*            setSelectedTrailer(trailer);*/}
+                            {/*            setYoutubeOpen(true);*/}
+                            {/*        }}*/}
+                            {/*        className="border-2 border-white/90"*/}
+                            {/*    >*/}
+                            {/*        Trailer*/}
+                            {/*    </Button>*/}
+                            {/*)}*/}
                         </div>
 
                         {/* Library status info */}
@@ -694,20 +686,20 @@ export default function DiscoverDetail() {
             )}
 
             {/* YouTube Trailer Modal */}
-            {selectedTrailer && (
-                <Modal isOpen={youtubeOpen} onClose={() => setYoutubeOpen(false)} size="5xl" backdrop="blur">
-                    <ModalContent>
-                        <ModalBody className="p-0">
-                            <video
-                                className="w-full rounded-lg"
-                                src={`/api/discover/youtube-stream/${selectedTrailer.key}`}
-                                controls
-                                autoPlay
-                            />
-                        </ModalBody>
-                    </ModalContent>
-                </Modal>
-            )}
+            {/*{selectedTrailer && (*/}
+            {/*    <Modal isOpen={youtubeOpen} onClose={() => setYoutubeOpen(false)} size="5xl" backdrop="blur">*/}
+            {/*        <ModalContent>*/}
+            {/*            <ModalBody className="p-0">*/}
+            {/*                <video*/}
+            {/*                    className="w-full rounded-lg"*/}
+            {/*                    src={`/api/discover/youtube-stream/${selectedTrailer.key}`}*/}
+            {/*                    controls*/}
+            {/*                    autoPlay*/}
+            {/*                />*/}
+            {/*            </ModalBody>*/}
+            {/*        </ModalContent>*/}
+            {/*    </Modal>*/}
+            {/*)}*/}
         </div>
     );
 }

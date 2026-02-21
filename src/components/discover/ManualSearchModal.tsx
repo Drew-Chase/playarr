@@ -143,7 +143,7 @@ function GrabButton({release, service}: { release: ReleaseResource; service: "so
             isLoading={grabbing}
             disabled={grabbing}
         >
-            <Icon icon="mdi:download" width={16}/>
+            <Icon icon="mdi:download" width={16} className={"min-w-4 min-h-4"}/>
         </Button>
     );
 }
