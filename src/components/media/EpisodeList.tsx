@@ -1,5 +1,5 @@
 import {useState} from "react";
-import {Progress, CircularProgress, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, Button} from "@heroui/react";
+import {Progress, CircularProgress, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, DropdownSection, Button} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {useNavigate, useLocation} from "react-router-dom";
 import {motion} from "framer-motion";
@@ -9,6 +9,7 @@ import {api} from "../../lib/api.ts";
 import {toast} from "sonner";
 import type {PlexMediaItem, QueueItem, SonarrEpisode} from "../../lib/types.ts";
 import {formatDuration} from "../../lib/utils.ts";
+import {plexApi} from "../../lib/plex.ts";
 import ResumePlaybackModal from "./ResumePlaybackModal.tsx";
 import ManualSearchModal from "../discover/ManualSearchModal.tsx";
 
@@ -22,11 +23,12 @@ function EpisodeCard({episode, index, downloadItem, sonarrEpisode}: { episode: P
     const location = useLocation();
     const [showResumeModal, setShowResumeModal] = useState(false);
     const [manualSearchOpen, setManualSearchOpen] = useState(false);
+    const [watchedOverride, setWatchedOverride] = useState<boolean | null>(null);
 
     const progress = episode.viewOffset && episode.duration
         ? (episode.viewOffset / episode.duration) * 100
         : 0;
-    const isWatched = !!episode.viewCount;
+    const isWatched = watchedOverride !== null ? watchedOverride : !!episode.viewCount;
     const isInProgress = progress > 0 && !isWatched;
     const thumbUrl = episode.thumb ? `/api/media/${episode.ratingKey}/thumb` : "";
 
@@ -56,6 +58,16 @@ function EpisodeCard({episode, index, downloadItem, sonarrEpisode}: { episode: P
         } catch {
             toast.error("Failed to trigger search");
         }
+    };
+
+    const handleMarkWatched = () => {
+        setWatchedOverride(true);
+        plexApi.scrobble(episode.ratingKey);
+    };
+
+    const handleMarkUnwatched = () => {
+        setWatchedOverride(false);
+        plexApi.unscrobble(episode.ratingKey);
     };
 
     return (
@@ -111,12 +123,12 @@ function EpisodeCard({episode, index, downloadItem, sonarrEpisode}: { episode: P
                         )}
 
                         {/* Unwatched indicator (only if not downloading) */}
-                        {!isWatched && !isInProgress && !isDownloading && !sonarrEpisode && (
+                        {!isWatched && !isInProgress && !isDownloading && (
                             <div className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-primary shadow-md"/>
                         )}
 
-                        {/* 3-dot dropdown for search (top-right, visible on hover) */}
-                        {sonarrEpisode && !isDownloading && (
+                        {/* 3-dot dropdown (top-right, visible on hover) */}
+                        {!isDownloading && (
                             <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={(e) => e.stopPropagation()}>
                                 <Dropdown>
                                     <DropdownTrigger>
@@ -127,13 +139,30 @@ function EpisodeCard({episode, index, downloadItem, sonarrEpisode}: { episode: P
                                     <DropdownMenu aria-label="Episode actions" onAction={(key) => {
                                         if (key === "auto-search") handleAutoSearch();
                                         if (key === "manual-search") setManualSearchOpen(true);
+                                        if (key === "mark-watched") handleMarkWatched();
+                                        if (key === "mark-unwatched") handleMarkUnwatched();
                                     }}>
-                                        <DropdownItem key="auto-search" startContent={<Icon icon="mdi:magnify" width="16"/>}>
-                                            Auto Search
-                                        </DropdownItem>
-                                        <DropdownItem key="manual-search" startContent={<Icon icon="mdi:text-search" width="16"/>}>
-                                            Manual Search
-                                        </DropdownItem>
+                                        {sonarrEpisode ? (
+                                            <DropdownSection title="Sonarr" showDivider>
+                                                <DropdownItem key="auto-search" startContent={<Icon icon="mdi:magnify" width="16"/>}>
+                                                    Auto Search
+                                                </DropdownItem>
+                                                <DropdownItem key="manual-search" startContent={<Icon icon="mdi:text-search" width="16"/>}>
+                                                    Manual Search
+                                                </DropdownItem>
+                                            </DropdownSection>
+                                        ) : null}
+                                        <DropdownSection title="Plex">
+                                            {isWatched ? (
+                                                <DropdownItem key="mark-unwatched" startContent={<Icon icon="mdi:eye-off" width="16"/>}>
+                                                    Mark Unwatched
+                                                </DropdownItem>
+                                            ) : (
+                                                <DropdownItem key="mark-watched" startContent={<Icon icon="mdi:eye" width="16"/>}>
+                                                    Mark Watched
+                                                </DropdownItem>
+                                            )}
+                                        </DropdownSection>
                                     </DropdownMenu>
                                 </Dropdown>
                             </div>

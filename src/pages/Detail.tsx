@@ -1,6 +1,6 @@
 import {useParams, useNavigate, useLocation} from "react-router-dom";
 import {useRef, useState} from "react";
-import {Button, Spinner, Progress, Chip, Breadcrumbs, BreadcrumbItem, Modal, ModalContent, ModalBody, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem} from "@heroui/react";
+import {Button, Spinner, Progress, Chip, Breadcrumbs, BreadcrumbItem, Modal, ModalContent, ModalBody, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, DropdownSection} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {useMetadata, useChildren, useAllEpisodes, useShowOnDeck, useTmdbTrailer} from "../hooks/usePlex.ts";
 import {useSonarrSeriesByTmdb, useRadarrMovieByTmdb, useSonarrEpisodes} from "../hooks/useDiscover.ts";
@@ -383,7 +383,7 @@ function formatEpisodeCode(ep: PlexMediaItem): string {
     return `S${s}E${e}`;
 }
 
-function ActionButtons({item, progress, onDeckEpisode, plexTrailer, tmdbTrailer, onAutoSearch, onManualSearch}: {
+function ActionButtons({item, progress, onDeckEpisode, plexTrailer, tmdbTrailer, onAutoSearch, onManualSearch, serviceName}: {
     item: PlexMediaItem;
     progress: number;
     onDeckEpisode?: PlexMediaItem;
@@ -391,6 +391,7 @@ function ActionButtons({item, progress, onDeckEpisode, plexTrailer, tmdbTrailer,
     tmdbTrailer?: TmdbVideo | null;
     onAutoSearch?: () => void;
     onManualSearch?: () => void;
+    serviceName?: "Sonarr" | "Radarr";
 }) {
     const navigate = useNavigate();
     const location = useLocation();
@@ -427,8 +428,7 @@ function ActionButtons({item, progress, onDeckEpisode, plexTrailer, tmdbTrailer,
         plexApi.unscrobble(item.ratingKey);
     };
 
-    // Hide watched/unwatched buttons for shows (doesn't apply)
-    const showWatchedToggle = item.type !== "show";
+    const isCollectionType = item.type === "show" || item.type === "season";
 
     // Build the play button label
     let playLabel: string;
@@ -485,31 +485,7 @@ function ActionButtons({item, progress, onDeckEpisode, plexTrailer, tmdbTrailer,
                     <span className="text-xs text-default-400 ml-2">{Math.round(effectiveProgress)}%</span>
                 </div>
             )}
-            {!isGuest && showWatchedToggle && (isWatched ? (
-                <Button
-                    variant="ghost"
-                    radius="sm"
-                    color={"secondary"}
-                    size="lg"
-                    startContent={<Icon icon="mdi:eye-off" width="20"/>}
-                    onPress={handleMarkUnwatched}
-                >
-                    Mark Unwatched
-                </Button>
-            ) : (
-                <Button
-                    variant="ghost"
-                    radius="sm"
-                    color={"secondary"}
-                    size="lg"
-                    startContent={<Icon icon="mdi:eye" width="20"/>}
-                    onPress={handleMarkWatched}
-                    className="border-2 border-white/90"
-                >
-                    Mark Watched
-                </Button>
-            ))}
-            {(onAutoSearch || onManualSearch) && (
+            {(!isGuest || onAutoSearch || onManualSearch) && (
                 <Dropdown>
                     <DropdownTrigger>
                         <Button
@@ -522,16 +498,40 @@ function ActionButtons({item, progress, onDeckEpisode, plexTrailer, tmdbTrailer,
                             <Icon icon="mdi:dots-vertical" width="22"/>
                         </Button>
                     </DropdownTrigger>
-                    <DropdownMenu aria-label="Search actions" onAction={(key) => {
+                    <DropdownMenu aria-label="Actions" onAction={(key) => {
                         if (key === "auto-search") onAutoSearch?.();
                         if (key === "manual-search") onManualSearch?.();
+                        if (key === "mark-watched") handleMarkWatched();
+                        if (key === "mark-unwatched") handleMarkUnwatched();
                     }}>
-                        <DropdownItem key="auto-search" startContent={<Icon icon="mdi:magnify" width="18"/>}>
-                            Auto Search
-                        </DropdownItem>
-                        <DropdownItem key="manual-search" startContent={<Icon icon="mdi:text-search" width="18"/>}>
-                            Manual Search
-                        </DropdownItem>
+                        {(onAutoSearch || onManualSearch) ? (
+                            <DropdownSection title={serviceName || "Search"} showDivider>
+                                {onAutoSearch ? (
+                                    <DropdownItem key="auto-search" startContent={<Icon icon="mdi:magnify" width="18"/>}>
+                                        Auto Search
+                                    </DropdownItem>
+                                ) : null}
+                                {onManualSearch ? (
+                                    <DropdownItem key="manual-search" startContent={<Icon icon="mdi:text-search" width="18"/>}>
+                                        Manual Search
+                                    </DropdownItem>
+                                ) : null}
+                            </DropdownSection>
+                        ) : null}
+                        {!isGuest ? (
+                            <DropdownSection title="Plex">
+                                {isCollectionType || !isWatched ? (
+                                    <DropdownItem key="mark-watched" startContent={<Icon icon="mdi:eye" width="18"/>}>
+                                        Mark Watched
+                                    </DropdownItem>
+                                ) : null}
+                                {isCollectionType || isWatched ? (
+                                    <DropdownItem key="mark-unwatched" startContent={<Icon icon="mdi:eye-off" width="18"/>}>
+                                        Mark Unwatched
+                                    </DropdownItem>
+                                ) : null}
+                            </DropdownSection>
+                        ) : null}
                     </DropdownMenu>
                 </Dropdown>
             )}
@@ -565,7 +565,7 @@ function ActionButtons({item, progress, onDeckEpisode, plexTrailer, tmdbTrailer,
     );
 }
 
-function EpisodeDetail({item, onAutoSearch, onManualSearch}: { item: PlexMediaItem; onAutoSearch?: () => void; onManualSearch?: () => void }) {
+function EpisodeDetail({item, onAutoSearch, onManualSearch, serviceName}: { item: PlexMediaItem; onAutoSearch?: () => void; onManualSearch?: () => void; serviceName?: "Sonarr" | "Radarr" }) {
     const thumbUrl = item.thumb ? `/api/media/${item.ratingKey}/thumb` : "";
     const progress = item.viewOffset && item.duration
         ? (item.viewOffset / item.duration) * 100
@@ -590,7 +590,7 @@ function EpisodeDetail({item, onAutoSearch, onManualSearch}: { item: PlexMediaIt
                     <MetadataInfo item={item}/>
                     <CrewInfo item={item}/>
                     <MediaInfo item={item}/>
-                    <ActionButtons item={item} progress={progress} onAutoSearch={onAutoSearch} onManualSearch={onManualSearch}/>
+                    <ActionButtons item={item} progress={progress} onAutoSearch={onAutoSearch} onManualSearch={onManualSearch} serviceName={serviceName}/>
                 </div>
             </div>
 
@@ -653,6 +653,7 @@ export default function Detail() {
         : null;
 
     const canSearch = !!searchModalProps;
+    const searchService: "Sonarr" | "Radarr" | undefined = radarrMovie ? "Radarr" : sonarrSeries ? "Sonarr" : undefined;
 
     const handleAutoSearch = async () => {
         try {
@@ -736,7 +737,7 @@ export default function Detail() {
                 <DetailBreadcrumbs item={item}/>
 
                 {item.type === "episode" ? (
-                    <EpisodeDetail item={item} onAutoSearch={canSearch ? handleAutoSearch : undefined} onManualSearch={canSearch ? () => setSearchModalOpen(true) : undefined}/>
+                    <EpisodeDetail item={item} onAutoSearch={canSearch ? handleAutoSearch : undefined} onManualSearch={canSearch ? () => setSearchModalOpen(true) : undefined} serviceName={searchService}/>
                 ) : (
                     /* Movie / Show / Season — poster + metadata layout */
                     <div>
@@ -760,7 +761,7 @@ export default function Detail() {
                                 <GenreTags item={item}/>
                                 <MediaInfo item={item}/>
                                 {(item.type === "movie" || item.type === "show" || item.type === "season") && (
-                                    <ActionButtons item={item} progress={progress} onDeckEpisode={onDeckEpisode} plexTrailer={plexTrailer} tmdbTrailer={tmdbTrailer} onAutoSearch={canSearch ? handleAutoSearch : undefined} onManualSearch={canSearch ? () => setSearchModalOpen(true) : undefined}/>
+                                    <ActionButtons item={item} progress={progress} onDeckEpisode={onDeckEpisode} plexTrailer={plexTrailer} tmdbTrailer={tmdbTrailer} onAutoSearch={canSearch ? handleAutoSearch : undefined} onManualSearch={canSearch ? () => setSearchModalOpen(true) : undefined} serviceName={searchService}/>
                                 )}
                             </div>
                         </div>

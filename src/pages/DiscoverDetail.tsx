@@ -1,6 +1,6 @@
 import {useParams, useNavigate} from "react-router-dom";
 import {useRef, useState, useMemo} from "react";
-import {Button, Spinner, Chip, Modal, ModalContent, ModalBody, Tooltip, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem} from "@heroui/react";
+import {Button, Spinner, Chip, Modal, ModalContent, ModalBody, Tooltip, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, DropdownSection} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {useQueryClient} from "@tanstack/react-query";
 import {toast} from "sonner";
@@ -193,12 +193,14 @@ function SeasonCard({
                                     if (key === "auto-search") handleSearchSeason();
                                     if (key === "manual-search") setManualSearchOpen(true);
                                 }}>
-                                    <DropdownItem key="auto-search" startContent={<Icon icon="mdi:magnify" width="16"/>}>
-                                        Auto Search
-                                    </DropdownItem>
-                                    <DropdownItem key="manual-search" startContent={<Icon icon="mdi:text-search" width="16"/>}>
-                                        Manual Search
-                                    </DropdownItem>
+                                    <DropdownSection title="Sonarr">
+                                        <DropdownItem key="auto-search" startContent={<Icon icon="mdi:magnify" width="16"/>}>
+                                            Auto Search
+                                        </DropdownItem>
+                                        <DropdownItem key="manual-search" startContent={<Icon icon="mdi:text-search" width="16"/>}>
+                                            Manual Search
+                                        </DropdownItem>
+                                    </DropdownSection>
                                 </DropdownMenu>
                             </Dropdown>
                         </>
@@ -351,12 +353,14 @@ function EpisodeRow({
                                 if (key === "auto-search") handleSearchEpisode();
                                 if (key === "manual-search") setManualSearchOpen(true);
                             }}>
-                                <DropdownItem key="auto-search" startContent={<Icon icon="mdi:magnify" width="16"/>}>
-                                    Auto Search
-                                </DropdownItem>
-                                <DropdownItem key="manual-search" startContent={<Icon icon="mdi:text-search" width="16"/>}>
-                                    Manual Search
-                                </DropdownItem>
+                                <DropdownSection title="Sonarr">
+                                    <DropdownItem key="auto-search" startContent={<Icon icon="mdi:magnify" width="16"/>}>
+                                        Auto Search
+                                    </DropdownItem>
+                                    <DropdownItem key="manual-search" startContent={<Icon icon="mdi:text-search" width="16"/>}>
+                                        Manual Search
+                                    </DropdownItem>
+                                </DropdownSection>
                             </DropdownMenu>
                         </Dropdown>
                     </div>
