@@ -22,6 +22,7 @@ fn mock_config(plex_url: &str, plex_token: &str) -> SharedConfig {
         sonarr: SonarrConfig::default(),
         radarr: RadarrConfig::default(),
         download_clients: vec![],
+        opensubtitles: Default::default(),
     }))
 }
 
@@ -42,6 +43,7 @@ fn full_mock_config(plex_url: &str, sonarr_url: &str, radarr_url: &str) -> Share
             api_key: "radarr-key".to_string(),
         },
         download_clients: vec![],
+        opensubtitles: Default::default(),
     }))
 }
 
