@@ -20,6 +20,8 @@ function EpisodeCard({episode, index}: { episode: PlexMediaItem; index: number }
     const progress = episode.viewOffset && episode.duration
         ? (episode.viewOffset / episode.duration) * 100
         : 0;
+    const isWatched = !!episode.viewCount;
+    const isInProgress = progress > 0 && !isWatched;
     const thumbUrl = episode.thumb ? `/api/media/${episode.ratingKey}/thumb` : "";
 
     const handlePlay = (e: React.MouseEvent) => {
@@ -41,7 +43,7 @@ function EpisodeCard({episode, index}: { episode: PlexMediaItem; index: number }
                 className="cursor-pointer group"
                 onClick={() => navigate(`/detail/${episode.ratingKey}`)}
             >
-                <div className="relative rounded-lg overflow-hidden bg-content2">
+                <div className={`relative rounded-lg overflow-hidden bg-content2 ${isWatched ? "opacity-60" : ""}`}>
                     {/* 16:9 thumbnail */}
                     <div className="relative aspect-video">
                         {thumbUrl ? (
@@ -58,9 +60,17 @@ function EpisodeCard({episode, index}: { episode: PlexMediaItem; index: number }
                         )}
 
                         {/* Episode number badge */}
-                        <div className="absolute top-2 left-2 bg-black/70 text-white text-xs font-bold px-2 py-1 rounded">
+                        <div className="absolute top-2 left-2 bg-black/70 text-white text-xs font-bold px-2 py-1 rounded flex items-center gap-1">
                             E{episode.index?.toString().padStart(2, "0")}
+                            {isWatched && (
+                                <Icon icon="mdi:check-circle" width="14" className="text-success"/>
+                            )}
                         </div>
+
+                        {/* Unwatched indicator */}
+                        {!isWatched && !isInProgress && (
+                            <div className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-primary shadow-md"/>
+                        )}
 
                         {/* Play overlay */}
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
@@ -94,7 +104,7 @@ function EpisodeCard({episode, index}: { episode: PlexMediaItem; index: number }
 
                     {/* Title */}
                     <div className="p-3">
-                        <p className="text-sm font-medium truncate">{episode.title}</p>
+                        <p className={`text-sm font-medium truncate ${isWatched ? "text-default-400" : ""}`}>{episode.title}</p>
                         {episode.summary && (
                             <p className="text-xs text-default-400 line-clamp-2 mt-1">
                                 {episode.summary}
