@@ -6,7 +6,7 @@ COPY . .
 RUN apk update
 
 # Install Dependencies
-RUN apk add --no-cache nodejs npm musl-dev
+RUN apk add --no-cache nodejs npm musl-dev pkgconfig openssl-dev openssl-libs-static
 RUN npm i vite pnpm -g
 
 # Install project dependencies (force clean install without prompts)
