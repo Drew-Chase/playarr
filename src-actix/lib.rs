@@ -18,6 +18,7 @@ mod plex;
 mod radarr;
 mod settings;
 mod sonarr;
+mod subtitles;
 mod watch_party;
 
 #[cfg(test)]
@@ -116,6 +117,7 @@ pub async fn run() -> Result<()> {
                     })
                     .configure(discover::tmdb::configure)
                     .configure(downloads::configure)
+                    .configure(subtitles::configure)
                     .configure(watch_party::configure)
                     .configure(plex::users::configure),
             )

@@ -13,6 +13,7 @@ import WatchQueuePanel from "./WatchQueuePanel.tsx";
 import EpisodeQueuePanel from "./EpisodeQueuePanel.tsx";
 import SkipButton from "./SkipButton.tsx";
 import CreditsOverlay from "./CreditsOverlay.tsx";
+import SubtitleSearchDrawer from "./SubtitleSearchDrawer.tsx";
 import {plexImage} from "../../lib/utils.ts";
 
 interface VideoPlayerProps {
@@ -76,6 +77,9 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const [displayRate, setDisplayRate] = useState(1);
     const [creditsActive, setCreditsActive] = useState(false);
     const creditsDismissedRef = useRef(false);
+    const [subtitleDrawerOpen, setSubtitleDrawerOpen] = useState(false);
+    const [localSubtitleUrl, setLocalSubtitleUrl] = useState<string | null>(null);
+    const [localSubtitleLabel, setLocalSubtitleLabel] = useState<string>("");
 
     const isDraggingRef = useRef(false);
     const clickTimerRef = useRef<number | null>(null);
@@ -144,6 +148,26 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         }
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+    // Activate local subtitle track when set (default attribute only works on initial load)
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+        if (localSubtitleUrl) {
+            // Small delay to let the browser process the newly rendered <track> element
+            const timer = setTimeout(() => {
+                for (let i = 0; i < video.textTracks.length; i++) {
+                    video.textTracks[i].mode = video.textTracks[i].label === localSubtitleLabel
+                        ? "showing" : "disabled";
+                }
+            }, 100);
+            return () => clearTimeout(timer);
+        } else {
+            for (let i = 0; i < video.textTracks.length; i++) {
+                video.textTracks[i].mode = "disabled";
+            }
+        }
+    }, [localSubtitleUrl, localSubtitleLabel]);
+
     // Load BIF data for timeline previews
     useEffect(() => {
         let cancelled = false;
@@ -175,6 +199,9 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         }
         setCreditsActive(false);
         creditsDismissedRef.current = false;
+        if (localSubtitleUrl) URL.revokeObjectURL(localSubtitleUrl);
+        setLocalSubtitleUrl(null);
+        setLocalSubtitleLabel("");
     }, [item.ratingKey]);
 
     // Load stream
@@ -971,7 +998,11 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                     }
                     toggleFullscreen();
                 }}
-            />
+            >
+                {localSubtitleUrl && (
+                    <track kind="subtitles" src={localSubtitleUrl} label={localSubtitleLabel} default />
+                )}
+            </video>
 
             <PlayerOverlay
                 item={item}
@@ -1025,6 +1056,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 syncStatus={isInParty ? syncStatus : undefined}
                 displayRate={isInParty ? displayRate : undefined}
                 onDragChange={handleDragChange}
+                onOpenSubtitleSearch={() => setSubtitleDrawerOpen(true)}
             />
 
             {creditsActive && nextEpisode && (
@@ -1057,6 +1089,17 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                     onSelectEpisode={(ratingKey) => navigate(`/player/${ratingKey}${fromParam ? `?from=${encodeURIComponent(fromParam)}` : ""}`, {replace: true})}
                 />
             )}
+
+            <SubtitleSearchDrawer
+                isOpen={subtitleDrawerOpen}
+                onClose={() => setSubtitleDrawerOpen(false)}
+                item={item}
+                onUseLocally={(blobUrl, label) => {
+                    if (localSubtitleUrl) URL.revokeObjectURL(localSubtitleUrl);
+                    setLocalSubtitleUrl(blobUrl);
+                    setLocalSubtitleLabel(label);
+                }}
+            />
         </div>
     );
 }

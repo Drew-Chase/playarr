@@ -84,6 +84,19 @@ async fn update_download_clients(
     Ok(HttpResponse::Ok().json(cfg.redacted()))
 }
 
+#[put("/opensubtitles")]
+async fn update_opensubtitles(
+    req: HttpRequest,
+    config: web::Data<SharedConfig>,
+    body: web::Json<OpenSubtitlesConfig>,
+) -> Result<impl Responder> {
+    require_admin(&req, &config)?;
+    let mut cfg = config.write().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+    cfg.opensubtitles = body.into_inner();
+    save_config(&cfg)?;
+    Ok(HttpResponse::Ok().json(cfg.redacted()))
+}
+
 #[derive(Deserialize)]
 struct TestServicePath {
     service: String,
@@ -259,6 +272,21 @@ async fn test_connection(
                 .send()
                 .await
         }
+        "opensubtitles" => {
+            let api_key = pick(&body.api_key, &cfg.opensubtitles.api_key);
+            if api_key.is_empty() {
+                return Ok(HttpResponse::BadRequest().json(serde_json::json!({
+                    "success": false,
+                    "message": "OpenSubtitles API key is not configured"
+                })));
+            }
+            client
+                .get("https://api.opensubtitles.com/api/v1/infos/user")
+                .header("Api-Key", &api_key)
+                .header("User-Agent", format!("Playarr v{}", env!("CARGO_PKG_VERSION")))
+                .send()
+                .await
+        }
         "download-client" => {
             let dc_url = body.url.unwrap_or_default();
             let dc_type = body.client_type.unwrap_or_default();
@@ -317,6 +345,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
             .service(update_sonarr)
             .service(update_radarr)
             .service(update_download_clients)
+            .service(update_opensubtitles)
             .service(test_connection),
     );
 }

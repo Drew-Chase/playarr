@@ -28,6 +28,10 @@ export interface DownloadClientConfig {
     enabled: boolean;
 }
 
+export interface OpenSubtitlesConfig {
+    api_key: string;
+}
+
 export interface RedactedSettings {
     plex: { url: string; has_token: boolean };
     sonarr: { url: string; has_api_key: boolean };
@@ -40,6 +44,18 @@ export interface RedactedSettings {
         has_credentials: boolean;
         enabled: boolean;
     }[];
+    opensubtitles: { has_api_key: boolean };
+}
+
+export interface SubtitleSearchResult {
+    subtitle_id: string;
+    file_id: number;
+    file_name: string;
+    language: string;
+    download_count: number;
+    hearing_impaired: boolean;
+    foreign_parts_only: boolean;
+    ai_translated: boolean;
 }
 
 export interface ConnectionTestResult {

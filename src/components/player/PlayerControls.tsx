@@ -39,6 +39,7 @@ interface PlayerControlsProps
     syncStatus?: "in_sync" | "syncing" | "disconnected";
     displayRate?: number;
     onDragChange?: (isDragging: boolean) => void;
+    onOpenSubtitleSearch?: () => void;
 }
 
 export default function PlayerControls({
@@ -70,7 +71,8 @@ export default function PlayerControls({
                                            hasPrevious,
                                            syncStatus,
                                            displayRate,
-                                           onDragChange
+                                           onDragChange,
+                                           onOpenSubtitleSearch
                                        }: PlayerControlsProps)
 {
     return (
@@ -187,6 +189,17 @@ export default function PlayerControls({
 
                 {/* Right controls */}
                 <div className="flex items-center gap-1">
+                    {onOpenSubtitleSearch && (
+                        <Button
+                            isIconOnly
+                            variant="light"
+                            size="sm"
+                            onPress={onOpenSubtitleSearch}
+                            className="text-white"
+                        >
+                            <Icon icon="mdi:subtitles-outline" width="20"/>
+                        </Button>
+                    )}
                     {subtitleStreams.length > 0 && (
                         <SubtitleSelector streams={subtitleStreams}/>
                     )}

@@ -6,6 +6,7 @@ import PlexSettings from "./PlexSettings.tsx";
 import SonarrSettings from "./SonarrSettings.tsx";
 import RadarrSettings from "./RadarrSettings.tsx";
 import DownloadClientSettings from "./DownloadClientSettings.tsx";
+import OpenSubtitlesSettings from "./OpenSubtitlesSettings.tsx";
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -41,6 +42,9 @@ export default function SettingsModal({isOpen, onClose}: SettingsModalProps) {
                             </Tab>
                             <Tab key="downloads" title="Downloads">
                                 <DownloadClientSettings current={settings?.download_clients} onSaved={refetch}/>
+                            </Tab>
+                            <Tab key="opensubtitles" title="Subtitles">
+                                <OpenSubtitlesSettings current={settings?.opensubtitles} onSaved={refetch}/>
                             </Tab>
                         </Tabs>
                     )}

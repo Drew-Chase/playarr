@@ -29,7 +29,7 @@ log = ">=0.4.22"
 anyhow = ">=1.0.95"
 thiserror = ">=2.0.11"
 vite-actix = ">=0.2.5"
-reqwest = { version = ">=0.12", features = ["json", "rustls-tls", "gzip", "deflate", "brotli"], default-features = false }
+reqwest = { version = ">=0.12", features = ["json", "multipart", "rustls-tls", "gzip", "deflate", "brotli"], default-features = false }
 tokio = { version = ">=1.0", features = ["full"] }
 uuid = { version = ">=1.0", features = ["v4", "serde"] }
 chrono = { version = ">=0.4", features = ["serde"] }

@@ -10,6 +10,7 @@ import type {
     SearchHub,
     TimelineUpdate,
     SetupData,
+    SubtitleSearchResult,
 } from "./types.ts";
 
 // Generate a unique session ID per browser tab so each tab gets its own
@@ -111,4 +112,46 @@ export const plexApi = {
         });
         navigator.sendBeacon("/api/player/stop", new Blob([body], { type: "application/json" }));
     },
+
+    // Subtitles (OpenSubtitles)
+    searchSubtitles: (params: {
+        query?: string;
+        imdb_id?: string;
+        tmdb_id?: string;
+        show_rating_key?: string;
+        season?: number;
+        episode?: number;
+        languages?: string;
+        foreign_parts_only?: boolean;
+    }) => {
+        const p: Record<string, string> = {};
+        if (params.query) p.query = params.query;
+        if (params.imdb_id) p.imdb_id = params.imdb_id;
+        if (params.tmdb_id) p.tmdb_id = params.tmdb_id;
+        if (params.show_rating_key) p.show_rating_key = params.show_rating_key;
+        if (params.season != null) p.season = params.season.toString();
+        if (params.episode != null) p.episode = params.episode.toString();
+        if (params.languages) p.languages = params.languages;
+        if (params.foreign_parts_only) p.foreign_parts_only = "true";
+        return api.get<SubtitleSearchResult[]>("/subtitles/search", p);
+    },
+
+    downloadSubtitle: async (fileId: number): Promise<string> => {
+        const resp = await fetch("/api/subtitles/download", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            body: JSON.stringify({ file_id: fileId }),
+        });
+        if (!resp.ok) throw new Error(`Download failed: ${resp.status}`);
+        const blob = await resp.blob();
+        return URL.createObjectURL(blob);
+    },
+
+    uploadSubtitleToPlex: (fileId: number, ratingKey: string, languageCode: string) =>
+        api.post<{ success: boolean }>("/subtitles/upload-to-plex", {
+            file_id: fileId,
+            rating_key: ratingKey,
+            language_code: languageCode,
+        }),
 };
