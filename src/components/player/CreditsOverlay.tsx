@@ -119,7 +119,7 @@ export default function CreditsOverlay({nextEpisode, artUrl, onPlayNext, onCance
             {/* You May Also Like — carousel below mini video */}
             {relatedItems.length > 0 && (
                 <div
-                    className="absolute left-8 right-[calc(30vw+4rem)] bottom-4 z-30 flex flex-col"
+                    className="absolute left-8 right-[850px] bottom-4 z-30 flex flex-col"
                     onMouseEnter={() => setHoveringCarousel(true)}
                     onMouseLeave={() => setHoveringCarousel(false)}
                 >
