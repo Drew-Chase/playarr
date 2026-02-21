@@ -546,3 +546,59 @@ export interface RadarrMovie {
     added: string;
     minimumAvailability: string;
 }
+
+// Release types (manual search results)
+export interface ReleaseQuality {
+    quality: {
+        id: number;
+        name: string;
+    };
+}
+
+export interface ReleaseResource {
+    guid: string;
+    title: string;
+    indexer: string;
+    size: number;
+    age: number;
+    ageHours: number;
+    ageMinutes: number;
+    quality: ReleaseQuality;
+    languages?: { id: number; name: string }[];
+    seeders?: number;
+    leechers?: number;
+    protocol: "usenet" | "torrent";
+    approved: boolean;
+    rejections?: string[];
+    publishDate: string;
+    downloadUrl?: string;
+    infoUrl?: string;
+    indexerFlags?: number;
+}
+
+// Queue types (download progress)
+export interface QueueItem {
+    id: number;
+    seriesId?: number;
+    episodeId?: number;
+    movieId?: number;
+    title: string;
+    status: string;
+    trackedDownloadStatus?: string;
+    trackedDownloadState?: string;
+    size: number;
+    sizeleft: number;
+    timeleft?: string;
+    estimatedCompletionTime?: string;
+    protocol: string;
+    downloadClient?: string;
+    indexer?: string;
+    quality: ReleaseQuality;
+}
+
+export interface QueueResponse {
+    page: number;
+    pageSize: number;
+    totalRecords: number;
+    records: QueueItem[];
+}

@@ -5,3 +5,4 @@ pub mod calendar;
 pub mod queue;
 pub mod profiles;
 pub mod commands;
+pub mod releases;

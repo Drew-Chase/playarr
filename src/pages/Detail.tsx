@@ -1,18 +1,30 @@
 import {useParams, useNavigate, useLocation} from "react-router-dom";
 import {useRef, useState} from "react";
-import {Button, Spinner, Progress, Chip, Breadcrumbs, BreadcrumbItem, Modal, ModalContent, ModalBody} from "@heroui/react";
+import {Button, Spinner, Progress, Chip, Breadcrumbs, BreadcrumbItem, Modal, ModalContent, ModalBody, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {useMetadata, useChildren, useAllEpisodes, useShowOnDeck, useTmdbTrailer} from "../hooks/usePlex.ts";
+import {useSonarrSeriesByTmdb, useRadarrMovieByTmdb, useSonarrEpisodes} from "../hooks/useDiscover.ts";
 import MetadataInfo from "../components/media/MetadataInfo.tsx";
 import EpisodeList from "../components/media/EpisodeList.tsx";
 import ContentRow from "../components/layout/ContentRow.tsx";
 import MediaCard from "../components/media/MediaCard.tsx";
 import ResumePlaybackModal from "../components/media/ResumePlaybackModal.tsx";
+import ManualSearchModal from "../components/discover/ManualSearchModal.tsx";
 import {plexApi} from "../lib/plex.ts";
+import {api} from "../lib/api.ts";
 import {plexImage, formatDuration} from "../lib/utils.ts";
 import {useAuth} from "../providers/AuthProvider.tsx";
 import {useQuery} from "@tanstack/react-query";
+import {toast} from "sonner";
 import type {PlexMediaItem, PlexExtra, PlexRole, PlexReview, TmdbVideo} from "../lib/types.ts";
+
+function extractTmdbId(item: PlexMediaItem): number | undefined {
+    const guid = item.Guid?.find(g => g.id.startsWith("tmdb://"));
+    if (!guid) return undefined;
+    const num = parseInt(guid.id.replace("tmdb://", ""), 10);
+    return isNaN(num) ? undefined : num;
+}
+
 
 function DetailBreadcrumbs({item}: { item: PlexMediaItem }) {
     const crumbs: { label: string; href?: string }[] = [];
@@ -46,7 +58,7 @@ function DetailBreadcrumbs({item}: { item: PlexMediaItem }) {
     );
 }
 
-function SeasonsGrid({showId}: { showId: string }) {
+function SeasonsGrid({showId, sonarrSeriesId}: { showId: string; sonarrSeriesId?: number }) {
     const navigate = useNavigate();
     const {data: seasons, isLoading} = useChildren(showId);
 
@@ -54,7 +66,7 @@ function SeasonsGrid({showId}: { showId: string }) {
     if (!seasons || seasons.length === 0) return null;
 
     if (seasons.length === 1) {
-        return <EpisodeList seasonId={seasons[0].ratingKey}/>;
+        return <EpisodeList seasonId={seasons[0].ratingKey} sonarrSeriesId={sonarrSeriesId}/>;
     }
 
     return (
@@ -371,12 +383,14 @@ function formatEpisodeCode(ep: PlexMediaItem): string {
     return `S${s}E${e}`;
 }
 
-function ActionButtons({item, progress, onDeckEpisode, plexTrailer, tmdbTrailer}: {
+function ActionButtons({item, progress, onDeckEpisode, plexTrailer, tmdbTrailer, onAutoSearch, onManualSearch}: {
     item: PlexMediaItem;
     progress: number;
     onDeckEpisode?: PlexMediaItem;
     plexTrailer?: PlexExtra;
     tmdbTrailer?: TmdbVideo | null;
+    onAutoSearch?: () => void;
+    onManualSearch?: () => void;
 }) {
     const navigate = useNavigate();
     const location = useLocation();
@@ -495,6 +509,32 @@ function ActionButtons({item, progress, onDeckEpisode, plexTrailer, tmdbTrailer}
                     Mark Watched
                 </Button>
             ))}
+            {(onAutoSearch || onManualSearch) && (
+                <Dropdown>
+                    <DropdownTrigger>
+                        <Button
+                            variant="ghost"
+                            radius="sm"
+                            size="lg"
+                            isIconOnly
+                            className="border-2 border-white/90"
+                        >
+                            <Icon icon="mdi:dots-vertical" width="22"/>
+                        </Button>
+                    </DropdownTrigger>
+                    <DropdownMenu aria-label="Search actions" onAction={(key) => {
+                        if (key === "auto-search") onAutoSearch?.();
+                        if (key === "manual-search") onManualSearch?.();
+                    }}>
+                        <DropdownItem key="auto-search" startContent={<Icon icon="mdi:magnify" width="18"/>}>
+                            Auto Search
+                        </DropdownItem>
+                        <DropdownItem key="manual-search" startContent={<Icon icon="mdi:text-search" width="18"/>}>
+                            Manual Search
+                        </DropdownItem>
+                    </DropdownMenu>
+                </Dropdown>
+            )}
             <ResumePlaybackModal
                 isOpen={showResumeModal}
                 onClose={() => setShowResumeModal(false)}
@@ -525,7 +565,7 @@ function ActionButtons({item, progress, onDeckEpisode, plexTrailer, tmdbTrailer}
     );
 }
 
-function EpisodeDetail({item}: { item: PlexMediaItem }) {
+function EpisodeDetail({item, onAutoSearch, onManualSearch}: { item: PlexMediaItem; onAutoSearch?: () => void; onManualSearch?: () => void }) {
     const thumbUrl = item.thumb ? `/api/media/${item.ratingKey}/thumb` : "";
     const progress = item.viewOffset && item.duration
         ? (item.viewOffset / item.duration) * 100
@@ -550,7 +590,7 @@ function EpisodeDetail({item}: { item: PlexMediaItem }) {
                     <MetadataInfo item={item}/>
                     <CrewInfo item={item}/>
                     <MediaInfo item={item}/>
-                    <ActionButtons item={item} progress={progress}/>
+                    <ActionButtons item={item} progress={progress} onAutoSearch={onAutoSearch} onManualSearch={onManualSearch}/>
                 </div>
             </div>
 
@@ -570,6 +610,69 @@ export default function Detail() {
         queryFn: () => plexApi.getRelated(id!),
         enabled: !!id && item?.type !== "season",
     });
+
+    // Manual search modal state
+    const [searchModalOpen, setSearchModalOpen] = useState(false);
+
+    // Extract TMDB ID from Plex Guid for Sonarr/Radarr matching
+    const tmdbId = item ? extractTmdbId(item) : undefined;
+    // For episodes/seasons, get the show's TMDB ID from parent
+    const {data: parentMeta} = useMetadata(
+        item?.type === "episode" ? (item.grandparentRatingKey || "") :
+        item?.type === "season" ? (item.parentRatingKey || "") : ""
+    );
+    const showTmdbId = parentMeta ? extractTmdbId(parentMeta) : undefined;
+
+    // Lookup matching Sonarr/Radarr items
+    const sonarrSeries = useSonarrSeriesByTmdb(
+        item?.type === "show" ? tmdbId :
+        (item?.type === "season" || item?.type === "episode") ? showTmdbId :
+        undefined
+    );
+    const radarrMovie = useRadarrMovieByTmdb(item?.type === "movie" ? tmdbId : undefined);
+
+    // Fetch Sonarr episodes for episode-level search
+    const {data: sonarrEpisodes} = useSonarrEpisodes(sonarrSeries?.id);
+
+    // Find matching Sonarr episode for the current Plex episode
+    const matchingSonarrEpisode = item?.type === "episode" && sonarrEpisodes
+        ? sonarrEpisodes.find(ep =>
+            ep.seasonNumber === item.parentIndex && ep.episodeNumber === item.index
+        )
+        : undefined;
+
+    // Build search modal props
+    const searchModalProps = item?.type === "movie" && radarrMovie
+        ? { radarrMovieId: radarrMovie.id, title: `Search: ${item.title}` }
+        : item?.type === "episode" && sonarrSeries && matchingSonarrEpisode
+        ? { sonarrEpisodeId: matchingSonarrEpisode.id, title: `Search: S${item.parentIndex?.toString().padStart(2, "0")}E${item.index?.toString().padStart(2, "0")} - ${item.title}` }
+        : item?.type === "season" && sonarrSeries
+        ? { sonarrSeriesId: sonarrSeries.id, sonarrSeasonNumber: item.index, title: `Search: ${item.parentTitle} - ${item.title}` }
+        : item?.type === "show" && sonarrSeries
+        ? { sonarrSeriesId: sonarrSeries.id, title: `Search: ${item.title}` }
+        : null;
+
+    const canSearch = !!searchModalProps;
+
+    const handleAutoSearch = async () => {
+        try {
+            if (item?.type === "movie" && radarrMovie) {
+                await api.post("/radarr/command", {name: "MoviesSearch", movieIds: [radarrMovie.id]});
+                toast.success(`Searching for "${item.title}"`);
+            } else if (item?.type === "episode" && matchingSonarrEpisode) {
+                await api.post("/sonarr/command", {name: "EpisodeSearch", episodeIds: [matchingSonarrEpisode.id]});
+                toast.success(`Searching for S${item.parentIndex?.toString().padStart(2, "0")}E${item.index?.toString().padStart(2, "0")}`);
+            } else if (item?.type === "season" && sonarrSeries) {
+                await api.post("/sonarr/command", {name: "SeasonSearch", seriesId: sonarrSeries.id, seasonNumber: item.index});
+                toast.success(`Searching for ${item.title}`);
+            } else if (item?.type === "show" && sonarrSeries) {
+                await api.post("/sonarr/command", {name: "SeriesSearch", seriesId: sonarrSeries.id});
+                toast.success(`Searching for "${item.title}"`);
+            }
+        } catch {
+            toast.error("Failed to trigger search");
+        }
+    };
 
     // Use Plex's on-deck API for shows (handles specials correctly)
     const {data: showOnDeck} = useShowOnDeck(
@@ -633,7 +736,7 @@ export default function Detail() {
                 <DetailBreadcrumbs item={item}/>
 
                 {item.type === "episode" ? (
-                    <EpisodeDetail item={item}/>
+                    <EpisodeDetail item={item} onAutoSearch={canSearch ? handleAutoSearch : undefined} onManualSearch={canSearch ? () => setSearchModalOpen(true) : undefined}/>
                 ) : (
                     /* Movie / Show / Season — poster + metadata layout */
                     <div>
@@ -657,7 +760,7 @@ export default function Detail() {
                                 <GenreTags item={item}/>
                                 <MediaInfo item={item}/>
                                 {(item.type === "movie" || item.type === "show" || item.type === "season") && (
-                                    <ActionButtons item={item} progress={progress} onDeckEpisode={onDeckEpisode} plexTrailer={plexTrailer} tmdbTrailer={tmdbTrailer}/>
+                                    <ActionButtons item={item} progress={progress} onDeckEpisode={onDeckEpisode} plexTrailer={plexTrailer} tmdbTrailer={tmdbTrailer} onAutoSearch={canSearch ? handleAutoSearch : undefined} onManualSearch={canSearch ? () => setSearchModalOpen(true) : undefined}/>
                                 )}
                             </div>
                         </div>
@@ -679,14 +782,14 @@ export default function Detail() {
                     {item.type === "show" && (
                         <div>
                             <h2 className="text-xl font-semibold mb-4">Seasons</h2>
-                            <SeasonsGrid showId={item.ratingKey}/>
+                            <SeasonsGrid showId={item.ratingKey} sonarrSeriesId={sonarrSeries?.id}/>
                         </div>
                     )}
 
                     {item.type === "season" && (
                         <div>
                             <h2 className="text-xl font-semibold mb-4">Episodes</h2>
-                            <EpisodeList seasonId={item.ratingKey}/>
+                            <EpisodeList seasonId={item.ratingKey} sonarrSeriesId={sonarrSeries?.id}/>
                         </div>
                     )}
                 </div>
@@ -705,6 +808,15 @@ export default function Detail() {
                 {/* Bottom spacer */}
                 <div className="h-8"/>
             </div>
+
+            {/* Manual Search Modal */}
+            {searchModalProps && (
+                <ManualSearchModal
+                    isOpen={searchModalOpen}
+                    onClose={() => setSearchModalOpen(false)}
+                    {...searchModalProps}
+                />
+            )}
         </div>
     );
 }

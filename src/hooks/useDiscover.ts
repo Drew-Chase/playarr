@@ -9,6 +9,8 @@ import type {
     RadarrMovie,
     QualityProfile,
     RootFolder,
+    ReleaseResource,
+    QueueResponse,
 } from "../lib/types.ts";
 
 export function useTmdbMovieDetail(tmdbId: string | undefined) {
@@ -101,4 +103,45 @@ export function useSonarrSeriesByTmdb(tmdbId: number | undefined) {
 export function useRadarrMovieByTmdb(tmdbId: number | undefined) {
     const {data: allMovies} = useRadarrMovies();
     return allMovies?.find(m => m.tmdbId === tmdbId);
+}
+
+// Release hooks (manual search)
+export function useSonarrReleases(params: { episodeId?: number; seriesId?: number; seasonNumber?: number } | null) {
+    const searchParams: Record<string, string> = {};
+    if (params?.episodeId) searchParams.episodeId = String(params.episodeId);
+    if (params?.seriesId) searchParams.seriesId = String(params.seriesId);
+    if (params?.seasonNumber !== undefined) searchParams.seasonNumber = String(params.seasonNumber);
+
+    return useQuery({
+        queryKey: ["sonarr", "releases", params],
+        queryFn: () => api.get<ReleaseResource[]>("/sonarr/release", searchParams),
+        enabled: !!params,
+        staleTime: 0,
+    });
+}
+
+export function useRadarrReleases(movieId: number | null) {
+    return useQuery({
+        queryKey: ["radarr", "releases", movieId],
+        queryFn: () => api.get<ReleaseResource[]>("/radarr/release", {movieId: String(movieId)}),
+        enabled: !!movieId,
+        staleTime: 0,
+    });
+}
+
+// Queue hooks (download progress polling)
+export function useSonarrQueue() {
+    return useQuery({
+        queryKey: ["sonarr", "queue"],
+        queryFn: () => api.get<QueueResponse>("/sonarr/queue"),
+        refetchInterval: 5000,
+    });
+}
+
+export function useRadarrQueue() {
+    return useQuery({
+        queryKey: ["radarr", "queue"],
+        queryFn: () => api.get<QueueResponse>("/radarr/queue"),
+        refetchInterval: 5000,
+    });
 }

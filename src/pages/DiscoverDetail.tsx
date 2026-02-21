@@ -1,6 +1,6 @@
 import {useParams, useNavigate} from "react-router-dom";
 import {useRef, useState, useMemo} from "react";
-import {Button, Spinner, Chip, Modal, ModalContent, ModalBody, Tooltip} from "@heroui/react";
+import {Button, Spinner, Chip, Modal, ModalContent, ModalBody, Tooltip, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {useQueryClient} from "@tanstack/react-query";
 import {toast} from "sonner";
@@ -15,6 +15,7 @@ import {
     useSonarrEpisodes,
 } from "../hooks/useDiscover.ts";
 import RequestModal from "../components/discover/RequestModal.tsx";
+import ManualSearchModal from "../components/discover/ManualSearchModal.tsx";
 import type {TmdbCastMember, TmdbVideo, TmdbSeasonSummary, SonarrEpisode} from "../lib/types.ts";
 
 function CastSection({cast}: { cast: TmdbCastMember[] }) {
@@ -112,6 +113,8 @@ function SeasonCard({
         }
     };
 
+    const [manualSearchOpen, setManualSearchOpen] = useState(false);
+
     const handleSearchSeason = async () => {
         if (!sonarrSeriesId) return;
         try {
@@ -127,6 +130,7 @@ function SeasonCard({
     };
 
     return (
+        <>
         <div className="bg-content2 rounded-lg overflow-hidden">
             <div
                 className="flex items-center gap-4 p-3 cursor-pointer hover:bg-content3 transition-colors"
@@ -174,17 +178,29 @@ function SeasonCard({
                                     />
                                 </Button>
                             </Tooltip>
-                            <Tooltip content="Search season">
-                                <Button
-                                    isIconOnly
-                                    size="sm"
-                                    variant="light"
-                                    onPress={() => handleSearchSeason()}
-                                    onClick={(e) => e.stopPropagation()}
-                                >
-                                    <Icon icon="mdi:magnify" width="18" className="text-default-400"/>
-                                </Button>
-                            </Tooltip>
+                            <Dropdown>
+                                <DropdownTrigger>
+                                    <Button
+                                        isIconOnly
+                                        size="sm"
+                                        variant="light"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        <Icon icon="mdi:dots-vertical" width="18" className="text-default-400"/>
+                                    </Button>
+                                </DropdownTrigger>
+                                <DropdownMenu aria-label="Season actions" onAction={(key) => {
+                                    if (key === "auto-search") handleSearchSeason();
+                                    if (key === "manual-search") setManualSearchOpen(true);
+                                }}>
+                                    <DropdownItem key="auto-search" startContent={<Icon icon="mdi:magnify" width="16"/>}>
+                                        Auto Search
+                                    </DropdownItem>
+                                    <DropdownItem key="manual-search" startContent={<Icon icon="mdi:text-search" width="16"/>}>
+                                        Manual Search
+                                    </DropdownItem>
+                                </DropdownMenu>
+                            </Dropdown>
                         </>
                     )}
                     <Icon
@@ -221,6 +237,16 @@ function SeasonCard({
                 </div>
             )}
         </div>
+        {sonarrSeriesId && (
+            <ManualSearchModal
+                isOpen={manualSearchOpen}
+                onClose={() => setManualSearchOpen(false)}
+                title={`Search: ${season.name}`}
+                sonarrSeriesId={sonarrSeriesId}
+                sonarrSeasonNumber={season.season_number}
+            />
+        )}
+        </>
     );
 }
 
@@ -244,6 +270,7 @@ function EpisodeRow({
     sonarrSeriesId?: number;
 }) {
     const queryClient = useQueryClient();
+    const [manualSearchOpen, setManualSearchOpen] = useState(false);
 
     const handleToggleMonitor = async () => {
         if (!sonarrEpisode || !sonarrSeriesId) return;
@@ -272,55 +299,78 @@ function EpisodeRow({
     };
 
     return (
-        <div className="flex items-center gap-3 p-3 hover:bg-content3/50 transition-colors">
-            {/* Thumbnail */}
-            {stillPath ? (
-                <img
-                    src={tmdbImage(stillPath, "w185")}
-                    alt={name}
-                    className="w-24 h-14 object-cover rounded shrink-0"
-                    loading="lazy"
-                />
-            ) : (
-                <div className="w-24 h-14 bg-content3 rounded flex items-center justify-center shrink-0">
-                    <Icon icon="mdi:television" width="24" className="text-default-400"/>
-                </div>
-            )}
+        <>
+            <div className="flex items-center gap-3 p-3 hover:bg-content3/50 transition-colors">
+                {/* Thumbnail */}
+                {stillPath ? (
+                    <img
+                        src={tmdbImage(stillPath, "w185")}
+                        alt={name}
+                        className="w-24 h-14 object-cover rounded shrink-0"
+                        loading="lazy"
+                    />
+                ) : (
+                    <div className="w-24 h-14 bg-content3 rounded flex items-center justify-center shrink-0">
+                        <Icon icon="mdi:television" width="24" className="text-default-400"/>
+                    </div>
+                )}
 
-            <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono text-default-500">E{String(episodeNumber).padStart(2, "0")}</span>
-                    <p className="text-sm font-medium truncate">{name}</p>
-                    {sonarrEpisode?.hasFile && (
-                        <Icon icon="mdi:check-circle" width="14" className="text-success shrink-0"/>
-                    )}
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono text-default-500">E{String(episodeNumber).padStart(2, "0")}</span>
+                        <p className="text-sm font-medium truncate">{name}</p>
+                        {sonarrEpisode?.hasFile && (
+                            <Icon icon="mdi:check-circle" width="14" className="text-success shrink-0"/>
+                        )}
+                    </div>
+                    <p className="text-xs text-default-400 line-clamp-1">{overview}</p>
+                    <div className="flex gap-2 text-xs text-default-500 mt-0.5">
+                        {airDate && <span>{airDate}</span>}
+                        {runtime && <span>{runtime}m</span>}
+                    </div>
                 </div>
-                <p className="text-xs text-default-400 line-clamp-1">{overview}</p>
-                <div className="flex gap-2 text-xs text-default-500 mt-0.5">
-                    {airDate && <span>{airDate}</span>}
-                    {runtime && <span>{runtime}m</span>}
-                </div>
+
+                {sonarrEpisode && (
+                    <div className="flex items-center gap-1 shrink-0">
+                        <Tooltip content={sonarrEpisode.monitored ? "Unmonitor" : "Monitor"}>
+                            <Button isIconOnly size="sm" variant="light" onPress={handleToggleMonitor}>
+                                <Icon
+                                    icon={sonarrEpisode.monitored ? "mdi:bookmark" : "mdi:bookmark-outline"}
+                                    width="16"
+                                    className={sonarrEpisode.monitored ? "text-primary" : "text-default-400"}
+                                />
+                            </Button>
+                        </Tooltip>
+                        <Dropdown>
+                            <DropdownTrigger>
+                                <Button isIconOnly size="sm" variant="light">
+                                    <Icon icon="mdi:dots-vertical" width="16" className="text-default-400"/>
+                                </Button>
+                            </DropdownTrigger>
+                            <DropdownMenu aria-label="Episode actions" onAction={(key) => {
+                                if (key === "auto-search") handleSearchEpisode();
+                                if (key === "manual-search") setManualSearchOpen(true);
+                            }}>
+                                <DropdownItem key="auto-search" startContent={<Icon icon="mdi:magnify" width="16"/>}>
+                                    Auto Search
+                                </DropdownItem>
+                                <DropdownItem key="manual-search" startContent={<Icon icon="mdi:text-search" width="16"/>}>
+                                    Manual Search
+                                </DropdownItem>
+                            </DropdownMenu>
+                        </Dropdown>
+                    </div>
+                )}
             </div>
-
             {sonarrEpisode && (
-                <div className="flex items-center gap-1 shrink-0">
-                    <Tooltip content={sonarrEpisode.monitored ? "Unmonitor" : "Monitor"}>
-                        <Button isIconOnly size="sm" variant="light" onPress={handleToggleMonitor}>
-                            <Icon
-                                icon={sonarrEpisode.monitored ? "mdi:bookmark" : "mdi:bookmark-outline"}
-                                width="16"
-                                className={sonarrEpisode.monitored ? "text-primary" : "text-default-400"}
-                            />
-                        </Button>
-                    </Tooltip>
-                    <Tooltip content="Search episode">
-                        <Button isIconOnly size="sm" variant="light" onPress={handleSearchEpisode}>
-                            <Icon icon="mdi:magnify" width="16" className="text-default-400"/>
-                        </Button>
-                    </Tooltip>
-                </div>
+                <ManualSearchModal
+                    isOpen={manualSearchOpen}
+                    onClose={() => setManualSearchOpen(false)}
+                    title={`Search: E${String(episodeNumber).padStart(2, "0")} - ${name}`}
+                    sonarrEpisodeId={sonarrEpisode.id}
+                />
             )}
-        </div>
+        </>
     );
 }
 
@@ -329,6 +379,7 @@ export default function DiscoverDetail() {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
     const [showRequestModal, setShowRequestModal] = useState(false);
+    const [manualSearchOpen, setManualSearchOpen] = useState(false);
     const [youtubeOpen, setYoutubeOpen] = useState(false);
     const [selectedTrailer, setSelectedTrailer] = useState<TmdbVideo | null>(null);
 
@@ -522,6 +573,16 @@ export default function DiscoverDetail() {
                                         variant="ghost"
                                         radius="sm"
                                         size="lg"
+                                        startContent={<Icon icon="mdi:text-search" width="20"/>}
+                                        onPress={() => setManualSearchOpen(true)}
+                                        className="border-2 border-white/90"
+                                    >
+                                        Manual Search
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        radius="sm"
+                                        size="lg"
                                         startContent={
                                             <Icon
                                                 icon={(isMovie ? radarrMovie?.monitored : sonarrSeries?.monitored) ? "mdi:bookmark" : "mdi:bookmark-outline"}
@@ -616,6 +677,17 @@ export default function DiscoverDetail() {
                 movie={movie}
                 tv={tv}
             />
+
+            {/* Manual Search Modal */}
+            {isInLibrary && (
+                <ManualSearchModal
+                    isOpen={manualSearchOpen}
+                    onClose={() => setManualSearchOpen(false)}
+                    title={`Search: ${title}`}
+                    {...(isMovie && radarrMovie ? {radarrMovieId: radarrMovie.id} : {})}
+                    {...(isTv && sonarrSeries ? {sonarrSeriesId: sonarrSeries.id} : {})}
+                />
+            )}
 
             {/* YouTube Trailer Modal */}
             {selectedTrailer && (

@@ -1,21 +1,27 @@
 import {useState} from "react";
-import {Progress} from "@heroui/react";
+import {Progress, CircularProgress, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, Button} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {useNavigate, useLocation} from "react-router-dom";
 import {motion} from "framer-motion";
 import {useChildren} from "../../hooks/usePlex.ts";
-import type {PlexMediaItem} from "../../lib/types.ts";
+import {useSonarrQueue, useSonarrEpisodes} from "../../hooks/useDiscover.ts";
+import {api} from "../../lib/api.ts";
+import {toast} from "sonner";
+import type {PlexMediaItem, QueueItem, SonarrEpisode} from "../../lib/types.ts";
 import {formatDuration} from "../../lib/utils.ts";
 import ResumePlaybackModal from "./ResumePlaybackModal.tsx";
+import ManualSearchModal from "../discover/ManualSearchModal.tsx";
 
 interface EpisodeListProps {
     seasonId: string;
+    sonarrSeriesId?: number;
 }
 
-function EpisodeCard({episode, index}: { episode: PlexMediaItem; index: number }) {
+function EpisodeCard({episode, index, downloadItem, sonarrEpisode}: { episode: PlexMediaItem; index: number; downloadItem?: QueueItem; sonarrEpisode?: SonarrEpisode }) {
     const navigate = useNavigate();
     const location = useLocation();
     const [showResumeModal, setShowResumeModal] = useState(false);
+    const [manualSearchOpen, setManualSearchOpen] = useState(false);
 
     const progress = episode.viewOffset && episode.duration
         ? (episode.viewOffset / episode.duration) * 100
@@ -24,12 +30,31 @@ function EpisodeCard({episode, index}: { episode: PlexMediaItem; index: number }
     const isInProgress = progress > 0 && !isWatched;
     const thumbUrl = episode.thumb ? `/api/media/${episode.ratingKey}/thumb` : "";
 
+    // Download progress
+    const downloadProgress = downloadItem
+        ? ((downloadItem.size - downloadItem.sizeleft) / downloadItem.size) * 100
+        : 0;
+    const isDownloading = !!downloadItem && downloadItem.sizeleft > 0;
+
     const handlePlay = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (episode.viewOffset && episode.duration) {
             setShowResumeModal(true);
         } else {
             navigate(`/player/${episode.ratingKey}?from=${encodeURIComponent(location.pathname)}`);
+        }
+    };
+
+    const handleAutoSearch = async () => {
+        if (!sonarrEpisode) return;
+        try {
+            await api.post("/sonarr/command", {
+                name: "EpisodeSearch",
+                episodeIds: [sonarrEpisode.id],
+            });
+            toast.success(`Searching for E${episode.index?.toString().padStart(2, "0")}`);
+        } catch {
+            toast.error("Failed to trigger search");
         }
     };
 
@@ -67,9 +92,51 @@ function EpisodeCard({episode, index}: { episode: PlexMediaItem; index: number }
                             )}
                         </div>
 
-                        {/* Unwatched indicator */}
-                        {!isWatched && !isInProgress && (
+                        {/* Download progress radial (top-right) */}
+                        {isDownloading && (
+                            <div className="absolute top-1.5 right-1.5">
+                                <CircularProgress
+                                    size="md"
+                                    value={downloadProgress}
+                                    color="success"
+                                    showValueLabel
+                                    classNames={{
+                                        svg: "w-10 h-10",
+                                        value: "text-[9px] font-bold text-white",
+                                        track: "stroke-black/40",
+                                    }}
+                                    aria-label="Download progress"
+                                />
+                            </div>
+                        )}
+
+                        {/* Unwatched indicator (only if not downloading) */}
+                        {!isWatched && !isInProgress && !isDownloading && !sonarrEpisode && (
                             <div className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-primary shadow-md"/>
+                        )}
+
+                        {/* 3-dot dropdown for search (top-right, visible on hover) */}
+                        {sonarrEpisode && !isDownloading && (
+                            <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={(e) => e.stopPropagation()}>
+                                <Dropdown>
+                                    <DropdownTrigger>
+                                        <Button isIconOnly size="sm" variant="flat" className="bg-black/60 min-w-6 w-6 h-6">
+                                            <Icon icon="mdi:dots-vertical" width="14" className="text-white"/>
+                                        </Button>
+                                    </DropdownTrigger>
+                                    <DropdownMenu aria-label="Episode actions" onAction={(key) => {
+                                        if (key === "auto-search") handleAutoSearch();
+                                        if (key === "manual-search") setManualSearchOpen(true);
+                                    }}>
+                                        <DropdownItem key="auto-search" startContent={<Icon icon="mdi:magnify" width="16"/>}>
+                                            Auto Search
+                                        </DropdownItem>
+                                        <DropdownItem key="manual-search" startContent={<Icon icon="mdi:text-search" width="16"/>}>
+                                            Manual Search
+                                        </DropdownItem>
+                                    </DropdownMenu>
+                                </Dropdown>
+                            </div>
                         )}
 
                         {/* Play overlay */}
@@ -86,8 +153,23 @@ function EpisodeCard({episode, index}: { episode: PlexMediaItem; index: number }
                             </div>
                         )}
 
-                        {/* Progress bar */}
-                        {progress > 0 && (
+                        {/* Download progress bar (bottom, green) */}
+                        {isDownloading && (
+                            <div className="absolute bottom-0 left-0 right-0">
+                                <Progress
+                                    size="sm"
+                                    value={downloadProgress}
+                                    className="rounded-none"
+                                    classNames={{
+                                        indicator: "bg-success",
+                                        track: "bg-black/50 rounded-none",
+                                    }}
+                                />
+                            </div>
+                        )}
+
+                        {/* Watch progress bar (only if not downloading) */}
+                        {!isDownloading && progress > 0 && (
                             <div className="absolute bottom-0 left-0 right-0">
                                 <Progress
                                     size="sm"
@@ -120,18 +202,50 @@ function EpisodeCard({episode, index}: { episode: PlexMediaItem; index: number }
                 viewOffset={episode.viewOffset!}
                 duration={episode.duration!}
             />
+            {sonarrEpisode && (
+                <ManualSearchModal
+                    isOpen={manualSearchOpen}
+                    onClose={() => setManualSearchOpen(false)}
+                    title={`Search: E${episode.index?.toString().padStart(2, "0")} - ${episode.title}`}
+                    sonarrEpisodeId={sonarrEpisode.id}
+                />
+            )}
         </>
     );
 }
 
-export default function EpisodeList({seasonId}: EpisodeListProps) {
+export default function EpisodeList({seasonId, sonarrSeriesId}: EpisodeListProps) {
     const {data: episodes} = useChildren(seasonId);
+    const {data: sonarrQueue} = useSonarrQueue();
+    const {data: sonarrEpisodes} = useSonarrEpisodes(sonarrSeriesId);
+
+    // Build map of episode title -> queue item for matching
+    const queueByTitle = new Map<string, QueueItem>();
+    sonarrQueue?.records?.forEach((item) => {
+        if (item.title) {
+            queueByTitle.set(item.title.toLowerCase(), item);
+        }
+    });
 
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {episodes?.map((episode: PlexMediaItem, index: number) => (
-                <EpisodeCard key={episode.ratingKey} episode={episode} index={index}/>
-            ))}
+            {episodes?.map((episode: PlexMediaItem, index: number) => {
+                // Try to match this episode to a queue item by title
+                const downloadItem = queueByTitle.get(episode.title?.toLowerCase());
+                // Match to Sonarr episode by season+episode number
+                const matchedSonarrEp = sonarrEpisodes?.find(
+                    se => se.seasonNumber === episode.parentIndex && se.episodeNumber === episode.index
+                );
+                return (
+                    <EpisodeCard
+                        key={episode.ratingKey}
+                        episode={episode}
+                        index={index}
+                        downloadItem={downloadItem}
+                        sonarrEpisode={matchedSonarrEp}
+                    />
+                );
+            })}
         </div>
     );
 }

@@ -106,7 +106,8 @@ pub async fn run() -> Result<()> {
                                 .configure(sonarr::calendar::configure)
                                 .configure(sonarr::queue::configure)
                                 .configure(sonarr::profiles::configure)
-                                .configure(sonarr::commands::configure),
+                                .configure(sonarr::commands::configure)
+                                .configure(sonarr::releases::configure),
                         );
                     })
                     .configure(|cfg: &mut web::ServiceConfig| {
@@ -116,7 +117,8 @@ pub async fn run() -> Result<()> {
                                 .configure(radarr::calendar::configure)
                                 .configure(radarr::queue::configure)
                                 .configure(radarr::profiles::configure)
-                                .configure(radarr::commands::configure),
+                                .configure(radarr::commands::configure)
+                                .configure(radarr::releases::configure),
                         );
                     })
                     .configure(discover::tmdb::configure)

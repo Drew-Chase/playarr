@@ -9,7 +9,7 @@ pub struct RadarrClient {
 impl RadarrClient {
     pub fn new(config: SharedConfig) -> Self {
         let http = Client::builder()
-            .timeout(std::time::Duration::from_secs(30))
+            .timeout(std::time::Duration::from_secs(120))
             .build()
             .expect("Failed to create HTTP client");
         Self { http, config }
