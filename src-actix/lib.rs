@@ -73,7 +73,7 @@ pub async fn run() -> Result<()> {
             .wrap(middleware::Logger::default())
             .app_data(
                 web::JsonConfig::default()
-                    .limit(4096)
+                    .limit(262144)
                     .error_handler(|err, _req| {
                         let error = json!({ "error": format!("{}", err) });
                         actix_web::error::InternalError::from_response(
@@ -104,7 +104,9 @@ pub async fn run() -> Result<()> {
                                 .configure(sonarr::series::configure)
                                 .configure(sonarr::episodes::configure)
                                 .configure(sonarr::calendar::configure)
-                                .configure(sonarr::queue::configure),
+                                .configure(sonarr::queue::configure)
+                                .configure(sonarr::profiles::configure)
+                                .configure(sonarr::commands::configure),
                         );
                     })
                     .configure(|cfg: &mut web::ServiceConfig| {
@@ -112,7 +114,9 @@ pub async fn run() -> Result<()> {
                             web::scope("/radarr")
                                 .configure(radarr::movies::configure)
                                 .configure(radarr::calendar::configure)
-                                .configure(radarr::queue::configure),
+                                .configure(radarr::queue::configure)
+                                .configure(radarr::profiles::configure)
+                                .configure(radarr::commands::configure),
                         );
                     })
                     .configure(discover::tmdb::configure)

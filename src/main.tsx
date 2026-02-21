@@ -12,6 +12,7 @@ import Detail from "./pages/Detail.tsx";
 import Player from "./pages/Player.tsx";
 import Search from "./pages/Search.tsx";
 import Discover from "./pages/Discover.tsx";
+import DiscoverDetail from "./pages/DiscoverDetail.tsx";
 import Downloads from "./pages/Downloads.tsx";
 import Login from "./pages/Login.tsx";
 import Setup from "./pages/Setup.tsx";
@@ -93,6 +94,7 @@ export function MainContentRenderer() {
                     <Route path="/detail/:id" element={<Detail/>}/>
                     <Route path="/search" element={<Search/>}/>
                     <Route path="/discover" element={<Discover/>}/>
+                    <Route path="/discover/:mediaType/:tmdbId" element={<DiscoverDetail/>}/>
                     <Route path="/downloads" element={<Downloads/>}/>
                 </Route>
             </Routes>

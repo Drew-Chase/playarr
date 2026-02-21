@@ -39,4 +39,12 @@ impl SonarrClient {
             .header("X-Api-Key", self.api_key())
             .header("Content-Type", "application/json")
     }
+
+    pub fn put(&self, path: &str) -> reqwest::RequestBuilder {
+        let url = format!("{}/api/v3{}", self.base_url(), path);
+        self.http
+            .put(&url)
+            .header("X-Api-Key", self.api_key())
+            .header("Content-Type", "application/json")
+    }
 }

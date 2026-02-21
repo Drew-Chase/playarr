@@ -1,9 +1,11 @@
+import {useMemo} from "react";
 import {Spinner} from "@heroui/react";
 import {useQuery} from "@tanstack/react-query";
 import {api} from "../lib/api.ts";
-import type {DiscoverResults} from "../lib/types.ts";
+import type {DiscoverResults, TmdbItem} from "../lib/types.ts";
 import ContentRow from "../components/layout/ContentRow.tsx";
 import DiscoverCard from "../components/media/DiscoverCard.tsx";
+import {useSonarrSeries, useRadarrMovies} from "../hooks/useDiscover.ts";
 
 export default function Discover() {
     const {data: trending, isLoading: trendingLoading} = useQuery({
@@ -21,6 +23,20 @@ export default function Discover() {
         queryFn: () => api.get<DiscoverResults>("/discover/recent"),
     });
 
+    const {data: sonarrSeries} = useSonarrSeries();
+    const {data: radarrMovies} = useRadarrMovies();
+
+    // Build sets of TMDB IDs already in library
+    const existingTmdbIds = useMemo(() => {
+        const ids = new Set<number>();
+        sonarrSeries?.forEach(s => { if (s.tmdbId) ids.add(s.tmdbId); });
+        radarrMovies?.forEach(m => { if (m.tmdbId) ids.add(m.tmdbId); });
+        return ids;
+    }, [sonarrSeries, radarrMovies]);
+
+    const filterItems = (items: TmdbItem[] | undefined) =>
+        items?.filter(item => !existingTmdbIds.has(item.id)) || [];
+
     const isLoading = trendingLoading && upcomingLoading && recentLoading;
 
     if (isLoading) {
@@ -31,45 +47,51 @@ export default function Discover() {
         );
     }
 
+    const trendingMovies = filterItems(trending?.movies);
+    const trendingTv = filterItems(trending?.tv);
+    const upcomingMovies = filterItems(upcoming?.movies);
+    const recentMovies = filterItems(recent?.movies);
+    const recentTv = filterItems(recent?.tv);
+
     return (
         <div className="py-6">
             <h1 className="text-2xl font-bold mb-6 px-6 md:px-12 lg:px-16">Discover</h1>
 
-            {trending?.movies && trending.movies.length > 0 && (
+            {trendingMovies.length > 0 && (
                 <ContentRow title="Trending Movies">
-                    {trending.movies.map((item) => (
+                    {trendingMovies.map((item) => (
                         <DiscoverCard key={item.id} item={item} mediaType="movie"/>
                     ))}
                 </ContentRow>
             )}
 
-            {trending?.tv && trending.tv.length > 0 && (
+            {trendingTv.length > 0 && (
                 <ContentRow title="Trending TV Shows">
-                    {trending.tv.map((item) => (
+                    {trendingTv.map((item) => (
                         <DiscoverCard key={item.id} item={item} mediaType="tv"/>
                     ))}
                 </ContentRow>
             )}
 
-            {upcoming?.movies && upcoming.movies.length > 0 && (
+            {upcomingMovies.length > 0 && (
                 <ContentRow title="Upcoming Movies">
-                    {upcoming.movies.map((item) => (
+                    {upcomingMovies.map((item) => (
                         <DiscoverCard key={item.id} item={item} mediaType="movie"/>
                     ))}
                 </ContentRow>
             )}
 
-            {recent?.movies && recent.movies.length > 0 && (
+            {recentMovies.length > 0 && (
                 <ContentRow title="Recently Released Movies">
-                    {recent.movies.map((item) => (
+                    {recentMovies.map((item) => (
                         <DiscoverCard key={item.id} item={item} mediaType="movie"/>
                     ))}
                 </ContentRow>
             )}
 
-            {recent?.tv && recent.tv.length > 0 && (
+            {recentTv.length > 0 && (
                 <ContentRow title="Recently Released TV Shows">
-                    {recent.tv.map((item) => (
+                    {recentTv.map((item) => (
                         <DiscoverCard key={item.id} item={item} mediaType="tv"/>
                     ))}
                 </ContentRow>

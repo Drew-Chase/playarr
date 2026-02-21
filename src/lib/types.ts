@@ -382,3 +382,167 @@ export interface DiscoverResults {
     movies: TmdbItem[];
     tv?: TmdbItem[];
 }
+
+// TMDB detail types
+export interface TmdbGenre {
+    id: number;
+    name: string;
+}
+
+export interface TmdbCastMember {
+    id: number;
+    name: string;
+    character: string;
+    profile_path: string | null;
+    order: number;
+}
+
+export interface TmdbCrewMember {
+    id: number;
+    name: string;
+    job: string;
+    department: string;
+    profile_path: string | null;
+}
+
+export interface TmdbCredits {
+    cast: TmdbCastMember[];
+    crew: TmdbCrewMember[];
+}
+
+export interface TmdbExternalIds {
+    imdb_id?: string | null;
+    tvdb_id?: number | null;
+}
+
+export interface TmdbMovieDetail {
+    id: number;
+    title: string;
+    overview: string;
+    poster_path: string | null;
+    backdrop_path: string | null;
+    release_date: string;
+    runtime: number | null;
+    vote_average: number;
+    genres: TmdbGenre[];
+    tagline: string;
+    status: string;
+    credits: TmdbCredits;
+    videos: { results: TmdbVideo[] };
+    external_ids: TmdbExternalIds;
+}
+
+export interface TmdbSeasonSummary {
+    id: number;
+    season_number: number;
+    name: string;
+    overview: string;
+    poster_path: string | null;
+    episode_count: number;
+    air_date: string | null;
+}
+
+export interface TmdbTvDetail {
+    id: number;
+    name: string;
+    overview: string;
+    poster_path: string | null;
+    backdrop_path: string | null;
+    first_air_date: string;
+    vote_average: number;
+    genres: TmdbGenre[];
+    tagline: string;
+    status: string;
+    number_of_seasons: number;
+    seasons: TmdbSeasonSummary[];
+    credits: TmdbCredits;
+    videos: { results: TmdbVideo[] };
+    external_ids: TmdbExternalIds;
+}
+
+export interface TmdbEpisode {
+    id: number;
+    episode_number: number;
+    name: string;
+    overview: string;
+    still_path: string | null;
+    air_date: string | null;
+    runtime: number | null;
+    vote_average: number;
+    season_number: number;
+}
+
+export interface TmdbSeasonDetail {
+    id: number;
+    season_number: number;
+    name: string;
+    overview: string;
+    poster_path: string | null;
+    air_date: string | null;
+    episodes: TmdbEpisode[];
+}
+
+// Sonarr/Radarr types
+export interface QualityProfile {
+    id: number;
+    name: string;
+}
+
+export interface RootFolder {
+    id: number;
+    path: string;
+    freeSpace: number;
+}
+
+export interface SonarrSeason {
+    seasonNumber: number;
+    monitored: boolean;
+    statistics?: {
+        episodeCount: number;
+        episodeFileCount: number;
+        totalEpisodeCount: number;
+        percentOfEpisodes: number;
+    };
+}
+
+export interface SonarrSeries {
+    id: number;
+    title: string;
+    tvdbId: number;
+    tmdbId: number;
+    monitored: boolean;
+    seasons: SonarrSeason[];
+    qualityProfileId: number;
+    rootFolderPath: string;
+    seriesType: string;
+    seasonFolder: boolean;
+    path: string;
+    added: string;
+}
+
+export interface SonarrEpisode {
+    id: number;
+    seriesId: number;
+    seasonNumber: number;
+    episodeNumber: number;
+    title: string;
+    overview: string;
+    monitored: boolean;
+    hasFile: boolean;
+    airDate: string | null;
+    airDateUtc: string | null;
+}
+
+export interface RadarrMovie {
+    id: number;
+    title: string;
+    tmdbId: number;
+    imdbId: string;
+    monitored: boolean;
+    hasFile: boolean;
+    qualityProfileId: number;
+    rootFolderPath: string;
+    path: string;
+    added: string;
+    minimumAvailability: string;
+}

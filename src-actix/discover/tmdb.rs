@@ -216,6 +216,87 @@ async fn videos(
     Ok(HttpResponse::Ok().json(serde_json::json!({ "results": results })))
 }
 
+#[get("/movie/{id}")]
+async fn movie_detail(
+    path: web::Path<u64>,
+) -> Result<impl Responder> {
+    let id = path.into_inner();
+    let client = tmdb_client();
+    let resp = client
+        .get(format!("{}/movie/{}", TMDB_BASE, id))
+        .query(&[
+            ("api_key", TMDB_API_KEY),
+            ("append_to_response", "credits,videos,external_ids"),
+        ])
+        .send()
+        .await
+        .map_err(|e| anyhow::anyhow!("TMDB request failed: {}", e))?;
+
+    if resp.status() == reqwest::StatusCode::NOT_FOUND {
+        return Err(crate::http_error::Error::NotFound("Movie not found".to_string()));
+    }
+
+    let body: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| anyhow::anyhow!("TMDB parse failed: {}", e))?;
+
+    Ok(HttpResponse::Ok().json(body))
+}
+
+#[get("/tv/{id}")]
+async fn tv_detail(
+    path: web::Path<u64>,
+) -> Result<impl Responder> {
+    let id = path.into_inner();
+    let client = tmdb_client();
+    let resp = client
+        .get(format!("{}/tv/{}", TMDB_BASE, id))
+        .query(&[
+            ("api_key", TMDB_API_KEY),
+            ("append_to_response", "credits,videos,external_ids"),
+        ])
+        .send()
+        .await
+        .map_err(|e| anyhow::anyhow!("TMDB request failed: {}", e))?;
+
+    if resp.status() == reqwest::StatusCode::NOT_FOUND {
+        return Err(crate::http_error::Error::NotFound("TV show not found".to_string()));
+    }
+
+    let body: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| anyhow::anyhow!("TMDB parse failed: {}", e))?;
+
+    Ok(HttpResponse::Ok().json(body))
+}
+
+#[get("/tv/{id}/season/{season_number}")]
+async fn tv_season(
+    path: web::Path<(u64, u32)>,
+) -> Result<impl Responder> {
+    let (id, season_number) = path.into_inner();
+    let client = tmdb_client();
+    let resp = client
+        .get(format!("{}/tv/{}/season/{}", TMDB_BASE, id, season_number))
+        .query(&[("api_key", TMDB_API_KEY)])
+        .send()
+        .await
+        .map_err(|e| anyhow::anyhow!("TMDB request failed: {}", e))?;
+
+    if resp.status() == reqwest::StatusCode::NOT_FOUND {
+        return Err(crate::http_error::Error::NotFound("Season not found".to_string()));
+    }
+
+    let body: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| anyhow::anyhow!("TMDB parse failed: {}", e))?;
+
+    Ok(HttpResponse::Ok().json(body))
+}
+
 /// Stream a YouTube video through rusty_ytdl so the frontend can play it
 /// via a native `<video>` element. rusty_ytdl handles all YouTube auth
 /// and header requirements internally, avoiding 403 errors.
@@ -279,6 +360,9 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
             .service(recent)
             .service(logo)
             .service(videos)
+            .service(movie_detail)
+            .service(tv_season)
+            .service(tv_detail)
             .service(youtube_stream),
     );
 }
