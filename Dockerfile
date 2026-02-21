@@ -1,5 +1,6 @@
 FROM rust:1.90-alpine AS builder
 ARG TMDB_API_KEY
+ARG OPENSUBTITLES_API_KEY
 WORKDIR /build
 COPY . .
 RUN apk update
