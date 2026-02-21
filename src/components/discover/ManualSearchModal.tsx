@@ -136,9 +136,16 @@ function GrabButton({release, service}: { release: ReleaseResource; service: "so
 
     if (grabbed) return <Icon icon="mdi:check" width="18" className="text-success"/>;
     return (
-        <Button isIconOnly size="sm" variant="light" onPress={handleGrab} isLoading={grabbing}>
-            <Icon icon="mdi:download" width="16"/>
-        </Button>
+        <button
+            onClick={handleGrab}
+            disabled={grabbing}
+            className="inline-flex items-center justify-center w-8 h-8 rounded-md hover:bg-default-400/30 transition-colors disabled:opacity-50"
+        >
+            {grabbing
+                ? <Spinner size="sm" color="primary"/>
+                : <Icon icon="mdi:download" width="16"/>
+            }
+        </button>
     );
 }
 
@@ -372,8 +379,7 @@ export default function ManualSearchModal({
                                             <ColumnFilter label="Quality" allValues={uniqueValues.qualities} selected={qualityFilter} onSelectionChange={setQualityFilter}/>
                                         </span>
                                     </TableColumn>
-                                    <TableColumn key="status" width={40} align="center"> </TableColumn>
-                                    <TableColumn key="actions" width={50} align="center"> </TableColumn>
+                                    <TableColumn key="actions" width={80} align="center"> </TableColumn>
                                 </TableHeader>
                                 <TableBody items={processedReleases}>
                                     {(release) =>
@@ -424,14 +430,14 @@ export default function ManualSearchModal({
                                                     <Chip size="sm" variant="flat" className="text-[10px] bg-primary/20 text-primary">{qualityName}</Chip>
                                                 </TableCell>
                                                 <TableCell>
-                                                    {isRejected && (
-                                                        <Tooltip content={release.rejections!.join("\n")}>
-                                                            <span><Icon icon="mdi:alert-circle" width="16" className="text-danger"/></span>
-                                                        </Tooltip>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <GrabButton release={release} service={service}/>
+                                                    <div className="flex items-center justify-end gap-1">
+                                                        {isRejected && (
+                                                            <Tooltip content={release.rejections!.join("\n")}>
+                                                                <span><Icon icon="mdi:alert-circle" width="16" className="text-danger"/></span>
+                                                            </Tooltip>
+                                                        )}
+                                                        <GrabButton release={release} service={service}/>
+                                                    </div>
                                                 </TableCell>
                                             </TableRow>
                                         );
