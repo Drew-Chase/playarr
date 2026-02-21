@@ -1,6 +1,6 @@
 [package]
 name = "playarr"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 edition = "2024"
 authors = ["Drew Chase"]
 description = "A self-hosted media dashboard that unifies Plex, Sonarr, Radarr, TMDB, and popular download clients into a single interface. Built with a Rust backend and React frontend."
