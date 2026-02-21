@@ -12,7 +12,7 @@ async fn get_metadata(
 ) -> Result<impl Responder> {
     let id = path.into_inner();
     let user_token = PlexClient::user_token_from_request(&req).unwrap_or_default();
-    let body = plex.get_json_as_user(&format!("/library/metadata/{}", id), &user_token, &[]).await?;
+    let body = plex.get_json_as_user(&format!("/library/metadata/{}", id), &user_token, &[("includeMarkers", "1")]).await?;
 
     let metadata = &body["MediaContainer"]["Metadata"];
     let item = metadata.get(0).unwrap_or(metadata);

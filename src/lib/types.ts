@@ -87,6 +87,13 @@ export interface PlexReview {
     source: string;
 }
 
+export interface PlexMarker {
+    id: number;
+    type: "intro" | "credits" | "commercial";
+    startTimeOffset: number;  // milliseconds
+    endTimeOffset: number;    // milliseconds
+}
+
 export interface PlexMediaItem {
     ratingKey: string;
     key: string;
@@ -124,6 +131,7 @@ export interface PlexMediaItem {
     Writer?: PlexTag[];
     Genre?: PlexTag[];
     Review?: PlexReview[];
+    Marker?: PlexMarker[];
 }
 
 export interface PlexMedia {

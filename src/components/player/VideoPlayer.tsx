@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useRef, useState} from "react";
+import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import Hls from "hls.js";
 import {useNavigate, useSearchParams} from "react-router-dom";
 import {plexApi} from "../../lib/plex.ts";
@@ -11,6 +11,9 @@ import PlayerControls from "./PlayerControls.tsx";
 import PlayerOverlay from "./PlayerOverlay.tsx";
 import WatchQueuePanel from "./WatchQueuePanel.tsx";
 import EpisodeQueuePanel from "./EpisodeQueuePanel.tsx";
+import SkipButton from "./SkipButton.tsx";
+import CreditsOverlay from "./CreditsOverlay.tsx";
+import {plexImage} from "../../lib/utils.ts";
 
 interface VideoPlayerProps {
     item: PlexMediaItem;
@@ -31,7 +34,6 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const watchParty = useWatchPartyContext();
     const videoRef = useRef<HTMLVideoElement>(null);
     const hlsRef = useRef<Hls | null>(null);
-    const timelineIntervalRef = useRef<number | null>(null);
     const savedPositionRef = useRef<number>(0);
     const lastReportTimeRef = useRef<number>(0);
     const scrobbledRef = useRef(false);
@@ -72,6 +74,8 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const [bufferingUsers, setBufferingUsers] = useState<Set<number>>(new Set());
     const [syncStatus, setSyncStatus] = useState<"in_sync" | "syncing" | "disconnected">("in_sync");
     const [displayRate, setDisplayRate] = useState(1);
+    const [creditsActive, setCreditsActive] = useState(false);
+    const creditsDismissedRef = useRef(false);
 
     const isDraggingRef = useRef(false);
     const clickTimerRef = useRef<number | null>(null);
@@ -90,6 +94,19 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     onNextRef.current = onNext;
     const onPreviousRef = useRef(onPrevious);
     onPreviousRef.current = onPrevious;
+
+    // Derive next episode for credits overlay
+    const nextEpisode = useMemo(() => {
+        if (!episodes || !hasNext) return null;
+        const idx = episodes.findIndex(e => e.ratingKey === item.ratingKey);
+        if (idx < 0 || idx >= episodes.length - 1) return null;
+        return episodes[idx + 1];
+    }, [episodes, item.ratingKey, hasNext]);
+
+    // Stable callback for credits overlay countdown (uses ref to avoid resetting timer)
+    const handleCreditsAdvance = useCallback(() => {
+        onNextRef.current?.();
+    }, []);
 
     // Get available streams
     const subtitleStreams: PlexStream[] = [];
@@ -156,6 +173,8 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             clearTimeout(bufferingTimerRef.current);
             bufferingTimerRef.current = null;
         }
+        setCreditsActive(false);
+        creditsDismissedRef.current = false;
     }, [item.ratingKey]);
 
     // Load stream
@@ -321,10 +340,6 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             hlsRef.current.destroy();
             hlsRef.current = null;
         }
-        if (timelineIntervalRef.current) {
-            clearInterval(timelineIntervalRef.current);
-            timelineIntervalRef.current = null;
-        }
     };
 
     // Error fallback: if direct play fails, switch to transcode
@@ -336,7 +351,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
 
     // Timeline reporting every 10 seconds
     useEffect(() => {
-        timelineIntervalRef.current = window.setInterval(() => {
+        const id = window.setInterval(() => {
             const video = videoRef.current;
             if (!video || video.paused) return;
 
@@ -346,11 +361,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             reportTimeline("playing");
         }, 10000);
 
-        return () => {
-            if (timelineIntervalRef.current) {
-                clearInterval(timelineIntervalRef.current);
-            }
-        };
+        return () => clearInterval(id);
     }, [item.ratingKey, reportTimeline]);
 
     // Send stop signal on unmount (SPA navigation) using sendBeacon for reliability (skip for guests)
@@ -805,7 +816,10 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                     }
                     break;
                 case "Escape":
-                    if (isFullscreen) {
+                    if (creditsActive) {
+                        setCreditsActive(false);
+                        creditsDismissedRef.current = true;
+                    } else if (isFullscreen) {
                         document.exitFullscreen();
                     } else {
                         navigate(backPath);
@@ -830,16 +844,42 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             scrobbledRef.current = true;
             plexApi.scrobble(item.ratingKey).catch(() => {});
         }
+
+        // Credits overlay: activate when entering credits marker region
+        if (!creditsActive && !creditsDismissedRef.current && nextEpisode && (!isInParty || isHost)) {
+            const creditsMarker = item.Marker?.find(
+                (m) => m.type === "credits"
+                    && video.currentTime >= m.startTimeOffset / 1000
+                    && video.currentTime < m.endTimeOffset / 1000
+            );
+            if (creditsMarker) {
+                setCreditsActive(true);
+                setShowQueue(false);
+            }
+        }
+
+        // Credits overlay: deactivate if user seeks back before credits start
+        if (creditsActive) {
+            const creditsMarker = item.Marker?.find(m => m.type === "credits");
+            if (creditsMarker && video.currentTime < creditsMarker.startTimeOffset / 1000) {
+                setCreditsActive(false);
+            }
+        }
     };
 
     return (
         <div
             className="relative w-screen h-screen bg-black"
-            style={{cursor: showControls ? "default" : "none"}}
+            style={{cursor: (showControls || creditsActive) ? "default" : "none"}}
         >
             <video
                 ref={videoRef}
-                className="w-full h-full"
+                className={`transition-all duration-700 ease-in-out ${
+                    creditsActive
+                        ? "absolute top-8 left-8 min-w-[360px] w-[30%] aspect-video rounded-lg shadow-2xl z-[35]"
+                        : "w-full h-full"
+                }`}
+                style={creditsActive ? {aspectRatio: "16/9"} : undefined}
                 onTimeUpdate={handleTimeUpdate}
                 onDurationChange={() => {
                     const d = videoRef.current?.duration || 0;
@@ -910,6 +950,11 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                     }
                 }}
                 onClick={() => {
+                    if (creditsActive) {
+                        setCreditsActive(false);
+                        creditsDismissedRef.current = true;
+                        return;
+                    }
                     // Delay single-click so double-click can cancel it
                     if (clickTimerRef.current) return;
                     clickTimerRef.current = window.setTimeout(() => {
@@ -918,6 +963,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                     }, 200);
                 }}
                 onDoubleClick={() => {
+                    if (creditsActive) return;
                     // Cancel pending single-click and toggle fullscreen instead
                     if (clickTimerRef.current) {
                         clearTimeout(clickTimerRef.current);
@@ -929,7 +975,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
 
             <PlayerOverlay
                 item={item}
-                visible={showControls}
+                visible={showControls && !creditsActive}
                 onBack={() => navigate(backPath)}
                 isInParty={isInParty}
                 participantCount={watchParty?.activeRoom?.participants.length ?? 0}
@@ -942,6 +988,13 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 isSeeking={isSeeking}
             />
 
+            <SkipButton
+                markers={item.Marker}
+                currentTime={currentTime}
+                onSkip={handleSeek}
+                visible={showControls && !creditsActive}
+            />
+
             <PlayerControls
                 isPlaying={isPlaying}
                 currentTime={currentTime}
@@ -949,7 +1002,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 volume={volume}
                 isMuted={isMuted}
                 isFullscreen={isFullscreen}
-                visible={showControls}
+                visible={showControls && !creditsActive}
                 subtitleStreams={subtitleStreams}
                 audioStreams={audioStreams}
                 quality={quality}
@@ -973,6 +1026,16 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 displayRate={isInParty ? displayRate : undefined}
                 onDragChange={handleDragChange}
             />
+
+            {creditsActive && nextEpisode && (
+                <CreditsOverlay
+                    nextEpisode={nextEpisode}
+                    artUrl={plexImage(item.art, 1920, 1080)}
+                    onPlayNext={handleCreditsAdvance}
+                    onCancel={() => { setCreditsActive(false); creditsDismissedRef.current = true; }}
+                    relatedId={item.grandparentRatingKey || item.ratingKey}
+                />
+            )}
 
             {isInParty && watchParty?.activeRoom && (
                 <WatchQueuePanel

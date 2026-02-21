@@ -8,7 +8,8 @@ import QualitySelector from "./QualitySelector.tsx";
 import SeekBar from "./SeekBar.tsx";
 import ParticipantsPopover from "./ParticipantsPopover.tsx";
 
-interface PlayerControlsProps {
+interface PlayerControlsProps
+{
     isPlaying: boolean;
     currentTime: number;
     duration: number;
@@ -41,36 +42,37 @@ interface PlayerControlsProps {
 }
 
 export default function PlayerControls({
-    isPlaying,
-    currentTime,
-    duration,
-    volume,
-    isMuted,
-    isFullscreen,
-    visible,
-    subtitleStreams,
-    audioStreams,
-    quality,
-    bifData,
-    onTogglePlay,
-    onSeek,
-    onVolumeChange,
-    onMuteToggle,
-    onToggleFullscreen,
-    onQualityChange,
-    isInParty,
-    participants,
-    hostUserId,
-    bufferingUsers,
-    onToggleQueue,
-    onNext,
-    onPrevious,
-    hasNext,
-    hasPrevious,
-    syncStatus,
-    displayRate,
-    onDragChange,
-}: PlayerControlsProps) {
+                                           isPlaying,
+                                           currentTime,
+                                           duration,
+                                           volume,
+                                           isMuted,
+                                           isFullscreen,
+                                           visible,
+                                           subtitleStreams,
+                                           audioStreams,
+                                           quality,
+                                           bifData,
+                                           onTogglePlay,
+                                           onSeek,
+                                           onVolumeChange,
+                                           onMuteToggle,
+                                           onToggleFullscreen,
+                                           onQualityChange,
+                                           isInParty,
+                                           participants,
+                                           hostUserId,
+                                           bufferingUsers,
+                                           onToggleQueue,
+                                           onNext,
+                                           onPrevious,
+                                           hasNext,
+                                           hasPrevious,
+                                           syncStatus,
+                                           displayRate,
+                                           onDragChange
+                                       }: PlayerControlsProps)
+{
     return (
         <div
             className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-4 transition-opacity duration-300 ${
@@ -143,7 +145,7 @@ export default function PlayerControls({
                         />
                     </Button>
                     <Slider
-                        size="md"
+                        size="sm"
                         color="foreground"
                         step={0.01}
                         minValue={0}
@@ -153,6 +155,9 @@ export default function PlayerControls({
                         value={isMuted ? 0 : volume}
                         onChange={(val) => onVolumeChange(val as number)}
                         className="w-24"
+                        classNames={{
+                            track: "h-1 hover:h-3 transition-all"
+                        }}
                         aria-label="Volume"
                         hideThumb
                     />
@@ -164,12 +169,12 @@ export default function PlayerControls({
                         <div className="flex items-center gap-1.5 ml-2">
                             <span className={`text-xs px-1.5 py-0.5 rounded ${
                                 syncStatus === "in_sync" ? "bg-green-500/20 text-green-400" :
-                                syncStatus === "syncing" ? "bg-yellow-500/20 text-yellow-400" :
-                                "bg-red-500/20 text-red-400"
+                                    syncStatus === "syncing" ? "bg-yellow-500/20 text-yellow-400" :
+                                        "bg-red-500/20 text-red-400"
                             }`}>
                                 {syncStatus === "in_sync" ? "In sync" :
-                                 syncStatus === "syncing" ? "Syncing..." :
-                                 "Connecting..."}
+                                    syncStatus === "syncing" ? "Syncing..." :
+                                        "Connecting..."}
                             </span>
                             {displayRate !== undefined && displayRate !== 1 && (
                                 <span className="text-xs px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">
