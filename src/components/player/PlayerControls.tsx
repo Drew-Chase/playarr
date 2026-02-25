@@ -12,6 +12,7 @@ interface PlayerControlsProps
 {
     isPlaying: boolean;
     currentTime: number;
+    bufferedTime: number;
     duration: number;
     volume: number;
     isMuted: boolean;
@@ -45,6 +46,7 @@ interface PlayerControlsProps
 export default function PlayerControls({
                                            isPlaying,
                                            currentTime,
+                                           bufferedTime,
                                            duration,
                                            volume,
                                            isMuted,
@@ -84,6 +86,7 @@ export default function PlayerControls({
             {/* Seek bar with hover previews */}
             <SeekBar
                 currentTime={currentTime}
+                bufferedTime={bufferedTime}
                 duration={duration}
                 bifData={bifData}
                 onSeek={onSeek}

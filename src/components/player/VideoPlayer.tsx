@@ -56,6 +56,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const [streamInfo, setStreamInfo] = useState<StreamInfo | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
+    const [bufferedTime, setBufferedTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [volume, setVolume] = useState(() => {
         const saved = localStorage.getItem("playarr-volume");
@@ -962,6 +963,19 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                     setDuration(d);
                     durationRef.current = d;
                 }}
+                onProgress={() => {
+                    const video = videoRef.current;
+                    if (!video || !video.buffered.length) return;
+                    // Find the buffer range containing the current playback position
+                    for (let i = 0; i < video.buffered.length; i++) {
+                        if (video.buffered.start(i) <= video.currentTime && video.currentTime <= video.buffered.end(i)) {
+                            setBufferedTime(video.buffered.end(i));
+                            return;
+                        }
+                    }
+                    // Fallback: use the end of the last buffered range
+                    setBufferedTime(video.buffered.end(video.buffered.length - 1));
+                }}
                 onPlay={() => {
                     setIsPlaying(true);
                     reportTimeline("playing");
@@ -1078,6 +1092,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             <PlayerControls
                 isPlaying={isPlaying}
                 currentTime={currentTime}
+                bufferedTime={bufferedTime}
                 duration={duration}
                 volume={volume}
                 isMuted={isMuted}
