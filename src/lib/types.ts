@@ -203,6 +203,8 @@ export interface PlexStream {
 export interface StreamInfo {
     url: string;
     type: "direct" | "hls" | "directstream";
+    /** Plex transcode session ID (present for hls/directstream, absent for direct play). */
+    session?: string;
     media: PlexMedia;
     part: PlexPart;
 }

@@ -214,6 +214,7 @@ async fn get_stream_url(
         Ok(HttpResponse::Ok().json(serde_json::json!({
             "url": stream_url,
             "type": "directstream",
+            "session": session,
             "media": media,
             "part": part
         })))
@@ -322,6 +323,7 @@ async fn get_stream_url(
         Ok(HttpResponse::Ok().json(serde_json::json!({
             "url": stream_url,
             "type": "hls",
+            "session": session,
             "media": media,
             "part": part
         })))
@@ -478,6 +480,34 @@ async fn stream_proxy(
     Ok(builder.body(bytes))
 }
 
+/// Ping the Plex transcode session to keep it alive during pause.
+/// Without periodic pings, Plex cleans up idle transcode sessions after a few minutes.
+#[get("/transcode-ping/{session_id}")]
+async fn transcode_ping(
+    req: HttpRequest,
+    plex: web::Data<PlexClient>,
+    path: web::Path<String>,
+) -> Result<HttpResponse> {
+    let session_id = path.into_inner();
+    let cfg = plex.config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+    let base_url = cfg.plex.url.trim_end_matches('/').to_string();
+    let token = cfg.plex.token.clone();
+    drop(cfg);
+    let client_id = plex.playback_client_id(&req);
+
+    let ping_url = format!("{}/video/:/transcode/universal/ping", base_url);
+    let _ = plex.http
+        .get(&ping_url)
+        .query(&[("session", &session_id)])
+        .header("X-Plex-Token", &token)
+        .header("X-Plex-Client-Identifier", &client_id)
+        .header("X-Plex-Product", "Playarr")
+        .send()
+        .await;
+
+    Ok(HttpResponse::Ok().json(serde_json::json!({ "success": true })))
+}
+
 /// Proxy HLS transcode/directstream requests to Plex.
 /// Rewrites absolute Plex URLs in m3u8 playlists to use the proxy,
 /// and forwards video segments transparently.
@@ -551,6 +581,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
         web::scope("/media")
             .service(get_image)
             .service(stream_proxy)
+            .service(transcode_ping)
             .service(transcode_proxy)
             .service(get_stream_url)
             .service(get_bif)

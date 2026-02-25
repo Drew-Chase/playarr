@@ -81,6 +81,12 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const [localSubtitleUrl, setLocalSubtitleUrl] = useState<string | null>(null);
     const [localSubtitleLabel, setLocalSubtitleLabel] = useState<string>("");
 
+    // Transcode session recovery: when Plex kills a stale transcode session,
+    // incrementing this key triggers the loadStream effect to re-fetch a new session.
+    const [streamReloadKey, setStreamReloadKey] = useState(0);
+    const networkRetryCountRef = useRef(0);
+    const lastNetworkErrorRef = useRef(0);
+
     const isDraggingRef = useRef(false);
     const clickTimerRef = useRef<number | null>(null);
     const hideTimerRef = useRef<number | null>(null);
@@ -187,6 +193,8 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         savedPositionRef.current = 0;
         scrobbledRef.current = false;
         hasPlayedRef.current = false;
+        networkRetryCountRef.current = 0;
+        lastNetworkErrorRef.current = 0;
         setCurrentTime(0);
         setDuration(0);
         remoteRef.current = { t: 0, playing: false, m: performance.now() };
@@ -215,7 +223,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             abortController.abort();
             cleanup();
         };
-    }, [item.ratingKey, quality]);
+    }, [item.ratingKey, quality, streamReloadKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const loadStream = async (signal?: AbortSignal, isQualityChange = false) => {
         const video = videoRef.current;
@@ -333,10 +341,29 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             hls.on(Hls.Events.ERROR, (_event, data) => {
                 if (data.fatal) {
                     switch (data.type) {
-                        case Hls.ErrorTypes.NETWORK_ERROR:
-                            console.warn("HLS network error, attempting recovery...");
-                            hls.startLoad();
+                        case Hls.ErrorTypes.NETWORK_ERROR: {
+                            const now = Date.now();
+                            // Track consecutive fatal network errors within a short window
+                            if (now - lastNetworkErrorRef.current < 15_000) {
+                                networkRetryCountRef.current++;
+                            } else {
+                                networkRetryCountRef.current = 1;
+                            }
+                            lastNetworkErrorRef.current = now;
+
+                            if (networkRetryCountRef.current >= 2 && info.type !== "direct") {
+                                // Transcode session likely expired (Plex cleans up after long pause).
+                                // Save position and reload with a fresh transcode session.
+                                console.warn("Transcode session expired, restarting stream...");
+                                networkRetryCountRef.current = 0;
+                                savedPositionRef.current = videoRef.current?.currentTime ?? savedPositionRef.current;
+                                setStreamReloadKey(k => k + 1);
+                            } else {
+                                console.warn("HLS network error, attempting recovery...");
+                                hls.startLoad();
+                            }
                             break;
+                        }
                         case Hls.ErrorTypes.MEDIA_ERROR:
                             console.warn("HLS media error, attempting recovery...");
                             hls.recoverMediaError();
@@ -376,20 +403,42 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         setQuality(prev => prev === "original" ? "1080p" : prev);
     }, []);
 
-    // Timeline reporting every 10 seconds
+    // Timeline reporting every 10 seconds.
+    // Also reports "paused" state every ~30s to keep Plex transcode session alive.
     useEffect(() => {
         const id = window.setInterval(() => {
             const video = videoRef.current;
-            if (!video || video.paused) return;
+            if (!video) return;
+            const sinceLastReport = Date.now() - lastReportTimeRef.current;
 
-            // Skip if we reported recently from a play/pause/seek event
-            if (Date.now() - lastReportTimeRef.current < 5000) return;
-
-            reportTimeline("playing");
-        }, 10000);
+            if (!video.paused) {
+                // Report playing state every ~10s (skip if reported within 5s from event)
+                if (sinceLastReport < 5000) return;
+                reportTimeline("playing");
+            } else if (sinceLastReport >= 30_000) {
+                // Report paused state every ~30s to tell Plex we're still here
+                reportTimeline("paused");
+            }
+        }, 10_000);
 
         return () => clearInterval(id);
     }, [item.ratingKey, reportTimeline]);
+
+    // Plex transcode session keepalive: ping the transcode session every 30s while
+    // the video is paused or buffering. Without this, Plex kills the transcode worker
+    // after a few minutes of inactivity and segment requests start returning 404.
+    useEffect(() => {
+        if (!streamInfo?.session || streamInfo.type === "direct") return;
+        const sessionId = streamInfo.session;
+
+        const id = window.setInterval(() => {
+            const video = videoRef.current;
+            if (!video || !video.paused) return;
+            plexApi.pingTranscode(sessionId).catch(() => {});
+        }, 30_000);
+
+        return () => clearInterval(id);
+    }, [streamInfo]);
 
     // Send stop signal on unmount (SPA navigation) using sendBeacon for reliability (skip for guests)
     useEffect(() => {

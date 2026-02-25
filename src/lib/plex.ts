@@ -84,6 +84,10 @@ export const plexApi = {
             ...(directStream ? { direct_stream: "true" } : {}),
         }, sessionHeaders),
 
+    /** Ping a Plex transcode session to keep it alive during pause. */
+    pingTranscode: (sessionId: string) =>
+        api.get(`/media/transcode-ping/${sessionId}`, undefined, sessionHeaders),
+
     getBifData: async (id: string): Promise<ArrayBuffer | null> => {
         try {
             const response = await fetch(`/api/media/${id}/bif`, { credentials: "same-origin" });

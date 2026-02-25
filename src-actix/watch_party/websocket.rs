@@ -86,9 +86,12 @@ pub enum WsMessage {
     AllReady,
     #[serde(rename = "sync_ack")]
     SyncAck,
-    /// Client-side keepalive — ignored by server, prevents idle disconnects.
+    /// Client-side keepalive ping.
     #[serde(rename = "ping")]
     Ping,
+    /// Server response to client ping — keeps the connection alive during pause.
+    #[serde(rename = "pong")]
+    Pong,
     #[serde(rename = "error")]
     Error { message: String },
 }
@@ -323,6 +326,9 @@ async fn handle_ws_messages(
                         }
                         WsMessage::SyncAck => {
                             rooms.mark_synced(&room_id, user_id);
+                        }
+                        WsMessage::Ping => {
+                            rooms.send_to_user(&room_id, user_id, &WsMessage::Pong).await;
                         }
                         // Client-sent join/leave/all_ready are handled on connect/disconnect or server-only
                         _ => {}
