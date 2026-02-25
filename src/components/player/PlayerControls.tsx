@@ -41,6 +41,8 @@ interface PlayerControlsProps
     displayRate?: number;
     onDragChange?: (isDragging: boolean) => void;
     onOpenSubtitleSearch?: () => void;
+    onMouseEnter?: () => void;
+    onMouseLeave?: () => void;
 }
 
 export default function PlayerControls({
@@ -74,7 +76,9 @@ export default function PlayerControls({
                                            syncStatus,
                                            displayRate,
                                            onDragChange,
-                                           onOpenSubtitleSearch
+                                           onOpenSubtitleSearch,
+                                           onMouseEnter,
+                                           onMouseLeave
                                        }: PlayerControlsProps)
 {
     return (
@@ -82,6 +86,8 @@ export default function PlayerControls({
             className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-4 transition-opacity duration-300 ${
                 visible ? "opacity-100" : "opacity-0 pointer-events-none"
             }`}
+            onMouseEnter={onMouseEnter}
+            onMouseLeave={onMouseLeave}
         >
             {/* Seek bar with hover previews */}
             <SeekBar

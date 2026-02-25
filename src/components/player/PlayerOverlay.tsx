@@ -11,15 +11,19 @@ interface PlayerOverlayProps {
     participantCount?: number;
     bufferingUsernames?: string[];
     isSeeking?: boolean;
+    onMouseEnter?: () => void;
+    onMouseLeave?: () => void;
 }
 
-export default function PlayerOverlay({item, visible, onBack, isInParty, participantCount, bufferingUsernames, isSeeking}: PlayerOverlayProps) {
+export default function PlayerOverlay({item, visible, onBack, isInParty, participantCount, bufferingUsernames, isSeeking, onMouseEnter, onMouseLeave}: PlayerOverlayProps) {
     return (
         <>
             <div
                 className={`absolute top-0 left-0 right-0 bg-gradient-to-b from-black/80 to-transparent p-4 transition-opacity duration-300 z-10 ${
                     visible ? "opacity-100" : "opacity-0 pointer-events-none"
                 }`}
+                onMouseEnter={onMouseEnter}
+                onMouseLeave={onMouseLeave}
             >
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">

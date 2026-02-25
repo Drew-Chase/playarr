@@ -89,6 +89,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const lastNetworkErrorRef = useRef(0);
 
     const isDraggingRef = useRef(false);
+    const isOverControlsRef = useRef(false);
     const clickTimerRef = useRef<number | null>(null);
     const hideTimerRef = useRef<number | null>(null);
 
@@ -482,20 +483,63 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         return () => window.removeEventListener("beforeunload", handleBeforeUnload);
     }, [item.ratingKey, item.key, isGuest]);
 
-    // Auto-hide controls (suppressed while dragging the seek bar)
+    // Auto-hide controls:
+    // - Show on any mouse movement, start 3s hide timer
+    // - Hide immediately when mouse leaves the viewport
+    // - Suppress hiding while hovering over top/bottom overlays or dragging
+    // - When playback starts, begin countdown immediately (handles click-to-play)
+    // - When paused, always show controls
     useEffect(() => {
-        const handleMouseMove = () => {
-            setShowControls(true);
+        const startHideTimer = () => {
             if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
             hideTimerRef.current = window.setTimeout(() => {
                 hideTimerRef.current = null;
-                if (isPlaying && !isDraggingRef.current) setShowControls(false);
+                if (isPlaying && !isDraggingRef.current && !isOverControlsRef.current) {
+                    setShowControls(false);
+                }
             }, 3000);
         };
 
+        const handleMouseMove = () => {
+            setShowControls(true);
+            if (!isOverControlsRef.current) {
+                startHideTimer();
+            } else {
+                // Over controls — keep visible, cancel any pending hide
+                if (hideTimerRef.current) {
+                    clearTimeout(hideTimerRef.current);
+                    hideTimerRef.current = null;
+                }
+            }
+        };
+
+        const handleMouseLeave = () => {
+            if (hideTimerRef.current) {
+                clearTimeout(hideTimerRef.current);
+                hideTimerRef.current = null;
+            }
+            if (isPlaying && !isDraggingRef.current) {
+                setShowControls(false);
+            }
+        };
+
+        // When playback starts, begin auto-hide countdown immediately
+        // When paused, always show controls
+        if (isPlaying) {
+            startHideTimer();
+        } else {
+            if (hideTimerRef.current) {
+                clearTimeout(hideTimerRef.current);
+                hideTimerRef.current = null;
+            }
+            setShowControls(true);
+        }
+
         document.addEventListener("mousemove", handleMouseMove);
+        document.addEventListener("mouseleave", handleMouseLeave);
         return () => {
             document.removeEventListener("mousemove", handleMouseMove);
+            document.removeEventListener("mouseleave", handleMouseLeave);
             if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
         };
     }, [isPlaying]);
@@ -1080,6 +1124,8 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                     : []
                 }
                 isSeeking={isSeeking}
+                onMouseEnter={() => { isOverControlsRef.current = true; }}
+                onMouseLeave={() => { isOverControlsRef.current = false; }}
             />
 
             <SkipButton
@@ -1121,6 +1167,8 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 displayRate={isInParty ? displayRate : undefined}
                 onDragChange={handleDragChange}
                 onOpenSubtitleSearch={() => setSubtitleDrawerOpen(true)}
+                onMouseEnter={() => { isOverControlsRef.current = true; }}
+                onMouseLeave={() => { isOverControlsRef.current = false; }}
             />
 
             {creditsActive && nextEpisode && (
