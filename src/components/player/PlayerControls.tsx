@@ -158,7 +158,11 @@ export default function PlayerControls({
                         showTooltip
                         getTooltipValue={() => `Volume ${Math.round(volume * 100)}%`}
                         value={isMuted ? 0 : volume}
-                        onChange={(val) => onVolumeChange(val as number)}
+                        onChange={(val) => {
+                            onDragChange?.(true);
+                            onVolumeChange(val as number);
+                        }}
+                        onChangeEnd={() => onDragChange?.(false)}
                         className="w-24"
                         classNames={{
                             track: "h-1 hover:h-3 transition-all"
