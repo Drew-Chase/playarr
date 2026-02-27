@@ -11,6 +11,51 @@ fn tmdb_client() -> reqwest::Client {
         .expect("Failed to create HTTP client")
 }
 
+#[derive(serde::Deserialize)]
+struct SearchQuery {
+    q: String,
+}
+
+#[get("/search")]
+async fn search(query: web::Query<SearchQuery>) -> Result<impl Responder> {
+    if query.q.trim().is_empty() {
+        return Ok(HttpResponse::Ok().json(serde_json::json!({
+            "movies": [],
+            "tv": []
+        })));
+    }
+
+    let client = tmdb_client();
+    let resp = client
+        .get(format!("{}/search/multi", TMDB_BASE))
+        .query(&[
+            ("api_key", TMDB_API_KEY),
+            ("query", query.q.as_str()),
+            ("include_adult", "false"),
+        ])
+        .send()
+        .await
+        .map_err(|e| anyhow::anyhow!("TMDB request failed: {}", e))?
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|e| anyhow::anyhow!("TMDB parse failed: {}", e))?;
+
+    let results = resp["results"].as_array().cloned().unwrap_or_default();
+    let movies: Vec<&serde_json::Value> = results
+        .iter()
+        .filter(|r| r["media_type"].as_str() == Some("movie"))
+        .collect();
+    let tv: Vec<&serde_json::Value> = results
+        .iter()
+        .filter(|r| r["media_type"].as_str() == Some("tv"))
+        .collect();
+
+    Ok(HttpResponse::Ok().json(serde_json::json!({
+        "movies": movies,
+        "tv": tv
+    })))
+}
+
 #[get("/trending")]
 async fn trending() -> Result<impl Responder> {
     let client = tmdb_client();
@@ -355,6 +400,7 @@ async fn youtube_stream(
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/discover")
+            .service(search)
             .service(trending)
             .service(upcoming)
             .service(recent)

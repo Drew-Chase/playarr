@@ -4,6 +4,7 @@ import type {
     TmdbMovieDetail,
     TmdbTvDetail,
     TmdbSeasonDetail,
+    DiscoverResults,
     SonarrSeries,
     SonarrEpisode,
     RadarrMovie,
@@ -35,6 +36,14 @@ export function useTmdbSeason(tmdbId: string | undefined, seasonNumber: number |
         queryKey: ["tmdb", "tv", tmdbId, "season", seasonNumber],
         queryFn: () => api.get<TmdbSeasonDetail>(`/discover/tv/${tmdbId}/season/${seasonNumber}`),
         enabled: !!tmdbId && seasonNumber !== undefined,
+    });
+}
+
+export function useTmdbSearch(query: string) {
+    return useQuery({
+        queryKey: ["tmdb", "search", query],
+        queryFn: () => api.get<DiscoverResults>("/discover/search", {q: query}),
+        enabled: query.length >= 2,
     });
 }
 
