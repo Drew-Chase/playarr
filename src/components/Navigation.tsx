@@ -1,4 +1,4 @@
-import React from "react";
+import React, {useCallback} from "react";
 import {Link, useNavigate, useLocation} from "react-router-dom";
 import {
     Navbar,
@@ -36,7 +36,7 @@ export default function Navigation()
     const {isOpen: isSettingsOpen, onOpen: onSettingsOpen, onClose: onSettingsClose} = useDisclosure();
     const {isOpen: isDownloadsOpen, onOpen: onDownloadsOpen, onClose: onDownloadsClose} = useDisclosure();
 
-    const handleSearch = (e: React.FormEvent) =>
+    const handleSearch = useCallback((e: React.FormEvent) =>
     {
         e.preventDefault();
         if (searchQuery.trim())
@@ -44,7 +44,7 @@ export default function Navigation()
             navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
             setSearchOpen(false);
         }
-    };
+    }, [searchQuery]);
 
     const isActive = (path: string) => location.pathname === path;
 
