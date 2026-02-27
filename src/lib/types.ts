@@ -625,3 +625,55 @@ export interface QueueResponse {
     totalRecords: number;
     records: QueueItem[];
 }
+
+// Calendar types
+export interface ArrImage {
+    coverType: string;
+    url?: string;
+    remoteUrl?: string;
+}
+
+export interface SonarrCalendarSeries {
+    id: number;
+    title: string;
+    tmdbId?: number;
+    tvdbId?: number;
+    images: ArrImage[];
+    monitored: boolean;
+}
+
+export interface SonarrCalendarEpisode extends SonarrEpisode {
+    series: SonarrCalendarSeries;
+}
+
+export interface RadarrCalendarMovie extends RadarrMovie {
+    status: string;
+    inCinemas?: string;
+    physicalRelease?: string;
+    digitalRelease?: string;
+    genres?: string[];
+    certification?: string;
+    images: ArrImage[];
+}
+
+export type CalendarEventStatus =
+    | "downloaded"
+    | "missing_monitored"
+    | "missing_unmonitored"
+    | "unaired"
+    | "downloaded_unmonitored"
+    | "unreleased";
+
+export interface CalendarEvent {
+    id: string;
+    type: "tv" | "movie";
+    date: string;
+    title: string;
+    subtitle?: string;
+    status: CalendarEventStatus;
+    posterUrl: string | null;
+    isSeasonPremiere?: boolean;
+    isSeriesPremiere?: boolean;
+    sonarrEpisode?: SonarrCalendarEpisode;
+    radarrMovie?: RadarrCalendarMovie;
+}

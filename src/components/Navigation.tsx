@@ -165,6 +165,17 @@ export default function Navigation()
                             Discover
                         </Link>
                     </NavbarItem>
+
+                    <NavbarItem>
+                        <Link
+                            to="/calendar"
+                            className={`text-sm font-medium transition-colors ${
+                                isActive("/calendar") ? "text-primary" : "text-foreground/70 hover:text-foreground"
+                            }`}
+                        >
+                            Calendar
+                        </Link>
+                    </NavbarItem>
                 </NavbarContent>
 
                 <NavbarContent justify="end">
@@ -301,6 +312,18 @@ export default function Navigation()
                         >
                             <Icon icon="mdi:compass" width="18"/>
                             Discover
+                        </Link>
+                    </NavbarMenuItem>
+                    <NavbarMenuItem>
+                        <Link
+                            to="/calendar"
+                            className={`flex items-center gap-3 w-full py-2 ${
+                                isActive("/calendar") ? "text-primary" : "text-foreground"
+                            }`}
+                            onClick={() => setIsMenuOpen(false)}
+                        >
+                            <Icon icon="mdi:calendar" width="18"/>
+                            Calendar
                         </Link>
                     </NavbarMenuItem>
                     <NavbarMenuItem>

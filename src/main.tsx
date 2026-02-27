@@ -13,6 +13,7 @@ import Player from "./pages/Player.tsx";
 import Search from "./pages/Search.tsx";
 import Discover from "./pages/Discover.tsx";
 import DiscoverDetail from "./pages/DiscoverDetail.tsx";
+import Calendar from "./pages/Calendar.tsx";
 import Login from "./pages/Login.tsx";
 import Setup from "./pages/Setup.tsx";
 import AppLayout from "./components/layout/AppLayout.tsx";
@@ -94,6 +95,7 @@ export function MainContentRenderer() {
                     <Route path="/search" element={<Search/>}/>
                     <Route path="/discover" element={<Discover/>}/>
                     <Route path="/discover/:mediaType/:tmdbId" element={<DiscoverDetail/>}/>
+                    <Route path="/calendar" element={<Calendar/>}/>
                 </Route>
             </Routes>
         </HeroUIProvider>

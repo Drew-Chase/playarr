@@ -1,14 +1,24 @@
 use actix_web::{get, web, HttpResponse, Responder};
+use serde::Deserialize;
 use crate::http_error::Result;
 use crate::radarr::client::RadarrClient;
+
+#[derive(Deserialize)]
+struct CalendarQuery {
+    start: Option<String>,
+    end: Option<String>,
+}
 
 #[get("/calendar")]
 async fn calendar(
     radarr: web::Data<RadarrClient>,
+    query: web::Query<CalendarQuery>,
 ) -> Result<impl Responder> {
     let now = chrono::Utc::now();
-    let start = now.format("%Y-%m-%d").to_string();
-    let end = (now + chrono::Duration::days(30)).format("%Y-%m-%d").to_string();
+    let start = query.start.clone()
+        .unwrap_or_else(|| now.format("%Y-%m-%d").to_string());
+    let end = query.end.clone()
+        .unwrap_or_else(|| (now + chrono::Duration::days(30)).format("%Y-%m-%d").to_string());
 
     let resp = radarr
         .get("/calendar")

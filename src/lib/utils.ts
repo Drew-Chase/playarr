@@ -81,3 +81,11 @@ export function getDisplayTitle(item: {
     }
     return item.title;
 }
+
+/**
+ * Extract the poster URL from a Sonarr/Radarr images array
+ */
+export function arrPosterUrl(images: { coverType: string; url?: string; remoteUrl?: string }[]): string | null {
+    const poster = images.find(img => img.coverType === "poster");
+    return poster?.remoteUrl || poster?.url || null;
+}
