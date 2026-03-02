@@ -9,17 +9,10 @@ import SeekBar from "./SeekBar.tsx";
 import ParticipantsPopover from "./ParticipantsPopover.tsx";
 import {motion} from "framer-motion";
 import {createContext, useContext, useEffect, useRef, useState} from "react";
-import {MemoryRouter, Route, Routes, UNSAFE_LocationContext, UNSAFE_RouteContext, useLocation, useNavigate, useParams, useSearchParams} from "react-router-dom";
+import {MemoryRouter, UNSAFE_LocationContext, UNSAFE_RouteContext, useLocation, useNavigate, useParams, useSearchParams} from "react-router-dom";
 import type {NavigateFunction, SetURLSearchParams} from "react-router-dom";
 import {HeroUIProvider} from "@heroui/react";
-import Home from "../../pages/Home.tsx";
-import Library from "../../pages/Library.tsx";
-import Detail from "../../pages/Detail.tsx";
-import Search from "../../pages/Search.tsx";
-import Discover from "../../pages/Discover.tsx";
-import DiscoverDetail from "../../pages/DiscoverDetail.tsx";
-import Calendar from "../../pages/Calendar.tsx";
-import AppLayout from "../layout/AppLayout.tsx";
+import {AppRoutes} from "../../main.tsx";
 
 interface PlayerControlsProps
 {
@@ -325,18 +318,7 @@ function DrawerRoutes()
     const navigate = useNavigate();
     return (
         <HeroUIProvider navigate={navigate}>
-            <Routes>
-                <Route path="/player/:id" element={<DrawerPlayerRedirect/>}/>
-                <Route element={<AppLayout/>}>
-                    <Route path="/" element={<Home/>}/>
-                    <Route path="/library/:key" element={<Library/>}/>
-                    <Route path="/detail/:id" element={<Detail/>}/>
-                    <Route path="/search" element={<Search/>}/>
-                    <Route path="/discover" element={<Discover/>}/>
-                    <Route path="/discover/:mediaType/:tmdbId" element={<DiscoverDetail/>}/>
-                    <Route path="/calendar" element={<Calendar/>}/>
-                </Route>
-            </Routes>
+            <AppRoutes playerElement={<DrawerPlayerRedirect/>}/>
         </HeroUIProvider>
     );
 }

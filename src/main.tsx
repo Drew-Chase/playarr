@@ -22,10 +22,10 @@ import {PlayerProvider} from "./providers/PlayerProvider.tsx";
 import WatchPartyProvider from "./providers/WatchPartyProvider.tsx";
 import {HeroUIProvider} from "@heroui/react";
 
-export function AppRoutes() {
+export function AppRoutes({playerElement}: { playerElement?: React.ReactNode }) {
     return (
         <Routes>
-            <Route path="/player/:id" element={<Player/>}/>
+            <Route path="/player/:id" element={playerElement ?? <Player/>}/>
             <Route element={<AppLayout/>}>
                 <Route path="/" element={<Home/>}/>
                 <Route path="/library/:key" element={<Library/>}/>
