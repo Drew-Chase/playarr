@@ -332,14 +332,14 @@ function ContentDrawer()
 
     return (
         <motion.div
-            className={"fixed left-0 top-0 w-full h-full z-[100] items-center flex flex-col"}
+            className={`fixed left-0 top-0 w-full h-full z-[100] items-center flex flex-col ${isOpen ? "" : "pointer-events-none"}`}
             initial={{transform: "translateY(calc(100% - 40px))"}}
             animate={{transform: isOpen ? "translateY(0px)" : "translateY(calc(100% - 40px))"}}
             transition={{duration: 0.3}}
         >
             <Tooltip content={"Toggle content drawer"} delay={1000} closeDelay={0}>
-                <Button isIconOnly variant={"light"} onPress={() => setIsOpen(prev => !prev)} className={"h-10"}>
-                    <Icon icon="mdi:chevron-up" width="20" data-open={isOpen} className={"data-[open=true]:rotate-180 transition-transform duration-500"}/>
+                <Button isIconOnly variant={"light"} onPress={() => setIsOpen(prev=>!prev)} className={"h-10 pointer-events-auto"}>
+                    <Icon icon="mdi:chevron-up" width="20" className={"data-[open=true]:rotate-180 transition-transform duration-500"} data-open={isOpen}/>
                 </Button>
             </Tooltip>
             <div className={"w-full h-full overflow-y-scroll bg-black/30 backdrop-blur-lg data-[open=false]:opacity-0 transition-opacity duration-500"} data-open={isOpen}>
