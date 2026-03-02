@@ -13,6 +13,7 @@ interface PlayerState {
     selectedSubtitleId: number | null;
     selectedAudioId: number | null;
     quality: string;
+    isDrawerOpen: boolean;
 }
 
 interface PlayerContextType extends PlayerState {
@@ -27,6 +28,7 @@ interface PlayerContextType extends PlayerState {
     setSelectedSubtitleId: (id: number | null) => void;
     setSelectedAudioId: (id: number | null) => void;
     setQuality: (q: string) => void;
+    setIsDrawerOpen: (open: boolean) => void;
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -43,6 +45,7 @@ export function PlayerProvider({children}: { children: ReactNode }) {
     const [selectedSubtitleId, setSelectedSubtitleId] = useState<number | null>(null);
     const [selectedAudioId, setSelectedAudioId] = useState<number | null>(null);
     const [quality, setQuality] = useState("original");
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
     return (
         <PlayerContext.Provider
@@ -58,6 +61,7 @@ export function PlayerProvider({children}: { children: ReactNode }) {
                 selectedSubtitleId,
                 selectedAudioId,
                 quality,
+                isDrawerOpen,
                 setCurrentItem,
                 setStreamInfo,
                 setIsPlaying,
@@ -69,6 +73,7 @@ export function PlayerProvider({children}: { children: ReactNode }) {
                 setSelectedSubtitleId,
                 setSelectedAudioId,
                 setQuality,
+                setIsDrawerOpen,
             }}
         >
             {children}

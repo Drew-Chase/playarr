@@ -8,11 +8,12 @@ import QualitySelector from "./QualitySelector.tsx";
 import SeekBar from "./SeekBar.tsx";
 import ParticipantsPopover from "./ParticipantsPopover.tsx";
 import {motion} from "framer-motion";
-import {createContext, useContext, useEffect, useRef, useState} from "react";
+import {createContext, useContext, useEffect, useRef} from "react";
 import {MemoryRouter, UNSAFE_LocationContext, UNSAFE_RouteContext, useLocation, useNavigate, useParams, useSearchParams} from "react-router-dom";
 import type {NavigateFunction, SetURLSearchParams} from "react-router-dom";
 import {HeroUIProvider} from "@heroui/react";
 import {AppRoutes} from "../../main.tsx";
+import {usePlayer} from "../../providers/PlayerProvider.tsx";
 
 interface PlayerControlsProps
 {
@@ -325,24 +326,24 @@ function DrawerRoutes()
 
 function ContentDrawer()
 {
-    const [isOpen, setIsOpen] = useState(false);
+    const {isDrawerOpen: isOpen, setIsDrawerOpen: setIsOpen} = usePlayer();
     const [searchParams, setSearchParams] = useSearchParams();
     const mainNavigate = useNavigate();
     const pageToLoad = searchParams.get("from") || "/";
 
     return (
         <motion.div
-            className={`fixed left-0 top-0 w-full h-full z-[100] items-center flex flex-col ${isOpen ? "" : "pointer-events-none"}`}
+            className={`fixed left-0 top-0 w-full h-full z-[20] items-center flex flex-col ${isOpen ? "" : "pointer-events-none"}`}
             initial={{transform: "translateY(calc(100% - 40px))"}}
             animate={{transform: isOpen ? "translateY(0px)" : "translateY(calc(100% - 40px))"}}
             transition={{duration: 0.3}}
         >
             <Tooltip content={"Toggle content drawer"} delay={1000} closeDelay={0}>
-                <Button isIconOnly variant={"light"} onPress={() => setIsOpen(prev=>!prev)} className={"h-10 pointer-events-auto"}>
+                <Button isIconOnly variant={"light"} onPress={() => setIsOpen(!isOpen)} className={"h-10 pointer-events-auto"}>
                     <Icon icon="mdi:chevron-up" width="20" className={"data-[open=true]:rotate-180 transition-transform duration-500"} data-open={isOpen}/>
                 </Button>
             </Tooltip>
-            <div className={"w-full h-full overflow-y-scroll bg-black/30 backdrop-blur-lg data-[open=false]:opacity-0 transition-opacity duration-500"} data-open={isOpen}>
+            <div className={"w-full h-full overflow-y-auto bg-black/30 backdrop-blur-lg data-[open=false]:opacity-0 transition-opacity duration-500 [&_nav]:!sticky"} data-open={isOpen}>
                 <DrawerContext.Provider value={{mainNavigate, mainSetSearchParams: setSearchParams}}>
                     {/* Reset the parent BrowserRouter context so MemoryRouter can mount independently */}
                     <UNSAFE_LocationContext.Provider value={null as any}>

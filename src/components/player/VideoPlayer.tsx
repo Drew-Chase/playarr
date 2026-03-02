@@ -6,6 +6,7 @@ import {checkDirectPlayability} from "../../lib/codec-support.ts";
 import {parseBif} from "../../lib/bif-parser.ts";
 import type {PlexMediaItem, StreamInfo, PlexStream, BifData, WsMessage} from "../../lib/types.ts";
 import {useAuth} from "../../providers/AuthProvider.tsx";
+import {usePlayer} from "../../providers/PlayerProvider.tsx";
 import {useWatchPartyContext} from "../../providers/WatchPartyProvider.tsx";
 import PlayerControls from "./PlayerControls.tsx";
 import PlayerOverlay from "./PlayerOverlay.tsx";
@@ -32,6 +33,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const fromParam = searchParams.get("from");
     const backPath = fromParam || "/";
     const {isGuest} = useAuth();
+    const {isDrawerOpen} = usePlayer();
     const watchParty = useWatchPartyContext();
     const videoRef = useRef<HTMLVideoElement>(null);
     const hlsRef = useRef<Hls | null>(null);
@@ -891,6 +893,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     // Keyboard shortcuts
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
+            if (isDrawerOpen) return;
             const video = videoRef.current;
             if (!video) return;
 
@@ -951,7 +954,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
 
         document.addEventListener("keydown", handleKeyDown);
         return () => document.removeEventListener("keydown", handleKeyDown);
-    }, [volume, isPlaying, isFullscreen, handleSeek, togglePlay, toggleFullscreen, handleMuteToggle, handleVolumeChange]);
+    }, [volume, isPlaying, isFullscreen, isDrawerOpen, handleSeek, togglePlay, toggleFullscreen, handleMuteToggle, handleVolumeChange]);
 
     const handleTimeUpdate = () => {
         const video = videoRef.current;
