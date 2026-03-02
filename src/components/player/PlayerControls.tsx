@@ -1,4 +1,4 @@
-import {Button, Slider} from "@heroui/react";
+import {Button, Slider, Tooltip} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {formatTimestamp} from "../../lib/utils.ts";
 import type {BifData, PlexStream, WatchPartyParticipant} from "../../lib/types.ts";
@@ -7,6 +7,19 @@ import AudioSelector from "./AudioSelector.tsx";
 import QualitySelector from "./QualitySelector.tsx";
 import SeekBar from "./SeekBar.tsx";
 import ParticipantsPopover from "./ParticipantsPopover.tsx";
+import {motion} from "framer-motion";
+import {createContext, useContext, useEffect, useRef, useState} from "react";
+import {MemoryRouter, Route, Routes, UNSAFE_LocationContext, UNSAFE_RouteContext, useLocation, useNavigate, useParams, useSearchParams} from "react-router-dom";
+import type {NavigateFunction, SetURLSearchParams} from "react-router-dom";
+import {HeroUIProvider} from "@heroui/react";
+import Home from "../../pages/Home.tsx";
+import Library from "../../pages/Library.tsx";
+import Detail from "../../pages/Detail.tsx";
+import Search from "../../pages/Search.tsx";
+import Discover from "../../pages/Discover.tsx";
+import DiscoverDetail from "../../pages/DiscoverDetail.tsx";
+import Calendar from "../../pages/Calendar.tsx";
+import AppLayout from "../layout/AppLayout.tsx";
 
 interface PlayerControlsProps
 {
@@ -164,7 +177,8 @@ export default function PlayerControls({
                         showTooltip
                         getTooltipValue={() => `Volume ${Math.round(volume * 100)}%`}
                         value={isMuted ? 0 : volume}
-                        onChange={(val) => {
+                        onChange={(val) =>
+                        {
                             onDragChange?.(true);
                             onVolumeChange(val as number);
                         }}
@@ -199,6 +213,10 @@ export default function PlayerControls({
                         </div>
                     )}
                 </div>
+
+                {/* Content Drawer */}
+                <ContentDrawer/>
+
 
                 {/* Right controls */}
                 <div className="flex items-center gap-1">
@@ -246,5 +264,115 @@ export default function PlayerControls({
                 </div>
             </div>
         </div>
+    );
+}
+
+// Context to pass main BrowserRouter functions into the MemoryRouter tree
+const DrawerContext = createContext<{
+    mainNavigate: NavigateFunction;
+    mainSetSearchParams: SetURLSearchParams;
+}>(null!);
+
+// Syncs MemoryRouter location → main URL's "from" search param
+function DrawerLocationSync()
+{
+    const location = useLocation();
+    const {mainSetSearchParams} = useContext(DrawerContext);
+
+    useEffect(() =>
+    {
+        // Don't sync player routes — handled by DrawerPlayerRedirect
+        if (location.pathname.startsWith("/player/")) return;
+
+        mainSetSearchParams(prev =>
+        {
+            const params = new URLSearchParams(prev);
+            const newFrom = location.pathname + location.search;
+            if (params.get("from") === newFrom) return prev;
+            params.set("from", newFrom);
+            return params;
+        }, {replace: true});
+    }, [location.pathname, location.search, mainSetSearchParams]);
+
+    return null;
+}
+
+// Intercepts /player/:id navigation inside the drawer and redirects to the main router
+function DrawerPlayerRedirect()
+{
+    const {id} = useParams();
+    const drawerLocation = useLocation();
+    const drawerNavigate = useNavigate();
+    const {mainNavigate} = useContext(DrawerContext);
+    const handled = useRef(false);
+
+    useEffect(() =>
+    {
+        if (handled.current) return;
+        handled.current = true;
+
+        const fromInDrawer = new URLSearchParams(drawerLocation.search).get("from") || "/";
+        mainNavigate(`/player/${id}?from=${encodeURIComponent(fromInDrawer)}`, {replace: true});
+        drawerNavigate(fromInDrawer, {replace: true});
+    }, [id, drawerLocation.search, mainNavigate, drawerNavigate]);
+
+    return null;
+}
+
+// Drawer's independent route tree
+function DrawerRoutes()
+{
+    const navigate = useNavigate();
+    return (
+        <HeroUIProvider navigate={navigate}>
+            <Routes>
+                <Route path="/player/:id" element={<DrawerPlayerRedirect/>}/>
+                <Route element={<AppLayout/>}>
+                    <Route path="/" element={<Home/>}/>
+                    <Route path="/library/:key" element={<Library/>}/>
+                    <Route path="/detail/:id" element={<Detail/>}/>
+                    <Route path="/search" element={<Search/>}/>
+                    <Route path="/discover" element={<Discover/>}/>
+                    <Route path="/discover/:mediaType/:tmdbId" element={<DiscoverDetail/>}/>
+                    <Route path="/calendar" element={<Calendar/>}/>
+                </Route>
+            </Routes>
+        </HeroUIProvider>
+    );
+}
+
+function ContentDrawer()
+{
+    const [isOpen, setIsOpen] = useState(false);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const mainNavigate = useNavigate();
+    const pageToLoad = searchParams.get("from") || "/";
+
+    return (
+        <motion.div
+            className={"fixed left-0 top-0 w-full h-full z-[100] items-center flex flex-col"}
+            initial={{transform: "translateY(calc(100% - 40px))"}}
+            animate={{transform: isOpen ? "translateY(0px)" : "translateY(calc(100% - 40px))"}}
+            transition={{duration: 0.3}}
+        >
+            <Tooltip content={"Toggle content drawer"} delay={1000} closeDelay={0}>
+                <Button isIconOnly variant={"light"} onPress={() => setIsOpen(prev => !prev)} className={"h-10"}>
+                    <Icon icon="mdi:chevron-up" width="20" data-open={isOpen} className={"data-[open=true]:rotate-180 transition-transform duration-500"}/>
+                </Button>
+            </Tooltip>
+            <div className={"w-full h-full overflow-y-scroll bg-black/30 backdrop-blur-lg data-[open=false]:opacity-0 transition-opacity duration-500"} data-open={isOpen}>
+                <DrawerContext.Provider value={{mainNavigate, mainSetSearchParams: setSearchParams}}>
+                    {/* Reset the parent BrowserRouter context so MemoryRouter can mount independently */}
+                    <UNSAFE_LocationContext.Provider value={null as any}>
+                        <UNSAFE_RouteContext.Provider value={{outlet: null, matches: [], isDataRoute: false}}>
+                            <MemoryRouter initialEntries={[pageToLoad]}>
+                                <DrawerLocationSync/>
+                                <DrawerRoutes/>
+                            </MemoryRouter>
+                        </UNSAFE_RouteContext.Provider>
+                    </UNSAFE_LocationContext.Provider>
+                </DrawerContext.Provider>
+            </div>
+        </motion.div>
     );
 }

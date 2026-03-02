@@ -22,6 +22,23 @@ import {PlayerProvider} from "./providers/PlayerProvider.tsx";
 import WatchPartyProvider from "./providers/WatchPartyProvider.tsx";
 import {HeroUIProvider} from "@heroui/react";
 
+export function AppRoutes() {
+    return (
+        <Routes>
+            <Route path="/player/:id" element={<Player/>}/>
+            <Route element={<AppLayout/>}>
+                <Route path="/" element={<Home/>}/>
+                <Route path="/library/:key" element={<Library/>}/>
+                <Route path="/detail/:id" element={<Detail/>}/>
+                <Route path="/search" element={<Search/>}/>
+                <Route path="/discover" element={<Discover/>}/>
+                <Route path="/discover/:mediaType/:tmdbId" element={<DiscoverDetail/>}/>
+                <Route path="/calendar" element={<Calendar/>}/>
+            </Route>
+        </Routes>
+    );
+}
+
 const queryClient = new QueryClient({
     defaultOptions: {
         queries: {
@@ -86,18 +103,7 @@ export function MainContentRenderer() {
     return (
         <HeroUIProvider navigate={navigate}>
             <Toaster richColors position="bottom-right"/>
-            <Routes>
-                <Route path="/player/:id" element={<Player/>}/>
-                <Route element={<AppLayout/>}>
-                    <Route path="/" element={<Home/>}/>
-                    <Route path="/library/:key" element={<Library/>}/>
-                    <Route path="/detail/:id" element={<Detail/>}/>
-                    <Route path="/search" element={<Search/>}/>
-                    <Route path="/discover" element={<Discover/>}/>
-                    <Route path="/discover/:mediaType/:tmdbId" element={<DiscoverDetail/>}/>
-                    <Route path="/calendar" element={<Calendar/>}/>
-                </Route>
-            </Routes>
+            <AppRoutes/>
         </HeroUIProvider>
     );
 }
