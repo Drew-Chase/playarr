@@ -343,18 +343,7 @@ async fn logout() -> HttpResponse {
         .json(serde_json::json!({ "success": true }))
 }
 
-// --- Setup & Status endpoints ---
-
-#[get("/status")]
-async fn server_status(
-    config: web::Data<SharedConfig>,
-) -> HttpResponse {
-    let cfg = config.read().unwrap();
-    let setup_complete = !cfg.plex.url.is_empty() && !cfg.plex.token.is_empty();
-    HttpResponse::Ok().json(serde_json::json!({
-        "setup_complete": setup_complete
-    }))
-}
+// --- Setup endpoints ---
 
 #[derive(Deserialize)]
 struct SetupRequest {
@@ -521,7 +510,6 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
 }
 
 pub fn configure_setup(cfg: &mut web::ServiceConfig) {
-    cfg.service(server_status)
-        .service(initial_setup)
+    cfg.service(initial_setup)
         .service(setup_test_connection);
 }

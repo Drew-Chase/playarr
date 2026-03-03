@@ -13,3 +13,69 @@ settings:
   timeout: 0
   followRedirects: true
   maxRedirects: 5
+
+examples:
+  - name: 200 Response
+    description: Server status with service health
+    request:
+      url: "{{baseUrl}}/status"
+      method: GET
+    response:
+      statusText: OK
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "version": "0.2.0-beta",
+            "setup_complete": true,
+            "uptime_ms": 86400000,
+            "start_time": 1709424000000,
+            "debug": true,
+            "os": "windows",
+            "arch": "x86_64",
+            "active_watch_parties": 0,
+            "config_path": "C:\\Users\\user\\AppData\\Roaming\\playarr\\config.toml",
+            "services": {
+              "plex": {
+                "configured": true,
+                "reachable": true,
+                "version": "1.40.5.8897",
+                "last_checked": 1709424030000
+              },
+              "sonarr": {
+                "configured": true,
+                "reachable": true,
+                "version": "4.0.2.1367",
+                "last_checked": 1709424030000
+              },
+              "radarr": {
+                "configured": false,
+                "reachable": null,
+                "version": null
+              },
+              "download_clients": [],
+              "opensubtitles": {
+                "configured": false
+              }
+            }
+          }
+  - name: 500 Response
+    description: Internal server error
+    request:
+      url: "{{baseUrl}}/status"
+      method: GET
+    response:
+      statusText: Internal Server Error
+      headers:
+        - name: Content-Type
+          value: application/json
+      body:
+        type: json
+        data: |-
+          {
+            "error": "",
+            "status": 0
+          }

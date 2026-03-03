@@ -1184,14 +1184,18 @@ paths:
           description: ''
   /api/status:
     get:
-      summary: Get server setup status
-      operationId: Get server setup status
-      description: ''
+      summary: Get server status and service health
+      operationId: Get server status and service health
+      description: Returns server runtime info, uptime, and connectivity status for all configured services (Plex, Sonarr, Radarr, download clients, OpenSubtitles). Service health is polled in the background every 30 seconds.
       tags:
-        - setup
+        - status
       responses:
         '200':
-          description: ''
+          description: Server status with service health
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/status_response'
   /api/setup:
     post:
       summary: Initial server setup
@@ -1311,6 +1315,86 @@ servers:
   - url: http://127.0.0.1:8080
 components:
   schemas:
+    status_response:
+      type: object
+      properties:
+        version:
+          type: string
+        setup_complete:
+          type: boolean
+          description: Whether initial server setup (Plex URL + token) is complete
+        uptime_ms:
+          type: integer
+          format: int64
+        start_time:
+          type: integer
+          format: int64
+        debug:
+          type: boolean
+        os:
+          type: string
+        arch:
+          type: string
+        active_watch_parties:
+          type: integer
+        config_path:
+          type: string
+        services:
+          $ref: '#/components/schemas/service_statuses'
+    service_statuses:
+      type: object
+      properties:
+        plex:
+          $ref: '#/components/schemas/service_health'
+        sonarr:
+          $ref: '#/components/schemas/service_health'
+        radarr:
+          $ref: '#/components/schemas/service_health'
+        download_clients:
+          type: array
+          items:
+            $ref: '#/components/schemas/download_client_health'
+        opensubtitles:
+          type: object
+          properties:
+            configured:
+              type: boolean
+    service_health:
+      type: object
+      properties:
+        configured:
+          type: boolean
+        reachable:
+          type: boolean
+          nullable: true
+        version:
+          type: string
+          nullable: true
+        last_checked:
+          type: integer
+          format: int64
+          nullable: true
+    download_client_health:
+      type: object
+      properties:
+        name:
+          type: string
+        client_type:
+          type: string
+          enum:
+            - sabnzbd
+            - nzbget
+            - qbittorrent
+            - transmission
+        enabled:
+          type: boolean
+        reachable:
+          type: boolean
+          nullable: true
+        last_checked:
+          type: integer
+          format: int64
+          nullable: true
     pause_or_resume_downloads:
       type: object
       properties:

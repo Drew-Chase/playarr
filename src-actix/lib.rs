@@ -23,6 +23,7 @@ mod watch_party;
 
 #[cfg(test)]
 mod tests;
+mod status_endpoints;
 
 pub static DEBUG: bool = cfg!(debug_assertions);
 
@@ -41,6 +42,7 @@ pub async fn run() -> Result<()> {
         .init();
 
     info!("Starting PlayServer v{}...", env!("CARGO_PKG_VERSION"));
+    status_endpoints::START_TIME.get_or_init(|| chrono::Utc::now().timestamp_millis() as u64);
 
     // Initialize shared state
     let shared_config = config::init_shared_config();
@@ -48,7 +50,27 @@ pub async fn run() -> Result<()> {
     let sonarr_client = web::Data::new(sonarr::client::SonarrClient::new(shared_config.clone()));
     let radarr_client = web::Data::new(radarr::client::RadarrClient::new(shared_config.clone()));
     let room_manager = web::Data::new(watch_party::room::RoomManager::new());
-    let config_data = web::Data::new(shared_config);
+    let config_data = web::Data::new(shared_config.clone());
+    let health_state = web::Data::new(status_endpoints::new_health_state());
+
+    // Spawn health check task: every 30s, ping all configured services
+    {
+        let state = health_state.clone();
+        let cfg = shared_config;
+        let plex = plex_client.clone();
+        let sonarr = sonarr_client.clone();
+        let radarr = radarr_client.clone();
+        actix_web::rt::spawn(async move {
+            status_endpoints::run_health_checks(
+                state.get_ref().clone(),
+                cfg,
+                plex,
+                sonarr,
+                radarr,
+            )
+            .await;
+        });
+    }
 
     // Spawn heartbeat task: every 500ms, broadcast server time + media_id to all playing rooms
     let hb_rooms = room_manager.clone();
@@ -88,8 +110,10 @@ pub async fn run() -> Result<()> {
             .app_data(sonarr_client.clone())
             .app_data(radarr_client.clone())
             .app_data(room_manager.clone())
+            .app_data(health_state.clone())
             .service(
                 web::scope("api")
+                    .configure(status_endpoints::configure)
                     .configure(settings::endpoints::configure)
                     .configure(auth::plex_auth::configure)
                     .configure(auth::plex_auth::configure_setup)
