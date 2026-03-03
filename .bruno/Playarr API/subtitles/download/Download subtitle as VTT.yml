@@ -1,0 +1,21 @@
+info:
+  name: Download subtitle as VTT
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{baseUrl}}/subtitles/download"
+  body:
+    type: json
+    data: |-
+      {
+        "file_id": 0
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,0 +1,30 @@
+info:
+  name: Test service connection during setup
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{baseUrl}}/setup/test/:service"
+  params:
+    - name: service
+      value: ""
+      type: path
+      enabled: true
+  body:
+    type: json
+    data: |-
+      {
+        "url": "",
+        "api_key": "",
+        "type": "",
+        "username": "",
+        "password": ""
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

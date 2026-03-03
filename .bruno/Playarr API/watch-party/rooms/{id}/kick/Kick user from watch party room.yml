@@ -1,0 +1,22 @@
+info:
+  name: Kick user from watch party room
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{baseUrl}}/watch-party/rooms/:id/kick"
+  body:
+    type: json
+    data: |-
+      {
+        "user_id": 0,
+        "reason": ""
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

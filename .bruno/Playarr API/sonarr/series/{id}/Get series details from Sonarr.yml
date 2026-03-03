@@ -1,0 +1,19 @@
+info:
+  name: Get series details from Sonarr
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{baseUrl}}/sonarr/series/:id"
+  params:
+    - name: id
+      value: ""
+      type: path
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

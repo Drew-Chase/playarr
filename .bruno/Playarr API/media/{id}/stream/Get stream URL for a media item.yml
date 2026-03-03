@@ -14,11 +14,15 @@ http:
     - name: quality
       value: ""
       type: query
-      description: Transcode quality preset
+      description: "Transcode quality preset (4k, 1080p, 720p, 480p, original)"
     - name: direct_play
       value: ""
       type: query
-      description: "Whether to use direct play (true) or HLS transcode (false). Default: true."
+      description: "Use direct play (true) or HLS transcode (false). Default: true."
+    - name: direct_stream
+      value: ""
+      type: query
+      description: "Use DirectStream mode — video untouched, audio transcoded. Default: false."
   auth: inherit
 
 settings:
@@ -37,15 +41,6 @@ examples:
         - name: id
           value: ""
           type: path
-          description: Plex rating key (media ID)
-        - name: quality
-          value: ""
-          type: query
-          description: Transcode quality preset
-        - name: direct_play
-          value: ""
-          type: query
-          description: "Whether to use direct play (true) or HLS transcode (false). Default: true."
     response:
       statusText: OK
       headers:
@@ -57,6 +52,7 @@ examples:
           {
             "url": "",
             "type": "",
+            "session": "",
             "media": {},
             "part": {}
           }
@@ -69,47 +65,8 @@ examples:
         - name: id
           value: ""
           type: path
-          description: Plex rating key (media ID)
-        - name: quality
-          value: ""
-          type: query
-          description: Transcode quality preset
-        - name: direct_play
-          value: ""
-          type: query
-          description: "Whether to use direct play (true) or HLS transcode (false). Default: true."
     response:
       statusText: Internal Server Error
-      headers:
-        - name: Content-Type
-          value: application/json
-      body:
-        type: json
-        data: |-
-          {
-            "error": "",
-            "status": 0
-          }
-  - name: 503 Response
-    description: External service not configured or unreachable
-    request:
-      url: "{{baseUrl}}/media/:id/stream"
-      method: GET
-      params:
-        - name: id
-          value: ""
-          type: path
-          description: Plex rating key (media ID)
-        - name: quality
-          value: ""
-          type: query
-          description: Transcode quality preset
-        - name: direct_play
-          value: ""
-          type: query
-          description: "Whether to use direct play (true) or HLS transcode (false). Default: true."
-    response:
-      statusText: Service Unavailable
       headers:
         - name: Content-Type
           value: application/json

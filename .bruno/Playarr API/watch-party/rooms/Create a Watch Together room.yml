@@ -10,8 +10,9 @@ http:
     type: json
     data: |-
       {
-        "mediaId": "",
-        "hostName": ""
+        "name": "",
+        "accessMode": "public",
+        "allowedUserIds": []
       }
   auth: inherit
 
@@ -31,8 +32,9 @@ examples:
         type: json
         data: |-
           {
-            "mediaId": "",
-            "hostName": ""
+            "name": "Movie Night",
+            "accessMode": "public",
+            "allowedUserIds": []
           }
     response:
       statusText: OK
@@ -41,31 +43,14 @@ examples:
           value: application/json
       body:
         type: json
-        data: |-
-          {
-            "id": "",
-            "host_name": "",
-            "media_id": "",
-            "position_ms": 0,
-            "is_paused": false,
-            "participants": [],
-            "episode_queue": [],
-            "created_at": ""
-          }
-  - name: 500 Response
-    description: Internal server error
+        data: "{}"
+  - name: 401 Response
+    description: Not signed in
     request:
       url: "{{baseUrl}}/watch-party/rooms"
       method: POST
-      body:
-        type: json
-        data: |-
-          {
-            "mediaId": "",
-            "hostName": ""
-          }
     response:
-      statusText: Internal Server Error
+      statusText: Unauthorized
       headers:
         - name: Content-Type
           value: application/json
@@ -73,6 +58,6 @@ examples:
         type: json
         data: |-
           {
-            "error": "",
-            "status": 0
+            "error": "Not signed in",
+            "status": 401
           }

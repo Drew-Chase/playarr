@@ -1,0 +1,19 @@
+info:
+  name: Search for releases in Radarr
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{baseUrl}}/radarr/release"
+  params:
+    - name: movieId
+      value: ""
+      type: query
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

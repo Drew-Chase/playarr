@@ -1,0 +1,25 @@
+info:
+  name: Stop playback
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{baseUrl}}/player/stop"
+  body:
+    type: json
+    data: |-
+      {
+        "ratingKey": "",
+        "key": "",
+        "time": 0,
+        "duration": 0,
+        "sessionId": ""
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

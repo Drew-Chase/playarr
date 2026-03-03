@@ -10,7 +10,18 @@ http:
     - name: service
       value: ""
       type: path
-      description: Service to test
+      description: "Service to test (plex, sonarr, radarr, opensubtitles, download-client)"
+  body:
+    type: json
+    data: |-
+      {
+        "url": "",
+        "token": "",
+        "api_key": "",
+        "type": "",
+        "username": "",
+        "password": ""
+      }
   auth: inherit
 
 settings:
@@ -29,7 +40,13 @@ examples:
         - name: service
           value: ""
           type: path
-          description: Service to test
+      body:
+        type: json
+        data: |-
+          {
+            "url": "",
+            "api_key": ""
+          }
     response:
       statusText: OK
       headers:
@@ -39,8 +56,8 @@ examples:
         type: json
         data: |-
           {
-            "success": false,
-            "message": ""
+            "success": true,
+            "message": "Connection successful"
           }
   - name: 400 Response
     description: Service not configured or unknown service
@@ -51,7 +68,6 @@ examples:
         - name: service
           value: ""
           type: path
-          description: Service to test
     response:
       statusText: Bad Request
       headers:
@@ -63,26 +79,4 @@ examples:
           {
             "success": false,
             "message": ""
-          }
-  - name: 500 Response
-    description: Internal server error
-    request:
-      url: "{{baseUrl}}/settings/test/:service"
-      method: POST
-      params:
-        - name: service
-          value: ""
-          type: path
-          description: Service to test
-    response:
-      statusText: Internal Server Error
-      headers:
-        - name: Content-Type
-          value: application/json
-      body:
-        type: json
-        data: |-
-          {
-            "error": "",
-            "status": 0
           }

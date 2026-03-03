@@ -6,6 +6,15 @@ info:
 http:
   method: GET
   url: "{{baseUrl}}/radarr/calendar"
+  params:
+    - name: start
+      value: ""
+      type: query
+      description: "Start date (YYYY-MM-DD). Defaults to today."
+    - name: end
+      value: ""
+      type: query
+      description: "End date (YYYY-MM-DD). Defaults to 30 days from now."
   auth: inherit
 
 settings:
@@ -20,6 +29,13 @@ examples:
     request:
       url: "{{baseUrl}}/radarr/calendar"
       method: GET
+      params:
+        - name: start
+          value: ""
+          type: query
+        - name: end
+          value: ""
+          type: query
     response:
       statusText: OK
       headers:

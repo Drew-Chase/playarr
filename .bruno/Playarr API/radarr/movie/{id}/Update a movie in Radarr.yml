@@ -1,0 +1,22 @@
+info:
+  name: Update a movie in Radarr
+  type: http
+  seq: 1
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/radarr/movie/:id"
+  params:
+    - name: id
+      value: ""
+      type: path
+  body:
+    type: json
+    data: "{}"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,0 +1,21 @@
+info:
+  name: Pause or resume downloads
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{baseUrl}}/downloads/pause"
+  body:
+    type: json
+    data: |-
+      {
+        "action": "pause"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

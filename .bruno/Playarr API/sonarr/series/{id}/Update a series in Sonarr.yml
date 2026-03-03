@@ -1,0 +1,22 @@
+info:
+  name: Update a series in Sonarr
+  type: http
+  seq: 1
+
+http:
+  method: PUT
+  url: "{{baseUrl}}/sonarr/series/:id"
+  params:
+    - name: id
+      value: ""
+      type: path
+  body:
+    type: json
+    data: "{}"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

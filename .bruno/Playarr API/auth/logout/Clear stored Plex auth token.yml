@@ -8,11 +8,6 @@ http:
   url: "{{baseUrl}}/auth/logout"
   auth: inherit
 
-runtime:
-  variables:
-    - name: baseUrl
-      value: http://127.0.0.1:8080/
-
 settings:
   encodeUrl: true
   timeout: 0
@@ -34,22 +29,5 @@ examples:
         type: json
         data: |-
           {
-            "success": false
-          }
-  - name: 500 Response
-    description: Internal server error
-    request:
-      url: "{{baseUrl}}/auth/logout"
-      method: POST
-    response:
-      statusText: Internal Server Error
-      headers:
-        - name: Content-Type
-          value: application/json
-      body:
-        type: json
-        data: |-
-          {
-            "error": "",
-            "status": 0
+            "success": true
           }
