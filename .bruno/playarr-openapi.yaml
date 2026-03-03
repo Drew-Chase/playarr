@@ -1,0 +1,1663 @@
+openapi: 3.0.0
+info:
+  title: playarr-openapi
+  version: 1.0.0
+paths:
+  /api/auth/logout:
+    post:
+      summary: Clear stored Plex auth token
+      operationId: Clear stored Plex auth token
+      description: ''
+      tags:
+        - auth
+      responses:
+        '200':
+          description: ''
+  /api/auth/pin:
+    post:
+      summary: Request a Plex PIN for user authentication
+      operationId: Request a Plex PIN for user authentication
+      description: ''
+      tags:
+        - auth
+      responses:
+        '200':
+          description: ''
+  /api/auth/pin/:id:
+    get:
+      summary: Poll PIN claim status
+      operationId: Poll PIN claim status
+      description: ''
+      tags:
+        - auth
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: id
+          in: query
+          description: ''
+          required: true
+          example: ''
+  /api/auth/user:
+    get:
+      summary: Get current Plex user info
+      operationId: Get current Plex user info
+      description: ''
+      tags:
+        - auth
+      responses:
+        '200':
+          description: ''
+  /api/auth/guest:
+    get:
+      summary: Check if guest access is available
+      operationId: Check if guest access is available
+      description: ''
+      tags:
+        - auth
+      responses:
+        '200':
+          description: ''
+  /api/auth/guest-login:
+    post:
+      summary: Login as guest user
+      operationId: Login as guest user
+      description: ''
+      tags:
+        - auth
+      responses:
+        '200':
+          description: ''
+  /api/discover/recent:
+    get:
+      summary: Get recently released movies and TV from TMDB
+      operationId: Get recently released movies and TV from TMDB
+      description: ''
+      tags:
+        - discover
+      responses:
+        '200':
+          description: ''
+  /api/discover/trending:
+    get:
+      summary: Get trending movies and TV shows from TMDB
+      operationId: Get trending movies and TV shows from TMDB
+      description: ''
+      tags:
+        - discover
+      responses:
+        '200':
+          description: ''
+  /api/discover/upcoming:
+    get:
+      summary: Get upcoming movie releases from TMDB
+      operationId: Get upcoming movie releases from TMDB
+      description: ''
+      tags:
+        - discover
+      responses:
+        '200':
+          description: ''
+  /api/discover/search:
+    get:
+      summary: Search TMDB for movies and TV shows
+      operationId: Search TMDB for movies and TV shows
+      description: ''
+      tags:
+        - discover
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: q
+          in: query
+          description: ''
+          required: true
+          example: ''
+  /api/discover/logo:
+    get:
+      summary: Get TMDB logo for a title
+      operationId: Get TMDB logo for a title
+      description: ''
+      tags:
+        - discover
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: tmdb_id
+          in: query
+          description: ''
+          required: true
+          example: ''
+        - name: type
+          in: query
+          description: ''
+          required: true
+          example: ''
+        - name: lang
+          in: query
+          description: ''
+          required: true
+          example: ''
+  /api/discover/videos:
+    get:
+      summary: Get trailers and videos from TMDB
+      operationId: Get trailers and videos from TMDB
+      description: ''
+      tags:
+        - discover
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: tmdb_id
+          in: query
+          description: ''
+          required: true
+          example: ''
+        - name: type
+          in: query
+          description: ''
+          required: true
+          example: ''
+  /api/discover/movie/:id:
+    get:
+      summary: Get TMDB movie details
+      operationId: Get TMDB movie details
+      description: ''
+      tags:
+        - discover
+      responses:
+        '200':
+          description: ''
+  /api/discover/tv/:id:
+    get:
+      summary: Get TMDB TV show details
+      operationId: Get TMDB TV show details
+      description: ''
+      tags:
+        - discover
+      responses:
+        '200':
+          description: ''
+  /api/discover/tv/:id/season/:season_number:
+    get:
+      summary: Get TMDB season details
+      operationId: Get TMDB season details
+      description: ''
+      tags:
+        - discover
+      responses:
+        '200':
+          description: ''
+  /api/discover/youtube-stream/:video_id:
+    get:
+      summary: Stream a YouTube video
+      operationId: Stream a YouTube video
+      description: ''
+      tags:
+        - discover
+      responses:
+        '200':
+          description: ''
+  /api/hubs/continue-watching:
+    get:
+      summary: Get continue watching list
+      operationId: Get continue watching list
+      description: ''
+      tags:
+        - hubs
+      responses:
+        '200':
+          description: ''
+  /api/hubs/on-deck:
+    get:
+      summary: Get on deck items
+      operationId: Get on deck items
+      description: ''
+      tags:
+        - hubs
+      responses:
+        '200':
+          description: ''
+  /api/hubs/recently-added:
+    get:
+      summary: Get recently added items across all libraries
+      operationId: Get recently added items across all libraries
+      description: ''
+      tags:
+        - hubs
+      responses:
+        '200':
+          description: ''
+  /api/downloads:
+    get:
+      summary: Get aggregated downloads from all configured clients
+      operationId: Get aggregated downloads from all configured clients
+      description: ''
+      tags:
+        - downloads
+      responses:
+        '200':
+          description: ''
+  /api/downloads/status:
+    get:
+      summary: Get lightweight download status
+      operationId: Get lightweight download status
+      description: ''
+      tags:
+        - downloads
+      responses:
+        '200':
+          description: ''
+  /api/downloads/pause:
+    post:
+      summary: Pause or resume downloads
+      operationId: Pause or resume downloads
+      description: ''
+      tags:
+        - downloads
+      responses:
+        '200':
+          description: ''
+      requestBody:
+        $ref: '#/components/requestBodies/pause_or_resume_downloads'
+  /api/libraries:
+    get:
+      summary: List all Plex library sections
+      operationId: List all Plex library sections
+      description: ''
+      tags:
+        - libraries
+      responses:
+        '200':
+          description: ''
+  /api/libraries/:key/folders:
+    get:
+      summary: Browse library by folder structure
+      operationId: Browse library by folder structure
+      description: ''
+      tags:
+        - libraries
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: key
+          in: query
+          description: ''
+          required: true
+          example: ''
+  /api/libraries/:key/items:
+    get:
+      summary: List items in a library section
+      operationId: List items in a library section
+      description: ''
+      tags:
+        - libraries
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: key
+          in: query
+          description: ''
+          required: true
+          example: ''
+        - name: start
+          in: query
+          description: ''
+          required: true
+          example: ''
+        - name: size
+          in: query
+          description: ''
+          required: true
+          example: ''
+        - name: sort
+          in: query
+          description: ''
+          required: true
+          example: ''
+  /api/libraries/:key/recent:
+    get:
+      summary: Recently added items in a library
+      operationId: Recently added items in a library
+      description: ''
+      tags:
+        - libraries
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: key
+          in: query
+          description: ''
+          required: true
+          example: ''
+  /api/media/:id/children:
+    get:
+      summary: Get children of a media item
+      operationId: Get children of a media item
+      description: ''
+      tags:
+        - media
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: id
+          in: query
+          description: ''
+          required: true
+          example: ''
+  /api/media/:id:
+    get:
+      summary: Get full metadata for a media item
+      operationId: Get full metadata for a media item
+      description: ''
+      tags:
+        - media
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: id
+          in: query
+          description: ''
+          required: true
+          example: ''
+  /api/media/:id/related:
+    get:
+      summary: Get related content for a media item
+      operationId: Get related content for a media item
+      description: ''
+      tags:
+        - media
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: id
+          in: query
+          description: ''
+          required: true
+          example: ''
+  /api/media/:id/stream:
+    get:
+      summary: Get stream URL for a media item
+      operationId: Get stream URL for a media item
+      description: ''
+      tags:
+        - media
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: id
+          in: query
+          description: ''
+          required: true
+          example: ''
+        - name: quality
+          in: query
+          description: ''
+          required: true
+          example: ''
+        - name: direct_play
+          in: query
+          description: ''
+          required: true
+          example: ''
+        - name: direct_stream
+          in: query
+          description: ''
+          required: true
+          example: ''
+  /api/media/:id/allLeaves:
+    get:
+      summary: Get all leaf items for a media item
+      operationId: Get all leaf items for a media item
+      description: ''
+      tags:
+        - media
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: id
+          in: query
+          description: ''
+          required: true
+          example: ''
+  /api/media/:id/onDeck:
+    get:
+      summary: Get on-deck episode for a show
+      operationId: Get on-deck episode for a show
+      description: ''
+      tags:
+        - media
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: id
+          in: query
+          description: ''
+          required: true
+          example: ''
+  /api/media/:id/bif:
+    get:
+      summary: Get BIF thumbnail index file
+      operationId: Get BIF thumbnail index file
+      description: ''
+      tags:
+        - media
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: id
+          in: query
+          description: ''
+          required: true
+          example: ''
+  /api/media/:id/thumb:
+    get:
+      summary: Get thumbnail image for a media item
+      operationId: Get thumbnail image for a media item
+      description: ''
+      tags:
+        - media
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: id
+          in: query
+          description: ''
+          required: true
+          example: ''
+  /api/media/:id/art:
+    get:
+      summary: Get artwork image for a media item
+      operationId: Get artwork image for a media item
+      description: ''
+      tags:
+        - media
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: id
+          in: query
+          description: ''
+          required: true
+          example: ''
+  /api/media/image:
+    get:
+      summary: Get or transcode an image by Plex path
+      operationId: Get or transcode an image by Plex path
+      description: ''
+      tags:
+        - media
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: path
+          in: query
+          description: ''
+          required: true
+          example: ''
+        - name: width
+          in: query
+          description: ''
+          required: true
+          example: ''
+        - name: height
+          in: query
+          description: ''
+          required: true
+          example: ''
+  /api/media/stream-proxy/:path:
+    get:
+      summary: Proxy direct-play streams from Plex
+      operationId: Proxy direct-play streams from Plex
+      description: ''
+      tags:
+        - media
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: path
+          in: query
+          description: ''
+          required: true
+          example: ''
+  /api/media/transcode-ping/:session_id:
+    get:
+      summary: Ping transcode session to keep alive
+      operationId: Ping transcode session to keep alive
+      description: ''
+      tags:
+        - media
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: session_id
+          in: query
+          description: ''
+          required: true
+          example: ''
+  /api/media/transcode/:path:
+    get:
+      summary: Proxy HLS transcode segments from Plex
+      operationId: Proxy HLS transcode segments from Plex
+      description: ''
+      tags:
+        - media
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: path
+          in: query
+          description: ''
+          required: true
+          example: ''
+  /api/radarr/calendar:
+    get:
+      summary: Get upcoming movies from Radarr
+      operationId: Get upcoming movies from Radarr
+      description: ''
+      tags:
+        - radarr
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: start
+          in: query
+          description: ''
+          required: true
+          example: ''
+        - name: end
+          in: query
+          description: ''
+          required: true
+          example: ''
+  /api/radarr/movie:
+    post:
+      summary: Add/request a movie in Radarr
+      operationId: Add/request a movie in Radarr
+      description: ''
+      tags:
+        - radarr
+      responses:
+        '200':
+          description: ''
+      requestBody:
+        $ref: '#/components/requestBodies/add/request_a_movie_in_radarr'
+    get:
+      summary: List all movies in Radarr
+      operationId: List all movies in Radarr
+      description: ''
+      tags:
+        - radarr
+      responses:
+        '200':
+          description: ''
+  /api/radarr/movie/:id:
+    get:
+      summary: Get movie details from Radarr
+      operationId: Get movie details from Radarr
+      description: ''
+      tags:
+        - radarr
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: id
+          in: query
+          description: ''
+          required: true
+          example: ''
+    put:
+      summary: Update a movie in Radarr
+      operationId: Update a movie in Radarr
+      description: ''
+      tags:
+        - radarr
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: id
+          in: query
+          description: ''
+          required: true
+          example: ''
+      requestBody:
+        $ref: '#/components/requestBodies/update_a_movie_in_radarr'
+  /api/radarr/queue:
+    get:
+      summary: Get Radarr download queue
+      operationId: Get Radarr download queue
+      description: ''
+      tags:
+        - radarr
+      responses:
+        '200':
+          description: ''
+  /api/radarr/lookup:
+    get:
+      summary: Search for movies in Radarr
+      operationId: Search for movies in Radarr
+      description: ''
+      tags:
+        - radarr
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: term
+          in: query
+          description: ''
+          required: true
+          example: ''
+  /api/radarr/qualityprofile:
+    get:
+      summary: Get Radarr quality profiles
+      operationId: Get Radarr quality profiles
+      description: ''
+      tags:
+        - radarr
+      responses:
+        '200':
+          description: ''
+  /api/radarr/rootfolder:
+    get:
+      summary: Get Radarr root folders
+      operationId: Get Radarr root folders
+      description: ''
+      tags:
+        - radarr
+      responses:
+        '200':
+          description: ''
+  /api/radarr/command:
+    post:
+      summary: Run a Radarr command
+      operationId: Run a Radarr command
+      description: ''
+      tags:
+        - radarr
+      responses:
+        '200':
+          description: ''
+      requestBody:
+        $ref: '#/components/requestBodies/run_a_radarr_command'
+  /api/radarr/release:
+    get:
+      summary: Search for releases in Radarr
+      operationId: Search for releases in Radarr
+      description: ''
+      tags:
+        - radarr
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: movieId
+          in: query
+          description: ''
+          required: true
+          example: ''
+    post:
+      summary: Grab a release in Radarr
+      operationId: Grab a release in Radarr
+      description: ''
+      tags:
+        - radarr
+      responses:
+        '200':
+          description: ''
+      requestBody:
+        $ref: '#/components/requestBodies/grab_a_release_in_radarr'
+  /api/search:
+    get:
+      summary: Search Plex library
+      operationId: Search Plex library
+      description: ''
+      tags:
+        - search
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: q
+          in: query
+          description: ''
+          required: true
+          example: ''
+  /api/settings:
+    get:
+      summary: Get all application settings
+      operationId: Get all application settings
+      description: ''
+      tags:
+        - settings
+      responses:
+        '200':
+          description: ''
+  /api/settings/plex:
+    put:
+      summary: Update Plex server configuration
+      operationId: Update Plex server configuration
+      description: ''
+      tags:
+        - settings
+      responses:
+        '200':
+          description: ''
+      requestBody:
+        $ref: '#/components/requestBodies/update_plex_server_configuration'
+  /api/settings/download-clients:
+    put:
+      summary: Update download client configurations
+      operationId: Update download client configurations
+      description: ''
+      tags:
+        - settings
+      responses:
+        '200':
+          description: ''
+      requestBody:
+        $ref: '#/components/requestBodies/update_download_client_configurations'
+  /api/settings/sonarr:
+    put:
+      summary: Update Sonarr configuration
+      operationId: Update Sonarr configuration
+      description: ''
+      tags:
+        - settings
+      responses:
+        '200':
+          description: ''
+      requestBody:
+        $ref: '#/components/requestBodies/update_sonarr_configuration'
+  /api/settings/radarr:
+    put:
+      summary: Update Radarr configuration
+      operationId: Update Radarr configuration
+      description: ''
+      tags:
+        - settings
+      responses:
+        '200':
+          description: ''
+      requestBody:
+        $ref: '#/components/requestBodies/update_radarr_configuration'
+  /api/settings/test/:service:
+    post:
+      summary: Test connection to an external service
+      operationId: Test connection to an external service
+      description: ''
+      tags:
+        - settings
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: service
+          in: query
+          description: ''
+          required: true
+          example: ''
+      requestBody:
+        $ref: '#/components/requestBodies/test_connection_to_an_external_service'
+  /api/service-urls:
+    get:
+      summary: Get service URLs and Plex machine ID
+      operationId: Get service URLs and Plex machine ID
+      description: ''
+      tags:
+        - settings
+      responses:
+        '200':
+          description: ''
+  /api/settings/opensubtitles:
+    put:
+      summary: Update OpenSubtitles configuration
+      operationId: Update OpenSubtitles configuration
+      description: ''
+      tags:
+        - settings
+      responses:
+        '200':
+          description: ''
+      requestBody:
+        $ref: '#/components/requestBodies/update_opensubtitles_configuration'
+  /api/player/timeline:
+    put:
+      summary: Report playback progress to Plex
+      operationId: Report playback progress to Plex
+      description: ''
+      tags:
+        - player
+      responses:
+        '200':
+          description: ''
+      requestBody:
+        $ref: '#/components/requestBodies/report_playback_progress_to_plex'
+  /api/player/scrobble/:id:
+    put:
+      summary: Mark item as watched
+      operationId: Mark item as watched
+      description: ''
+      tags:
+        - player
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: id
+          in: query
+          description: ''
+          required: true
+          example: ''
+  /api/player/unscrobble/:id:
+    put:
+      summary: Mark item as unwatched
+      operationId: Mark item as unwatched
+      description: ''
+      tags:
+        - player
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: id
+          in: query
+          description: ''
+          required: true
+          example: ''
+  /api/player/stop:
+    post:
+      summary: Stop playback
+      operationId: Stop playback
+      description: ''
+      tags:
+        - player
+      responses:
+        '200':
+          description: ''
+      requestBody:
+        $ref: '#/components/requestBodies/stop_playback'
+  /api/watch-party/rooms:
+    post:
+      summary: Create a Watch Together room
+      operationId: Create a Watch Together room
+      description: ''
+      tags:
+        - watch-party
+      responses:
+        '200':
+          description: ''
+      requestBody:
+        $ref: '#/components/requestBodies/create_a_watch_together_room'
+    get:
+      summary: List watch party rooms
+      operationId: List watch party rooms
+      description: ''
+      tags:
+        - watch-party
+      responses:
+        '200':
+          description: ''
+  /api/watch-party/rooms/:id:
+    get:
+      summary: Get Watch Together room state
+      operationId: Get Watch Together room state
+      description: ''
+      tags:
+        - watch-party
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: id
+          in: query
+          description: ''
+          required: true
+          example: ''
+    delete:
+      summary: Delete a watch party room
+      operationId: Delete a watch party room
+      description: ''
+      tags:
+        - watch-party
+      responses:
+        '200':
+          description: ''
+  /api/watch-party/rooms/:id/ws:
+    get:
+      summary: WebSocket connection for real-time room sync
+      operationId: WebSocket connection for real-time room sync
+      description: ''
+      tags:
+        - watch-party
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: id
+          in: query
+          description: ''
+          required: true
+          example: ''
+  /api/watch-party/rooms/:id/kick:
+    post:
+      summary: Kick user from watch party room
+      operationId: Kick user from watch party room
+      description: ''
+      tags:
+        - watch-party
+      responses:
+        '200':
+          description: ''
+      requestBody:
+        $ref: '#/components/requestBodies/kick_user_from_watch_party_room'
+  /api/watch-party/join/:code:
+    get:
+      summary: Join room by invite code
+      operationId: Join room by invite code
+      description: ''
+      tags:
+        - watch-party
+      responses:
+        '200':
+          description: ''
+  /api/sonarr/calendar:
+    get:
+      summary: Get upcoming episodes from Sonarr
+      operationId: Get upcoming episodes from Sonarr
+      description: ''
+      tags:
+        - sonarr
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: start
+          in: query
+          description: ''
+          required: true
+          example: ''
+        - name: end
+          in: query
+          description: ''
+          required: true
+          example: ''
+  /api/sonarr/episodes:
+    get:
+      summary: List episodes for a Sonarr series
+      operationId: List episodes for a Sonarr series
+      description: ''
+      tags:
+        - sonarr
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: seriesId
+          in: query
+          description: ''
+          required: true
+          example: ''
+  /api/sonarr/episode/monitor:
+    put:
+      summary: Update episode monitoring status
+      operationId: Update episode monitoring status
+      description: ''
+      tags:
+        - sonarr
+      responses:
+        '200':
+          description: ''
+      requestBody:
+        $ref: '#/components/requestBodies/update_episode_monitoring_status'
+  /api/sonarr/queue:
+    get:
+      summary: Get Sonarr download queue
+      operationId: Get Sonarr download queue
+      description: ''
+      tags:
+        - sonarr
+      responses:
+        '200':
+          description: ''
+  /api/sonarr/lookup:
+    get:
+      summary: Search for TV shows in Sonarr
+      operationId: Search for TV shows in Sonarr
+      description: ''
+      tags:
+        - sonarr
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: term
+          in: query
+          description: ''
+          required: true
+          example: ''
+  /api/sonarr/series:
+    post:
+      summary: Add/request a TV show in Sonarr
+      operationId: Add/request a TV show in Sonarr
+      description: ''
+      tags:
+        - sonarr
+      responses:
+        '200':
+          description: ''
+      requestBody:
+        $ref: '#/components/requestBodies/add/request_a_tv_show_in_sonarr'
+    get:
+      summary: List all series in Sonarr
+      operationId: List all series in Sonarr
+      description: ''
+      tags:
+        - sonarr
+      responses:
+        '200':
+          description: ''
+  /api/sonarr/series/:id:
+    get:
+      summary: Get series details from Sonarr
+      operationId: Get series details from Sonarr
+      description: ''
+      tags:
+        - sonarr
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: id
+          in: query
+          description: ''
+          required: true
+          example: ''
+    put:
+      summary: Update a series in Sonarr
+      operationId: Update a series in Sonarr
+      description: ''
+      tags:
+        - sonarr
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: id
+          in: query
+          description: ''
+          required: true
+          example: ''
+      requestBody:
+        $ref: '#/components/requestBodies/update_a_series_in_sonarr'
+  /api/sonarr/qualityprofile:
+    get:
+      summary: Get Sonarr quality profiles
+      operationId: Get Sonarr quality profiles
+      description: ''
+      tags:
+        - sonarr
+      responses:
+        '200':
+          description: ''
+  /api/sonarr/release:
+    get:
+      summary: Search for releases in Sonarr
+      operationId: Search for releases in Sonarr
+      description: ''
+      tags:
+        - sonarr
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: episodeId
+          in: query
+          description: ''
+          required: true
+          example: ''
+        - name: seriesId
+          in: query
+          description: ''
+          required: true
+          example: ''
+        - name: seasonNumber
+          in: query
+          description: ''
+          required: true
+          example: ''
+    post:
+      summary: Grab a release in Sonarr
+      operationId: Grab a release in Sonarr
+      description: ''
+      tags:
+        - sonarr
+      responses:
+        '200':
+          description: ''
+      requestBody:
+        $ref: '#/components/requestBodies/grab_a_release_in_sonarr'
+  /api/sonarr/command:
+    post:
+      summary: Run a Sonarr command
+      operationId: Run a Sonarr command
+      description: ''
+      tags:
+        - sonarr
+      responses:
+        '200':
+          description: ''
+      requestBody:
+        $ref: '#/components/requestBodies/run_a_sonarr_command'
+  /api/sonarr/rootfolder:
+    get:
+      summary: Get Sonarr root folders
+      operationId: Get Sonarr root folders
+      description: ''
+      tags:
+        - sonarr
+      responses:
+        '200':
+          description: ''
+  /api/status:
+    get:
+      summary: Get server setup status
+      operationId: Get server setup status
+      description: ''
+      tags:
+        - setup
+      responses:
+        '200':
+          description: ''
+  /api/setup:
+    post:
+      summary: Initial server setup
+      operationId: Initial server setup
+      description: ''
+      tags:
+        - setup
+      responses:
+        '200':
+          description: ''
+      requestBody:
+        $ref: '#/components/requestBodies/initial_server_setup'
+  /api/setup/test/:service:
+    post:
+      summary: Test service connection during setup
+      operationId: Test service connection during setup
+      description: ''
+      tags:
+        - setup
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: service
+          in: query
+          description: ''
+          required: true
+          example: ''
+      requestBody:
+        $ref: '#/components/requestBodies/test_service_connection_during_setup'
+  /api/plex/users:
+    get:
+      summary: List Plex users
+      operationId: List Plex users
+      description: ''
+      tags:
+        - plex
+      responses:
+        '200':
+          description: ''
+  /api/subtitles/search:
+    get:
+      summary: Search OpenSubtitles
+      operationId: Search OpenSubtitles
+      description: ''
+      tags:
+        - subtitles
+      responses:
+        '200':
+          description: ''
+      parameters:
+        - name: query
+          in: query
+          description: ''
+          required: true
+          example: ''
+        - name: imdb_id
+          in: query
+          description: ''
+          required: true
+          example: ''
+        - name: tmdb_id
+          in: query
+          description: ''
+          required: true
+          example: ''
+        - name: show_rating_key
+          in: query
+          description: ''
+          required: true
+          example: ''
+        - name: season
+          in: query
+          description: ''
+          required: true
+          example: ''
+        - name: episode
+          in: query
+          description: ''
+          required: true
+          example: ''
+        - name: languages
+          in: query
+          description: ''
+          required: true
+          example: ''
+        - name: foreign_parts_only
+          in: query
+          description: ''
+          required: true
+          example: ''
+  /api/subtitles/download:
+    post:
+      summary: Download subtitle as VTT
+      operationId: Download subtitle as VTT
+      description: ''
+      tags:
+        - subtitles
+      responses:
+        '200':
+          description: ''
+      requestBody:
+        $ref: '#/components/requestBodies/download_subtitle_as_vtt'
+  /api/subtitles/upload-to-plex:
+    post:
+      summary: Upload subtitle to Plex
+      operationId: Upload subtitle to Plex
+      description: ''
+      tags:
+        - subtitles
+      responses:
+        '200':
+          description: ''
+      requestBody:
+        $ref: '#/components/requestBodies/upload_subtitle_to_plex'
+servers:
+  - url: http://127.0.0.1:8080
+components:
+  schemas:
+    pause_or_resume_downloads:
+      type: object
+      properties:
+        action:
+          type: string
+    add/request_a_movie_in_radarr:
+      type: object
+    update_a_movie_in_radarr:
+      type: object
+    run_a_radarr_command:
+      type: object
+    grab_a_release_in_radarr:
+      type: object
+    update_plex_server_configuration:
+      type: object
+      properties:
+        url:
+          type: string
+        token:
+          type: string
+    update_download_client_configurations:
+      type: array
+      items:
+        type: string
+      properties:
+        '0':
+          type: object
+          properties:
+            name:
+              type: string
+            type:
+              type: string
+            url:
+              type: string
+            api_key:
+              type: string
+            username:
+              type: string
+            password:
+              type: string
+            enabled:
+              type: boolean
+    update_sonarr_configuration:
+      type: object
+      properties:
+        url:
+          type: string
+        api_key:
+          type: string
+    update_radarr_configuration:
+      type: object
+      properties:
+        url:
+          type: string
+        api_key:
+          type: string
+    test_connection_to_an_external_service:
+      type: object
+      properties:
+        url:
+          type: string
+        token:
+          type: string
+        api_key:
+          type: string
+        type:
+          type: string
+        username:
+          type: string
+        password:
+          type: string
+    update_opensubtitles_configuration:
+      type: object
+      properties:
+        api_key:
+          type: string
+    report_playback_progress_to_plex:
+      type: object
+      properties:
+        ratingKey:
+          type: string
+        key:
+          type: string
+        state:
+          type: string
+        time:
+          type: number
+        duration:
+          type: number
+    stop_playback:
+      type: object
+      properties:
+        ratingKey:
+          type: string
+        key:
+          type: string
+        time:
+          type: number
+        duration:
+          type: number
+        sessionId:
+          type: string
+    create_a_watch_together_room:
+      type: object
+      properties:
+        name:
+          type: string
+        accessMode:
+          type: string
+        allowedUserIds:
+          type: array
+          items:
+            type: string
+    kick_user_from_watch_party_room:
+      type: object
+      properties:
+        user_id:
+          type: number
+        reason:
+          type: string
+    update_episode_monitoring_status:
+      type: object
+    add/request_a_tv_show_in_sonarr:
+      type: object
+    update_a_series_in_sonarr:
+      type: object
+    grab_a_release_in_sonarr:
+      type: object
+    run_a_sonarr_command:
+      type: object
+    initial_server_setup:
+      type: object
+      properties:
+        plex_url:
+          type: string
+        sonarr:
+          type: object
+          properties:
+            url:
+              type: string
+            api_key:
+              type: string
+        radarr:
+          type: object
+          properties:
+            url:
+              type: string
+            api_key:
+              type: string
+        download_clients:
+          type: array
+          items:
+            type: string
+    test_service_connection_during_setup:
+      type: object
+      properties:
+        url:
+          type: string
+        api_key:
+          type: string
+        type:
+          type: string
+        username:
+          type: string
+        password:
+          type: string
+    download_subtitle_as_vtt:
+      type: object
+      properties:
+        file_id:
+          type: number
+    upload_subtitle_to_plex:
+      type: object
+      properties:
+        file_id:
+          type: number
+        rating_key:
+          type: string
+        language_code:
+          type: string
+  requestBodies:
+    pause_or_resume_downloads:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/pause_or_resume_downloads'
+      description: ''
+      required: true
+    add/request_a_movie_in_radarr:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/add/request_a_movie_in_radarr'
+      description: ''
+      required: true
+    update_a_movie_in_radarr:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/update_a_movie_in_radarr'
+      description: ''
+      required: true
+    run_a_radarr_command:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/run_a_radarr_command'
+      description: ''
+      required: true
+    grab_a_release_in_radarr:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/grab_a_release_in_radarr'
+      description: ''
+      required: true
+    update_plex_server_configuration:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/update_plex_server_configuration'
+      description: ''
+      required: true
+    update_download_client_configurations:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/update_download_client_configurations'
+      description: ''
+      required: true
+    update_sonarr_configuration:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/update_sonarr_configuration'
+      description: ''
+      required: true
+    update_radarr_configuration:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/update_radarr_configuration'
+      description: ''
+      required: true
+    test_connection_to_an_external_service:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/test_connection_to_an_external_service'
+      description: ''
+      required: true
+    update_opensubtitles_configuration:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/update_opensubtitles_configuration'
+      description: ''
+      required: true
+    report_playback_progress_to_plex:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/report_playback_progress_to_plex'
+      description: ''
+      required: true
+    stop_playback:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/stop_playback'
+      description: ''
+      required: true
+    create_a_watch_together_room:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/create_a_watch_together_room'
+      description: ''
+      required: true
+    kick_user_from_watch_party_room:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/kick_user_from_watch_party_room'
+      description: ''
+      required: true
+    update_episode_monitoring_status:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/update_episode_monitoring_status'
+      description: ''
+      required: true
+    add/request_a_tv_show_in_sonarr:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/add/request_a_tv_show_in_sonarr'
+      description: ''
+      required: true
+    update_a_series_in_sonarr:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/update_a_series_in_sonarr'
+      description: ''
+      required: true
+    grab_a_release_in_sonarr:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/grab_a_release_in_sonarr'
+      description: ''
+      required: true
+    run_a_sonarr_command:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/run_a_sonarr_command'
+      description: ''
+      required: true
+    initial_server_setup:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/initial_server_setup'
+      description: ''
+      required: true
+    test_service_connection_during_setup:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/test_service_connection_during_setup'
+      description: ''
+      required: true
+    download_subtitle_as_vtt:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/download_subtitle_as_vtt'
+      description: ''
+      required: true
+    upload_subtitle_to_plex:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/upload_subtitle_to_plex'
+      description: ''
+      required: true
+  securitySchemes: {}
