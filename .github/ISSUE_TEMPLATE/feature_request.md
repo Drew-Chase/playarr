@@ -3,7 +3,8 @@ name: Feature Request
 about: Suggest a new feature or improvement for Playarr
 title: "[FEATURE] "
 labels: enhancement
-assignees: ''
+assignees: Drew-Chase
+
 ---
 
 ## Problem or Motivation
