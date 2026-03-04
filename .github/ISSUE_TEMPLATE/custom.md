@@ -3,7 +3,8 @@ name: Bug Report
 about: Report a bug or unexpected behavior in Playarr
 title: "[BUG] "
 labels: bug
-assignees: ''
+assignees: Drew-Chase
+
 ---
 
 ## Bug Description
