@@ -1,4 +1,4 @@
-import {createContext, ReactNode, useContext, useState} from "react";
+import {createContext, ReactNode, useCallback, useContext, useMemo, useState} from "react";
 import type {PlexMediaItem, StreamInfo} from "../lib/types.ts";
 
 interface PlayerState {
@@ -16,7 +16,21 @@ interface PlayerState {
     isDrawerOpen: boolean;
 }
 
-interface PlayerContextType extends PlayerState {
+interface QueueContextType {
+    queue: PlexMediaItem[];
+    queueIndex: number;
+    isQueueActive: boolean;
+    addToQueue: (items: PlexMediaItem[]) => void;
+    playNext: (items: PlexMediaItem[]) => void;
+    removeFromQueue: (index: number) => void;
+    clearQueue: () => void;
+    playFromQueue: (index: number) => void;
+    advanceQueue: () => PlexMediaItem | null;
+    retreatQueue: () => PlexMediaItem | null;
+    syncQueueIndex: (ratingKey: string) => void;
+}
+
+interface PlayerContextType extends PlayerState, QueueContextType {
     setCurrentItem: (item: PlexMediaItem | null) => void;
     setStreamInfo: (info: StreamInfo | null) => void;
     setIsPlaying: (playing: boolean) => void;
@@ -47,6 +61,65 @@ export function PlayerProvider({children}: { children: ReactNode }) {
     const [quality, setQuality] = useState("original");
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
+    // Queue state
+    const [queue, setQueue] = useState<PlexMediaItem[]>([]);
+    const [queueIndex, setQueueIndex] = useState(-1);
+
+    const isQueueActive = useMemo(() => queue.length > 0, [queue.length]);
+
+    const addToQueue = useCallback((items: PlexMediaItem[]) => {
+        setQueue(prev => [...prev, ...items]);
+    }, []);
+
+    const playNext = useCallback((items: PlexMediaItem[]) => {
+        setQueue(prev => {
+            const insertAt = queueIndex >= 0 ? queueIndex + 1 : 0;
+            return [...prev.slice(0, insertAt), ...items, ...prev.slice(insertAt)];
+        });
+    }, [queueIndex]);
+
+    const removeFromQueue = useCallback((index: number) => {
+        setQueue(prev => prev.filter((_, i) => i !== index));
+        setQueueIndex(prev => {
+            if (index < prev) return prev - 1;
+            if (index === prev && prev >= queue.length - 1) return prev - 1;
+            return prev;
+        });
+    }, [queue.length]);
+
+    const clearQueue = useCallback(() => {
+        setQueue([]);
+        setQueueIndex(-1);
+    }, []);
+
+    const playFromQueue = useCallback((index: number) => {
+        setQueueIndex(index);
+    }, []);
+
+    const advanceQueue = useCallback((): PlexMediaItem | null => {
+        const nextIdx = queueIndex + 1;
+        if (nextIdx < queue.length) {
+            setQueueIndex(nextIdx);
+            return queue[nextIdx];
+        }
+        return null;
+    }, [queue, queueIndex]);
+
+    const retreatQueue = useCallback((): PlexMediaItem | null => {
+        const prevIdx = queueIndex - 1;
+        if (prevIdx >= 0) {
+            setQueueIndex(prevIdx);
+            return queue[prevIdx];
+        }
+        return null;
+    }, [queue, queueIndex]);
+
+    const syncQueueIndex = useCallback((ratingKey: string) => {
+        if (queue.length === 0) return;
+        const idx = queue.findIndex(item => item.ratingKey === ratingKey);
+        if (idx >= 0) setQueueIndex(idx);
+    }, [queue]);
+
     return (
         <PlayerContext.Provider
             value={{
@@ -74,6 +147,18 @@ export function PlayerProvider({children}: { children: ReactNode }) {
                 setSelectedAudioId,
                 setQuality,
                 setIsDrawerOpen,
+                // Queue
+                queue,
+                queueIndex,
+                isQueueActive,
+                addToQueue,
+                playNext,
+                removeFromQueue,
+                clearQueue,
+                playFromQueue,
+                advanceQueue,
+                retreatQueue,
+                syncQueueIndex,
             }}
         >
             {children}

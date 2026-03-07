@@ -1,10 +1,13 @@
 import {useState} from "react";
-import {Progress} from "@heroui/react";
+import {Progress, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, DropdownSection, Button} from "@heroui/react";
 import {useNavigate, useLocation} from "react-router-dom";
 import {motion} from "framer-motion";
 import {Icon} from "@iconify-icon/react";
+import {toast} from "sonner";
 import type {PlexMediaItem} from "../../lib/types.ts";
 import {plexImage} from "../../lib/utils.ts";
+import {plexApi} from "../../lib/plex.ts";
+import {usePlayer} from "../../providers/PlayerProvider.tsx";
 import ResumePlaybackModal from "./ResumePlaybackModal.tsx";
 
 interface MediaCardProps
@@ -20,6 +23,7 @@ export default function MediaCard({item, showProgress, width, variant = "portrai
     const navigate = useNavigate();
     const location = useLocation();
     const [showResumeModal, setShowResumeModal] = useState(false);
+    const {addToQueue, playNext} = usePlayer();
 
     const handleClick = () =>
     {
@@ -37,6 +41,18 @@ export default function MediaCard({item, showProgress, width, variant = "portrai
         {
             navigate(`/player/${item.ratingKey}?from=${encodeURIComponent(location.pathname)}`);
         }
+    };
+
+    const handleAddToQueue = async () => {
+        const items = await resolveQueueItems(item);
+        addToQueue(items);
+        toast.success(`Added ${items.length > 1 ? `${items.length} episodes` : item.title} to queue`);
+    };
+
+    const handlePlayNext = async () => {
+        const items = await resolveQueueItems(item);
+        playNext(items);
+        toast.success(`Playing ${items.length > 1 ? `${items.length} episodes` : item.title} next`);
     };
 
     const resumeModal = (
@@ -61,6 +77,37 @@ export default function MediaCard({item, showProgress, width, variant = "portrai
         ? `S${item.parentIndex?.toString().padStart(2, "0")}E${item.index?.toString().padStart(2, "0")} ${item.title}`
         : item.year?.toString() || "";
 
+    const queueMenu = (
+        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={(e) => e.stopPropagation()}>
+            <Dropdown>
+                <DropdownTrigger>
+                    <Button isIconOnly size="sm" variant="flat" className="bg-black/60 min-w-6 w-6 h-6">
+                        <Icon icon="mdi:dots-vertical" width="14" className="text-white"/>
+                    </Button>
+                </DropdownTrigger>
+                <DropdownMenu aria-label="Media actions" onAction={(key) => {
+                    if (key === "play") handlePlay({stopPropagation: () => {}} as React.MouseEvent);
+                    if (key === "play-next") handlePlayNext();
+                    if (key === "add-to-queue") handleAddToQueue();
+                }}>
+                    <DropdownSection title="Playback">
+                        <DropdownItem key="play" startContent={<Icon icon="mdi:play" width="16"/>}>
+                            Play
+                        </DropdownItem>
+                    </DropdownSection>
+                    <DropdownSection title="Queue">
+                        <DropdownItem key="play-next" startContent={<Icon icon="mdi:playlist-play" width="16"/>}>
+                            Play Next
+                        </DropdownItem>
+                        <DropdownItem key="add-to-queue" startContent={<Icon icon="mdi:playlist-plus" width="16"/>}>
+                            Add to Queue
+                        </DropdownItem>
+                    </DropdownSection>
+                </DropdownMenu>
+            </Dropdown>
+        </div>
+    );
+
     if (variant === "landscape")
     {
         const artUrl = plexImage(item.art, 560, 316) || plexImage(item.thumb, 560, 316);
@@ -80,6 +127,7 @@ export default function MediaCard({item, showProgress, width, variant = "portrai
                             src={artUrl}
                             loading="lazy"
                         />
+                        {queueMenu}
                         {/* Hover play overlay */}
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
                             <button className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={handlePlay}>
@@ -136,6 +184,7 @@ export default function MediaCard({item, showProgress, width, variant = "portrai
                             <Icon icon="mdi:check-circle" width="20" className="text-primary drop-shadow-md"/>
                         </div>
                     )}
+                    {queueMenu}
                     {/* Hover play overlay */}
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
                         <button className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={handlePlay}>
@@ -167,4 +216,28 @@ export default function MediaCard({item, showProgress, width, variant = "portrai
             {resumeModal}
         </>
     );
+}
+
+/** Resolve an item to playable queue items. Shows/seasons fetch all child episodes. */
+async function resolveQueueItems(item: PlexMediaItem): Promise<PlexMediaItem[]> {
+    if (item.type === "movie" || item.type === "episode") {
+        return [item];
+    }
+    if (item.type === "show") {
+        try {
+            return await plexApi.getAllEpisodes(item.ratingKey);
+        } catch {
+            toast.error("Failed to fetch episodes");
+            return [];
+        }
+    }
+    if (item.type === "season") {
+        try {
+            return await plexApi.getChildren(item.ratingKey);
+        } catch {
+            toast.error("Failed to fetch episodes");
+            return [];
+        }
+    }
+    return [item];
 }

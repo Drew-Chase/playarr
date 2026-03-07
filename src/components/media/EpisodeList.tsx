@@ -12,6 +12,7 @@ import {toast} from "sonner";
 import type {PlexMediaItem, QueueItem, SonarrEpisode, TmdbEpisode} from "../../lib/types.ts";
 import {formatDuration, tmdbImage} from "../../lib/utils.ts";
 import {plexApi} from "../../lib/plex.ts";
+import {usePlayer} from "../../providers/PlayerProvider.tsx";
 import ResumePlaybackModal from "./ResumePlaybackModal.tsx";
 import ManualSearchModal from "../discover/ManualSearchModal.tsx";
 
@@ -28,6 +29,7 @@ function EpisodeCard({episode, index, downloadItem, sonarrEpisode, realtimeProgr
     const [showResumeModal, setShowResumeModal] = useState(false);
     const [manualSearchOpen, setManualSearchOpen] = useState(false);
     const [watchedOverride, setWatchedOverride] = useState<boolean | null>(null);
+    const {addToQueue, playNext} = usePlayer();
 
     const progress = episode.viewOffset && episode.duration
         ? (episode.viewOffset / episode.duration) * 100
@@ -144,6 +146,14 @@ function EpisodeCard({episode, index, downloadItem, sonarrEpisode, realtimeProgr
                                         if (key === "manual-search") setManualSearchOpen(true);
                                         if (key === "mark-watched") handleMarkWatched();
                                         if (key === "mark-unwatched") handleMarkUnwatched();
+                                        if (key === "play-next") {
+                                            playNext([episode]);
+                                            toast.success(`Playing ${episode.title} next`);
+                                        }
+                                        if (key === "add-to-queue") {
+                                            addToQueue([episode]);
+                                            toast.success(`Added ${episode.title} to queue`);
+                                        }
                                     }}>
                                         {sonarrEpisode ? (
                                             <DropdownSection title="Sonarr" showDivider>
@@ -155,6 +165,14 @@ function EpisodeCard({episode, index, downloadItem, sonarrEpisode, realtimeProgr
                                                 </DropdownItem>
                                             </DropdownSection>
                                         ) : null}
+                                        <DropdownSection title="Queue" showDivider>
+                                            <DropdownItem key="play-next" startContent={<Icon icon="mdi:playlist-play" width="16"/>}>
+                                                Play Next
+                                            </DropdownItem>
+                                            <DropdownItem key="add-to-queue" startContent={<Icon icon="mdi:playlist-plus" width="16"/>}>
+                                                Add to Queue
+                                            </DropdownItem>
+                                        </DropdownSection>
                                         <DropdownSection title="Plex">
                                             {isWatched ? (
                                                 <DropdownItem key="mark-unwatched" startContent={<Icon icon="mdi:eye-off" width="16"/>}>

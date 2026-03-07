@@ -34,7 +34,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const fromParam = searchParams.get("from");
     const backPath = fromParam || "/";
     const {isGuest} = useAuth();
-    const {isDrawerOpen} = usePlayer();
+    const {isDrawerOpen, isQueueActive} = usePlayer();
     const watchParty = useWatchPartyContext();
     const videoRef = useRef<HTMLVideoElement>(null);
     const hlsRef = useRef<Hls | null>(null);
@@ -1193,7 +1193,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 participants={watchParty?.activeRoom?.participants}
                 hostUserId={watchParty?.activeRoom?.host_user_id}
                 bufferingUsers={isInParty ? bufferingUsers : undefined}
-                onToggleQueue={(episodes?.length || isInParty) ? () => setShowQueue(q => !q) : undefined}
+                onToggleQueue={(episodes?.length || isInParty || isQueueActive) ? () => setShowQueue(q => !q) : undefined}
                 onNext={onNext}
                 onPrevious={onPrevious}
                 hasNext={hasNext}
@@ -1227,11 +1227,11 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 />
             )}
 
-            {episodes && episodes.length > 0 && (
+            {(isQueueActive || (episodes && episodes.length > 0)) && (
                 <EpisodeQueuePanel
                     isOpen={showQueue}
                     onClose={() => setShowQueue(false)}
-                    episodes={episodes}
+                    episodes={episodes || []}
                     currentRatingKey={item.ratingKey}
                     onSelectEpisode={(ratingKey) => navigate(`/player/${ratingKey}${fromParam ? `?from=${encodeURIComponent(fromParam)}` : ""}`, {replace: true})}
                 />
