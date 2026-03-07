@@ -3,7 +3,7 @@ import Hls from "hls.js";
 import {useNavigate, useSearchParams} from "react-router-dom";
 import {plexApi} from "../../lib/plex.ts";
 import {checkDirectPlayability, type PlayRecommendation} from "../../lib/codec-support.ts";
-import {QUALITY_GROUPS, ALL_QUALITY_KEYS} from "./QualitySelector.tsx";
+import {QUALITY_GROUPS, ALL_QUALITY_KEYS} from "./PlayerSettingsMenu.tsx";
 import {parseBif} from "../../lib/bif-parser.ts";
 import type {PlexMediaItem, StreamInfo, PlexStream, BifData, WsMessage} from "../../lib/types.ts";
 import {useAuth} from "../../providers/AuthProvider.tsx";
@@ -1009,7 +1009,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
 
     return (
         <div
-            className="relative w-screen h-screen bg-black"
+            className="relative w-screen h-screen bg-black overflow-none"
             style={{cursor: (showControls || creditsActive) ? "default" : "none"}}
         >
             <video

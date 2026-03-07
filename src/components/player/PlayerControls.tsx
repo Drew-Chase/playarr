@@ -2,9 +2,7 @@ import {Button, Slider, Tooltip} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {formatTimestamp} from "../../lib/utils.ts";
 import type {BifData, PlexStream, WatchPartyParticipant} from "../../lib/types.ts";
-import SubtitleSelector from "./SubtitleSelector.tsx";
-import AudioSelector from "./AudioSelector.tsx";
-import QualitySelector, {type QualityGroup} from "./QualitySelector.tsx";
+import PlayerSettingsMenu, {type QualityGroup} from "./PlayerSettingsMenu.tsx";
 import SeekBar from "./SeekBar.tsx";
 import ParticipantsPopover from "./ParticipantsPopover.tsx";
 import {motion} from "framer-motion";
@@ -216,24 +214,14 @@ export default function PlayerControls({
 
                 {/* Right controls */}
                 <div className="flex items-center gap-1">
-                    {onOpenSubtitleSearch && (
-                        <Button
-                            isIconOnly
-                            variant="light"
-                            size="sm"
-                            onPress={onOpenSubtitleSearch}
-                            className="text-white"
-                        >
-                            <Icon icon="mdi:subtitles-outline" width="20"/>
-                        </Button>
-                    )}
-                    {subtitleStreams.length > 0 && (
-                        <SubtitleSelector streams={subtitleStreams}/>
-                    )}
-                    {audioStreams.length > 1 && (
-                        <AudioSelector streams={audioStreams}/>
-                    )}
-                    <QualitySelector quality={quality} groups={qualityGroups} onQualityChange={onQualityChange}/>
+                    <PlayerSettingsMenu
+                        subtitleStreams={subtitleStreams}
+                        audioStreams={audioStreams}
+                        quality={quality}
+                        qualityGroups={qualityGroups}
+                        onQualityChange={onQualityChange}
+                        onOpenSubtitleSearch={onOpenSubtitleSearch}
+                    />
                     {isInParty && participants && hostUserId !== undefined && (
                         <ParticipantsPopover participants={participants} hostUserId={hostUserId} bufferingUsers={bufferingUsers}/>
                     )}
