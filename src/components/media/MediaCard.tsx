@@ -1,4 +1,4 @@
-import {useState} from "react";
+import React, {memo, useEffect, useRef, useState} from "react";
 import {Progress, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, DropdownSection, Button} from "@heroui/react";
 import {useNavigate, useLocation} from "react-router-dom";
 import {motion} from "framer-motion";
@@ -16,9 +16,34 @@ interface MediaCardProps
     showProgress?: boolean;
     variant?: "portrait" | "landscape";
     width?: number;
+    lazy?: boolean;
 }
 
-export default function MediaCard({item, showProgress, width, variant = "portrait"}: MediaCardProps)
+/** Resolve an item to playable queue items. Shows/seasons fetch all child episodes. */
+async function resolveQueueItems(item: PlexMediaItem): Promise<PlexMediaItem[]> {
+    if (item.type === "movie" || item.type === "episode") {
+        return [item];
+    }
+    if (item.type === "show") {
+        try {
+            return await plexApi.getAllEpisodes(item.ratingKey);
+        } catch {
+            toast.error("Failed to fetch episodes");
+            return [];
+        }
+    }
+    if (item.type === "season") {
+        try {
+            return await plexApi.getChildren(item.ratingKey);
+        } catch {
+            toast.error("Failed to fetch episodes");
+            return [];
+        }
+    }
+    return [item];
+}
+
+const MediaCardInner = memo(function MediaCardInner({item, showProgress, width, variant = "portrait"}: Omit<MediaCardProps, "lazy">)
 {
     const navigate = useNavigate();
     const location = useLocation();
@@ -137,7 +162,9 @@ export default function MediaCard({item, showProgress, width, variant = "portrai
 
     if (variant === "landscape")
     {
-        const artUrl = plexImage(item.art, 560, 316) || plexImage(item.thumb, 560, 316);
+        const artUrl = item.type === "episode"
+            ? (plexImage(item.thumb, 560, 316) || plexImage(item.art, 560, 316))
+            : (plexImage(item.art, 560, 316) || plexImage(item.thumb, 560, 316));
 
         return (
             <>
@@ -147,7 +174,7 @@ export default function MediaCard({item, showProgress, width, variant = "portrai
                     className="shrink-0 cursor-pointer group scroll-snap-start"
                     onClick={handleClick}
                 >
-                    <div className="relative aspect-[3/1.5] rounded-lg overflow-hidden bg-content2" style={{width: width ?? "280px"}}>
+                    <div className="relative aspect-[3/1.5] rounded-lg overflow-hidden bg-content2" style={{width: width ? `${width}px` : "100%"}}>
                         <img
                             alt={item.title}
                             className="object-cover w-full h-full"
@@ -243,28 +270,47 @@ export default function MediaCard({item, showProgress, width, variant = "portrai
             {resumeModal}
         </>
     );
-}
+});
 
-/** Resolve an item to playable queue items. Shows/seasons fetch all child episodes. */
-async function resolveQueueItems(item: PlexMediaItem): Promise<PlexMediaItem[]> {
-    if (item.type === "movie" || item.type === "episode") {
-        return [item];
+export default function MediaCard({lazy, ...props}: MediaCardProps)
+{
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [isVisible, setIsVisible] = useState(!lazy);
+
+    useEffect(() => {
+        if (!lazy) return;
+        const el = containerRef.current;
+        if (!el) return;
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                setIsVisible(entry.isIntersecting);
+            },
+            {rootMargin: "400px"},
+        );
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, [lazy]);
+
+    if (!lazy) {
+        return <MediaCardInner {...props} />;
     }
-    if (item.type === "show") {
-        try {
-            return await plexApi.getAllEpisodes(item.ratingKey);
-        } catch {
-            toast.error("Failed to fetch episodes");
-            return [];
-        }
-    }
-    if (item.type === "season") {
-        try {
-            return await plexApi.getChildren(item.ratingKey);
-        } catch {
-            toast.error("Failed to fetch episodes");
-            return [];
-        }
-    }
-    return [item];
+
+    const {variant = "portrait", width} = props;
+    const w = width ?? "100%";
+
+    return (
+        <div
+            ref={containerRef}
+            style={{
+                width: typeof w === "number" ? `${w}px` : w,
+                aspectRatio: variant === "landscape" ? "3/1.5" : "2/3",
+            }}
+        >
+            {isVisible ? <MediaCardInner {...props} /> : (
+                <div
+                    className="rounded-lg bg-content2 w-full h-full"
+                />
+            )}
+        </div>
+    );
 }

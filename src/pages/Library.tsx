@@ -269,7 +269,7 @@ export default function Library() {
                                     ref={anchor ? (el) => registerAnchor(anchor, el) : undefined}
                                     data-letter={anchor || undefined}
                                 >
-                                    <MediaCard item={item} width={250} variant={"portrait"}/>
+                                    <MediaCard item={item} width={250} variant={"portrait"} lazy/>
                                 </div>
                             );
                         })}
