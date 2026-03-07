@@ -121,6 +121,22 @@ export function usePlaylists() {
     });
 }
 
+export function usePlaylistMetadata(id: string) {
+    return useQuery({
+        queryKey: ["plex", "playlist", id],
+        queryFn: () => plexApi.getPlaylistMetadata(id),
+        enabled: !!id,
+    });
+}
+
+export function usePlaylistItems(id: string) {
+    return useQuery({
+        queryKey: ["plex", "playlist", id, "items"],
+        queryFn: () => plexApi.getPlaylistItems(id),
+        enabled: !!id,
+    });
+}
+
 export function useSearch(query: string) {
     return useQuery({
         queryKey: ["plex", "search", query],

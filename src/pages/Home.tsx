@@ -146,7 +146,7 @@ function PlaylistCard({playlist}: { playlist: PlexPlaylist }) {
             whileHover={{scale: 1.05}}
             transition={{type: "tween", duration: 0.2}}
             className="shrink-0 w-[250px] group scroll-snap-start cursor-pointer"
-            onClick={() => navigate(`/detail/${playlist.ratingKey}`)}
+            onClick={() => navigate(`/playlist/${playlist.ratingKey}`)}
         >
             <div className="relative w-[250px] h-[375px] rounded-lg overflow-hidden bg-content2">
                 {imgSrc ? (

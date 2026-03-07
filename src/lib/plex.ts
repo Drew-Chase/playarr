@@ -125,6 +125,10 @@ export const plexApi = {
 
     getPlaylists: () => api.get<PlexPlaylist[]>("/hubs/playlists"),
 
+    getPlaylistMetadata: (id: string) => api.get<PlexPlaylist>(`/hubs/playlists/${id}`),
+
+    getPlaylistItems: (id: string) => api.get<PlexMediaItem[]>(`/hubs/playlists/${id}/items`),
+
     // Search
     search: (query: string) => api.get<SearchHub[]>("/search", { q: query }),
 

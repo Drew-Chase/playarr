@@ -149,6 +149,41 @@ async fn playlists(
     }
 }
 
+#[get("/playlists/{id}")]
+async fn playlist_metadata(
+    req: HttpRequest,
+    plex: web::Data<PlexClient>,
+    path: web::Path<String>,
+) -> Result<impl Responder> {
+    let id = path.into_inner();
+    let user_token = PlexClient::user_token_from_request(&req).unwrap_or_default();
+    let body = plex
+        .get_json_as_user(&format!("/playlists/{}", id), &user_token, &[])
+        .await?;
+    let metadata = &body["MediaContainer"]["Metadata"];
+    let item = metadata.get(0).unwrap_or(metadata);
+    Ok(HttpResponse::Ok().json(item))
+}
+
+#[get("/playlists/{id}/items")]
+async fn playlist_items(
+    req: HttpRequest,
+    plex: web::Data<PlexClient>,
+    path: web::Path<String>,
+) -> Result<impl Responder> {
+    let id = path.into_inner();
+    let user_token = PlexClient::user_token_from_request(&req).unwrap_or_default();
+    let body = plex
+        .get_json_as_user(&format!("/playlists/{}/items", id), &user_token, &[])
+        .await?;
+    let items = &body["MediaContainer"]["Metadata"];
+    if items.is_null() {
+        Ok(HttpResponse::Ok().json(serde_json::json!([])))
+    } else {
+        Ok(HttpResponse::Ok().json(items))
+    }
+}
+
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/hubs")
@@ -156,6 +191,8 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
             .service(on_deck)
             .service(recently_added)
             .service(recommendations)
+            .service(playlist_metadata)
+            .service(playlist_items)
             .service(playlists),
     );
 }
