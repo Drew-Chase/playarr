@@ -1,7 +1,14 @@
 use actix_web::{get, web, HttpRequest, HttpResponse, Responder};
+use serde::Deserialize;
 use std::collections::HashSet;
 use crate::http_error::Result;
 use crate::plex::client::PlexClient;
+
+#[derive(Deserialize)]
+struct RecommendationParams {
+    count: Option<u32>,
+    limit: Option<u32>,
+}
 
 #[get("/continue-watching")]
 async fn continue_watching(
@@ -47,13 +54,20 @@ async fn recently_added(
 }
 
 /// Build "Because You Watched X" recommendations from the user's watch history.
-/// Fetches similar items for up to 10 movies and 10 TV shows concurrently.
+/// Fetches similar items for up to `count` sources and returns up to `limit` items per row.
+///
+/// Query params:
+/// - `count` — max number of recommendation rows (default 5)
+/// - `limit` — max items per row (default 20)
 #[get("/recommendations")]
 async fn recommendations(
     req: HttpRequest,
     plex: web::Data<PlexClient>,
+    query: web::Query<RecommendationParams>,
 ) -> Result<impl Responder> {
     let user_token = PlexClient::user_token_from_request(&req).unwrap_or_default();
+    let max_rows = query.count.unwrap_or(5).min(20) as usize;
+    let items_per_row = query.limit.unwrap_or(20).min(50) as usize;
 
     // Fetch multiple sources of watch history concurrently
     let (cw_result, od_result, rv_result) = futures_util::future::join3(
@@ -86,52 +100,42 @@ async fn recommendations(
         return Ok(HttpResponse::Ok().json(serde_json::json!([])));
     }
 
-    // Separate into movie sources and TV show sources, deduplicate
-    let mut movie_sources: Vec<(String, String)> = Vec::new();
-    let mut show_sources: Vec<(String, String)> = Vec::new();
+    // Collect unique sources (movies and shows), deduplicated, up to max_rows total
+    let mut all_sources: Vec<(String, String)> = Vec::new();
     let mut seen = HashSet::new();
 
     for item in &all_items {
+        if all_sources.len() >= max_rows { break; }
         let item_type = item["type"].as_str().unwrap_or("");
-        match item_type {
-            "movie" => {
-                if movie_sources.len() >= 10 { continue; }
-                let id = item["ratingKey"].as_str().unwrap_or("").to_string();
-                let title = item["title"].as_str().unwrap_or("Unknown").to_string();
-                if !id.is_empty() && seen.insert(id.clone()) {
-                    movie_sources.push((id, title));
-                }
-            }
-            "episode" => {
-                if show_sources.len() >= 10 { continue; }
-                let gid = item["grandparentRatingKey"].as_str().unwrap_or("").to_string();
-                let gtitle = item["grandparentTitle"].as_str().unwrap_or("Unknown").to_string();
-                if !gid.is_empty() && seen.insert(gid.clone()) {
-                    show_sources.push((gid, gtitle));
-                }
-            }
-            "show" => {
-                if show_sources.len() >= 10 { continue; }
-                let id = item["ratingKey"].as_str().unwrap_or("").to_string();
-                let title = item["title"].as_str().unwrap_or("Unknown").to_string();
-                if !id.is_empty() && seen.insert(id.clone()) {
-                    show_sources.push((id, title));
-                }
-            }
-            _ => {}
+        let (id, title) = match item_type {
+            "movie" => (
+                item["ratingKey"].as_str().unwrap_or("").to_string(),
+                item["title"].as_str().unwrap_or("Unknown").to_string(),
+            ),
+            "episode" => (
+                item["grandparentRatingKey"].as_str().unwrap_or("").to_string(),
+                item["grandparentTitle"].as_str().unwrap_or("Unknown").to_string(),
+            ),
+            "show" => (
+                item["ratingKey"].as_str().unwrap_or("").to_string(),
+                item["title"].as_str().unwrap_or("Unknown").to_string(),
+            ),
+            _ => continue,
+        };
+        if !id.is_empty() && seen.insert(id.clone()) {
+            all_sources.push((id, title));
         }
     }
 
-    // Fetch similar items for all sources concurrently
-    let all_sources: Vec<_> = movie_sources.into_iter().chain(show_sources).collect();
-
+    let container_size = items_per_row.to_string();
     let futures: Vec<_> = all_sources.iter().map(|(id, title)| {
         let plex = plex.clone();
         let id = id.clone();
         let title = title.clone();
+        let container_size = container_size.clone();
         async move {
             let req = match plex.get(&format!("/library/metadata/{}/similar", id)) {
-                Ok(r) => r.query(&[("X-Plex-Container-Size", "15")]),
+                Ok(r) => r.query(&[("X-Plex-Container-Size", &container_size)]),
                 Err(_) => return None,
             };
             let body = match plex.send_json(req).await {

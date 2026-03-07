@@ -108,7 +108,8 @@ export const plexApi = {
 
     getRecentlyAdded: () => api.get<PlexMediaItem[]>("/hubs/recently-added"),
 
-    getRecommendations: () => api.get<RecommendationGroup[]>("/hubs/recommendations"),
+    getRecommendations: (count = 5, limit = 20) =>
+        api.get<RecommendationGroup[]>(`/hubs/recommendations?count=${count}&limit=${limit}`),
 
     // Libraries (genre browsing)
     getLibraryGenres: (key: string) =>

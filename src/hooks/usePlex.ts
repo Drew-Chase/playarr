@@ -78,10 +78,10 @@ export function useRecentlyAdded() {
     });
 }
 
-export function useRecommendations() {
+export function useRecommendations(count = 5, limit = 20) {
     return useQuery({
-        queryKey: ["plex", "recommendations"],
-        queryFn: plexApi.getRecommendations,
+        queryKey: ["plex", "recommendations", count, limit],
+        queryFn: () => plexApi.getRecommendations(count, limit),
         staleTime: 60_000,
     });
 }
