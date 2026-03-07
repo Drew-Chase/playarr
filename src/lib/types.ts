@@ -389,6 +389,47 @@ export interface DiscoverResults {
     tv?: TmdbItem[];
 }
 
+export interface RecommendationGroup {
+    title: string;
+    items: PlexMediaItem[];
+}
+
+export interface GenreGroup {
+    genre: string;
+    items: PlexMediaItem[];
+}
+
+export interface TmdbGenreGroup {
+    genre: string;
+    genre_id: string;
+    items: TmdbItem[];
+}
+
+export interface PlexCollection {
+    ratingKey: string;
+    key: string;
+    title: string;
+    type: string;
+    subtype?: string;
+    thumb?: string;
+    art?: string;
+    childCount?: number;
+    minYear?: number;
+    maxYear?: number;
+}
+
+export interface PlexPlaylist {
+    ratingKey: string;
+    key: string;
+    title: string;
+    type: string;
+    playlistType?: string;
+    thumb?: string;
+    composite?: string;
+    duration?: number;
+    leafCount?: number;
+}
+
 // TMDB detail types
 export interface TmdbGenre {
     id: number;

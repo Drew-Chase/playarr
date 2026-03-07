@@ -11,6 +11,10 @@ import type {
     TimelineUpdate,
     SetupData,
     TmdbVideo,
+    RecommendationGroup,
+    GenreGroup,
+    PlexCollection,
+    PlexPlaylist,
 } from "./types.ts";
 
 // Generate a unique session ID per browser tab so each tab gets its own
@@ -103,6 +107,23 @@ export const plexApi = {
     getOnDeck: () => api.get<PlexMediaItem[]>("/hubs/on-deck"),
 
     getRecentlyAdded: () => api.get<PlexMediaItem[]>("/hubs/recently-added"),
+
+    getRecommendations: () => api.get<RecommendationGroup[]>("/hubs/recommendations"),
+
+    // Libraries (genre browsing)
+    getLibraryGenres: (key: string) =>
+        api.get<Array<{ key: string; title: string }>>(`/libraries/${key}/genres`),
+
+    getLibraryByGenre: (key: string, genres: string[], size?: number) =>
+        api.get<GenreGroup[]>(`/libraries/${key}/by-genre`, {
+            genres: genres.join(","),
+            ...(size ? { size: size.toString() } : {}),
+        }),
+
+    getLibraryCollections: (key: string) =>
+        api.get<PlexCollection[]>(`/libraries/${key}/collections`),
+
+    getPlaylists: () => api.get<PlexPlaylist[]>("/hubs/playlists"),
 
     // Search
     search: (query: string) => api.get<SearchHub[]>("/search", { q: query }),

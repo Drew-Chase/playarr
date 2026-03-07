@@ -397,6 +397,60 @@ async fn youtube_stream(
     Ok(builder.streaming(byte_stream))
 }
 
+/// TMDB genre IDs for movies and TV. Returns items for popular genres.
+/// TMDB genre IDs: Action=28, Comedy=35, Drama=18, Horror=27, Sci-Fi=878,
+/// Thriller=53, Romance=10749, Animation=16, Documentary=99, Crime=80
+#[get("/by-genre")]
+async fn by_genre() -> Result<impl Responder> {
+    let client = tmdb_client();
+
+    let genres = [
+        (28, "Action"),
+        (35, "Comedy"),
+        (878, "Sci-Fi"),
+        (27, "Horror"),
+        (10749, "Romance"),
+        (99, "Documentary"),
+    ];
+
+    let futures: Vec<_> = genres.iter().map(|(id, name)| {
+        let client = client.clone();
+        let genre_id = id.to_string();
+        let genre_name = name.to_string();
+        async move {
+            // Fetch movies for this genre
+            let movies = client
+                .get(format!("{}/discover/movie", TMDB_BASE))
+                .query(&[
+                    ("api_key", TMDB_API_KEY),
+                    ("sort_by", "popularity.desc"),
+                    ("with_genres", genre_id.as_str()),
+                    ("vote_count.gte", "100"),
+                    ("page", "1"),
+                ])
+                .send()
+                .await
+                .ok()?
+                .json::<serde_json::Value>()
+                .await
+                .ok()?;
+
+            let items = movies["results"].as_array()?.clone();
+            if items.is_empty() { return None; }
+            Some(serde_json::json!({
+                "genre": genre_name,
+                "genre_id": genre_id,
+                "items": items
+            }))
+        }
+    }).collect();
+
+    let results = futures_util::future::join_all(futures).await;
+    let groups: Vec<_> = results.into_iter().flatten().collect();
+
+    Ok(HttpResponse::Ok().json(groups))
+}
+
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/discover")
@@ -404,6 +458,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
             .service(trending)
             .service(upcoming)
             .service(recent)
+            .service(by_genre)
             .service(logo)
             .service(videos)
             .service(movie_detail)

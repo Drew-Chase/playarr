@@ -157,17 +157,6 @@ export default function Navigation()
 
                     <NavbarItem>
                         <Link
-                            to="/discover"
-                            className={`text-sm font-medium transition-colors ${
-                                isActive("/discover") ? "text-primary" : "text-foreground/70 hover:text-foreground"
-                            }`}
-                        >
-                            Discover
-                        </Link>
-                    </NavbarItem>
-
-                    <NavbarItem>
-                        <Link
                             to="/calendar"
                             className={`text-sm font-medium transition-colors ${
                                 isActive("/calendar") ? "text-primary" : "text-foreground/70 hover:text-foreground"
@@ -302,18 +291,6 @@ export default function Navigation()
                             </Link>
                         </NavbarMenuItem>
                     ))}
-                    <NavbarMenuItem>
-                        <Link
-                            to="/discover"
-                            className={`flex items-center gap-3 w-full py-2 ${
-                                isActive("/discover") ? "text-primary" : "text-foreground"
-                            }`}
-                            onClick={() => setIsMenuOpen(false)}
-                        >
-                            <Icon icon="mdi:compass" width="18"/>
-                            Discover
-                        </Link>
-                    </NavbarMenuItem>
                     <NavbarMenuItem>
                         <Link
                             to="/calendar"

@@ -11,7 +11,6 @@ import Library from "./pages/Library.tsx";
 import Detail from "./pages/Detail.tsx";
 import Player from "./pages/Player.tsx";
 import Search from "./pages/Search.tsx";
-import Discover from "./pages/Discover.tsx";
 import DiscoverDetail from "./pages/DiscoverDetail.tsx";
 import Calendar from "./pages/Calendar.tsx";
 import Login from "./pages/Login.tsx";
@@ -31,7 +30,6 @@ export function AppRoutes({playerElement}: { playerElement?: React.ReactNode }) 
                 <Route path="/library/:key" element={<Library/>}/>
                 <Route path="/detail/:id" element={<Detail/>}/>
                 <Route path="/search" element={<Search/>}/>
-                <Route path="/discover" element={<Discover/>}/>
                 <Route path="/discover/:mediaType/:tmdbId" element={<DiscoverDetail/>}/>
                 <Route path="/calendar" element={<Calendar/>}/>
             </Route>

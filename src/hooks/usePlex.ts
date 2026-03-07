@@ -78,6 +78,49 @@ export function useRecentlyAdded() {
     });
 }
 
+export function useRecommendations() {
+    return useQuery({
+        queryKey: ["plex", "recommendations"],
+        queryFn: plexApi.getRecommendations,
+        staleTime: 60_000,
+    });
+}
+
+export function useLibraryGenres(key: string) {
+    return useQuery({
+        queryKey: ["plex", "library", key, "genres"],
+        queryFn: () => plexApi.getLibraryGenres(key),
+        enabled: !!key,
+        staleTime: 300_000,
+    });
+}
+
+export function useLibraryByGenre(key: string, genres: string[]) {
+    return useQuery({
+        queryKey: ["plex", "library", key, "byGenre", genres],
+        queryFn: () => plexApi.getLibraryByGenre(key, genres),
+        enabled: !!key && genres.length > 0,
+        staleTime: 60_000,
+    });
+}
+
+export function useLibraryCollections(key: string) {
+    return useQuery({
+        queryKey: ["plex", "library", key, "collections"],
+        queryFn: () => plexApi.getLibraryCollections(key),
+        enabled: !!key,
+        staleTime: 300_000,
+    });
+}
+
+export function usePlaylists() {
+    return useQuery({
+        queryKey: ["plex", "playlists"],
+        queryFn: plexApi.getPlaylists,
+        staleTime: 60_000,
+    });
+}
+
 export function useSearch(query: string) {
     return useQuery({
         queryKey: ["plex", "search", query],
