@@ -39,7 +39,6 @@ pub struct ServiceStatuses {
     sonarr: ServiceHealth,
     radarr: ServiceHealth,
     download_clients: Vec<DownloadClientHealth>,
-    opensubtitles: SimpleServiceHealth,
 }
 
 #[derive(Serialize, Clone, Default)]
@@ -59,11 +58,6 @@ struct DownloadClientHealth {
     reachable: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     last_checked: Option<u64>,
-}
-
-#[derive(Serialize, Clone, Default)]
-struct SimpleServiceHealth {
-    configured: bool,
 }
 
 // ---------------------------------------------------------------------------
@@ -124,9 +118,6 @@ async fn check_all(
         sonarr: sonarr_health,
         radarr: radarr_health,
         download_clients: dl_healths,
-        opensubtitles: SimpleServiceHealth {
-            configured: !cfg.opensubtitles.api_key.is_empty(),
-        },
     }
 }
 

@@ -34,6 +34,8 @@ interface PlayerControlsProps
     onMuteToggle: () => void;
     onToggleFullscreen: () => void;
     onQualityChange: (q: string) => void;
+    onSubtitleSelect?: (streamId: number | null) => void;
+    onAudioSelect?: (streamId: number) => void;
     isInParty?: boolean;
     participants?: WatchPartyParticipant[];
     hostUserId?: number;
@@ -46,7 +48,6 @@ interface PlayerControlsProps
     syncStatus?: "in_sync" | "syncing" | "disconnected";
     displayRate?: number;
     onDragChange?: (isDragging: boolean) => void;
-    onOpenSubtitleSearch?: () => void;
     onMouseEnter?: () => void;
     onMouseLeave?: () => void;
 }
@@ -71,6 +72,8 @@ export default function PlayerControls({
                                            onMuteToggle,
                                            onToggleFullscreen,
                                            onQualityChange,
+                                           onSubtitleSelect,
+                                           onAudioSelect,
                                            isInParty,
                                            participants,
                                            hostUserId,
@@ -83,7 +86,6 @@ export default function PlayerControls({
                                            syncStatus,
                                            displayRate,
                                            onDragChange,
-                                           onOpenSubtitleSearch,
                                            onMouseEnter,
                                            onMouseLeave
                                        }: PlayerControlsProps)
@@ -220,7 +222,8 @@ export default function PlayerControls({
                         quality={quality}
                         qualityGroups={qualityGroups}
                         onQualityChange={onQualityChange}
-                        onOpenSubtitleSearch={onOpenSubtitleSearch}
+                        onSubtitleSelect={onSubtitleSelect}
+                        onAudioSelect={onAudioSelect}
                     />
                     {isInParty && participants && hostUserId !== undefined && (
                         <ParticipantsPopover participants={participants} hostUserId={hostUserId} bufferingUsers={bufferingUsers}/>

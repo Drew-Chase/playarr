@@ -15,7 +15,7 @@ import WatchQueuePanel from "./WatchQueuePanel.tsx";
 import EpisodeQueuePanel from "./EpisodeQueuePanel.tsx";
 import SkipButton from "./SkipButton.tsx";
 import CreditsOverlay from "./CreditsOverlay.tsx";
-import SubtitleSearchDrawer from "./SubtitleSearchDrawer.tsx";
+
 import {plexImage} from "../../lib/utils.ts";
 
 interface VideoPlayerProps {
@@ -80,9 +80,6 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const [displayRate, setDisplayRate] = useState(1);
     const [creditsActive, setCreditsActive] = useState(false);
     const creditsDismissedRef = useRef(false);
-    const [subtitleDrawerOpen, setSubtitleDrawerOpen] = useState(false);
-    const [localSubtitleUrl, setLocalSubtitleUrl] = useState<string | null>(null);
-    const [localSubtitleLabel, setLocalSubtitleLabel] = useState<string>("");
 
     // Transcode session recovery: when Plex kills a stale transcode session,
     // incrementing this key triggers the loadStream effect to re-fetch a new session.
@@ -166,6 +163,45 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         }
     }
 
+    const partId = streamInfo?.part?.id;
+
+    const handleSubtitleSelect = useCallback((streamId: number | null) => {
+        if (!partId) return;
+        // 0 disables subtitles in Plex
+        plexApi.setPartStreams(partId, { subtitleStreamId: streamId ?? 0 }).then(() => {
+            // Update local stream state to reflect the selection
+            setStreamInfo(prev => {
+                if (!prev?.part?.Stream) return prev;
+                return {
+                    ...prev,
+                    part: {
+                        ...prev.part,
+                        Stream: prev.part.Stream.map(s =>
+                            s.streamType === 3
+                                ? { ...s, selected: s.id === streamId }
+                                : s
+                        ),
+                    },
+                };
+            });
+
+            // Reload the stream so Plex includes/excludes subtitles in the HLS manifest.
+            // This mirrors how Plex Web handles subtitle changes.
+            savedPositionRef.current = videoRef.current?.currentTime ?? 0;
+            setStreamReloadKey(k => k + 1);
+        });
+    }, [partId]);
+
+    const handleAudioSelect = useCallback((streamId: number) => {
+        if (!partId) return;
+        plexApi.setPartStreams(partId, { audioStreamId: streamId }).then(() => {
+            // Save position and reload stream so Plex applies the audio change
+            savedPositionRef.current = videoRef.current?.currentTime ?? 0;
+            setStreamReloadKey(k => k + 1);
+        });
+    }, [partId]);
+
+
     // Report timeline to Plex (skip for guest users)
     const reportTimeline = useCallback((state: "playing" | "paused" | "stopped") => {
         if (isGuest) return;
@@ -190,26 +226,6 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             video.muted = isMuted;
         }
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-    // Activate local subtitle track when set (default attribute only works on initial load)
-    useEffect(() => {
-        const video = videoRef.current;
-        if (!video) return;
-        if (localSubtitleUrl) {
-            // Small delay to let the browser process the newly rendered <track> element
-            const timer = setTimeout(() => {
-                for (let i = 0; i < video.textTracks.length; i++) {
-                    video.textTracks[i].mode = video.textTracks[i].label === localSubtitleLabel
-                        ? "showing" : "disabled";
-                }
-            }, 100);
-            return () => clearTimeout(timer);
-        } else {
-            for (let i = 0; i < video.textTracks.length; i++) {
-                video.textTracks[i].mode = "disabled";
-            }
-        }
-    }, [localSubtitleUrl, localSubtitleLabel]);
 
     // Load BIF data for timeline previews
     useEffect(() => {
@@ -244,9 +260,6 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         }
         setCreditsActive(false);
         creditsDismissedRef.current = false;
-        if (localSubtitleUrl) URL.revokeObjectURL(localSubtitleUrl);
-        setLocalSubtitleUrl(null);
-        setLocalSubtitleLabel("");
     }, [item.ratingKey]);
 
     // Load stream
@@ -1124,11 +1137,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                     }
                     toggleFullscreen();
                 }}
-            >
-                {localSubtitleUrl && (
-                    <track kind="subtitles" src={localSubtitleUrl} label={localSubtitleLabel} default />
-                )}
-            </video>
+            />
 
             <PlayerOverlay
                 item={item}
@@ -1173,6 +1182,8 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 onVolumeChange={handleVolumeChange}
                 onMuteToggle={handleMuteToggle}
                 onToggleFullscreen={toggleFullscreen}
+                onSubtitleSelect={handleSubtitleSelect}
+                onAudioSelect={handleAudioSelect}
                 onQualityChange={(q) => {
                     savedPositionRef.current = videoRef.current?.currentTime ?? 0;
                     setQuality(q);
@@ -1190,7 +1201,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 syncStatus={isInParty ? syncStatus : undefined}
                 displayRate={isInParty ? displayRate : undefined}
                 onDragChange={handleDragChange}
-                onOpenSubtitleSearch={() => setSubtitleDrawerOpen(true)}
+
                 onMouseEnter={() => { isOverControlsRef.current = true; }}
                 onMouseLeave={() => { isOverControlsRef.current = false; }}
             />
@@ -1226,16 +1237,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 />
             )}
 
-            <SubtitleSearchDrawer
-                isOpen={subtitleDrawerOpen}
-                onClose={() => setSubtitleDrawerOpen(false)}
-                item={item}
-                onUseLocally={(blobUrl, label) => {
-                    if (localSubtitleUrl) URL.revokeObjectURL(localSubtitleUrl);
-                    setLocalSubtitleUrl(blobUrl);
-                    setLocalSubtitleLabel(label);
-                }}
-            />
+
         </div>
     );
 }

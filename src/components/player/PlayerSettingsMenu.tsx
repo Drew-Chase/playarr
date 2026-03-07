@@ -81,7 +81,8 @@ interface PlayerSettingsMenuProps {
     quality: string;
     qualityGroups?: QualityGroup[];
     onQualityChange: (q: string) => void;
-    onOpenSubtitleSearch?: () => void;
+    onSubtitleSelect?: (streamId: number | null) => void;
+    onAudioSelect?: (streamId: number) => void;
 }
 
 export default function PlayerSettingsMenu({
@@ -90,7 +91,8 @@ export default function PlayerSettingsMenu({
     quality,
     qualityGroups,
     onQualityChange,
-    onOpenSubtitleSearch,
+    onSubtitleSelect,
+    onAudioSelect,
 }: PlayerSettingsMenuProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [activePanel, setActivePanel] = useState<PanelId>("main");
@@ -184,10 +186,6 @@ export default function PlayerSettingsMenu({
                                     currentAudio={currentAudio}
                                     currentQuality={qualityLabel(quality, groups)}
                                     onGoTo={goTo}
-                                    onOpenSubtitleSearch={onOpenSubtitleSearch ? () => {
-                                        onOpenSubtitleSearch();
-                                        setIsOpen(false);
-                                    } : undefined}
                                 />
                             </motion.div>
                         )}
@@ -207,6 +205,7 @@ export default function PlayerSettingsMenu({
                                     <TrackList
                                         streams={subtitleStreams}
                                         showNone
+                                        onSelect={onSubtitleSelect}
                                     />
                                 </SubPanel>
                             </motion.div>
@@ -224,7 +223,10 @@ export default function PlayerSettingsMenu({
                                 className="p-1.5"
                             >
                                 <SubPanel title="Audio" onBack={goBack}>
-                                    <TrackList streams={audioStreams} />
+                                    <TrackList
+                                        streams={audioStreams}
+                                        onSelect={(id) => { if (id != null) onAudioSelect?.(id); }}
+                                    />
                                 </SubPanel>
                             </motion.div>
                         )}
@@ -265,7 +267,6 @@ function MainPanel({
     currentAudio,
     currentQuality,
     onGoTo,
-    onOpenSubtitleSearch,
 }: {
     subtitleStreams: PlexStream[];
     audioStreams: PlexStream[];
@@ -273,7 +274,6 @@ function MainPanel({
     currentAudio: string;
     currentQuality: string;
     onGoTo: (panel: PanelId) => void;
-    onOpenSubtitleSearch?: () => void;
 }) {
     return (
         <div className="flex flex-col">
@@ -299,13 +299,6 @@ function MainPanel({
                 value={currentQuality}
                 onClick={() => onGoTo("quality")}
             />
-            {onOpenSubtitleSearch && (
-                <MenuRow
-                    icon="mdi:cloud-search-outline"
-                    label="Search Subtitles"
-                    onClick={onOpenSubtitleSearch}
-                />
-            )}
         </div>
     );
 }
@@ -363,19 +356,35 @@ function TrackList({streams, showNone, onSelect}: {
             {showNone && (
                 <TrackRow label="None" selected={noneSelected} onClick={() => onSelect?.(null)}/>
             )}
-            {streams.map((stream) => (
-                <TrackRow
-                    key={stream.id}
-                    label={stream.displayTitle || stream.language || `Track ${stream.id}`}
-                    selected={!!stream.selected}
-                    onClick={() => onSelect?.(stream.id)}
-                />
-            ))}
+            {streams.map((stream) => {
+                // Build label: "Language (CODEC)" for subtitles, displayTitle for audio
+                const codec = stream.codec?.toUpperCase();
+                const label = stream.streamType === 3 && codec
+                    ? `${stream.displayTitle || stream.language || `Track ${stream.id}`} (${codec})`
+                    : stream.displayTitle || stream.language || `Track ${stream.id}`;
+                // Show title as secondary line if it differs from displayTitle
+                const detail = stream.streamType === 3 && stream.title ? stream.title : undefined;
+
+                return (
+                    <TrackRow
+                        key={stream.id}
+                        label={label}
+                        detail={detail}
+                        selected={!!stream.selected}
+                        onClick={() => onSelect?.(stream.id)}
+                    />
+                );
+            })}
         </div>
     );
 }
 
-function TrackRow({label, selected, onClick}: {label: string; selected: boolean; onClick?: () => void}) {
+function TrackRow({label, detail, selected, onClick}: {
+    label: string;
+    detail?: string;
+    selected: boolean;
+    onClick?: () => void;
+}) {
     return (
         <button
             className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-sm w-full text-left transition-colors
@@ -385,7 +394,10 @@ function TrackRow({label, selected, onClick}: {label: string; selected: boolean;
             <span className="w-4 shrink-0">
                 {selected && <Icon icon="mdi:check" width="16"/>}
             </span>
-            <span>{label}</span>
+            <div className="flex flex-col min-w-0">
+                <span className="truncate">{label}</span>
+                {detail && <span className="text-xs text-default-400 truncate">{detail}</span>}
+            </div>
         </button>
     );
 }

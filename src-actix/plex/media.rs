@@ -1,4 +1,4 @@
-use actix_web::{get, web, HttpRequest, HttpResponse, Responder};
+use actix_web::{get, put, web, HttpRequest, HttpResponse, Responder};
 use serde::Deserialize;
 use uuid::Uuid;
 use crate::http_error::Result;
@@ -172,8 +172,12 @@ async fn get_stream_url(
             ("directStreamAudio", "0"),
             ("videoBitrate", "200000"),
             ("autoAdjustQuality", "0"),
+
             ("subtitleSize", "100"),
             ("audioBoost", "100"),
+            // "burn" forces Plex to burn subtitles into the video stream.
+            // This works for both bitmap (PGS/VOBSUB) and text (SRT/ASS) subs.
+            ("subtitles", "burn"),
             ("location", "lan"),
             ("session", &session),
             ("X-Plex-Token", &token),
@@ -283,8 +287,12 @@ async fn get_stream_url(
             ("videoQuality", "100"),
             ("maxVideoBitrate", bitrate),
             ("autoAdjustQuality", "0"),
+
             ("subtitleSize", "100"),
             ("audioBoost", "100"),
+            // "burn" forces Plex to burn subtitles into the video stream.
+            // This works for both bitmap (PGS/VOBSUB) and text (SRT/ASS) subs.
+            ("subtitles", "burn"),
             ("mediaBufferSize", "102400"),
             ("location", "lan"),
             ("session", &session),
@@ -605,6 +613,45 @@ async fn transcode_proxy(
     }
 }
 
+#[derive(Deserialize)]
+struct SetStreamsBody {
+    subtitle_stream_id: Option<i64>,
+    audio_stream_id: Option<i64>,
+}
+
+#[put("/parts/{part_id}/streams")]
+async fn set_part_streams(
+    req: HttpRequest,
+    plex: web::Data<PlexClient>,
+    path: web::Path<i64>,
+    body: web::Json<SetStreamsBody>,
+) -> Result<impl Responder> {
+    let part_id = path.into_inner();
+    let user_token = PlexClient::user_token_from_request(&req).unwrap_or_default();
+
+    let mut query: Vec<(&str, String)> = Vec::new();
+    if let Some(sid) = body.subtitle_stream_id {
+        query.push(("subtitleStreamID", sid.to_string()));
+    }
+    if let Some(aid) = body.audio_stream_id {
+        query.push(("audioStreamID", aid.to_string()));
+    }
+
+    let query_refs: Vec<(&str, &str)> = query.iter().map(|(k, v)| (*k, v.as_str())).collect();
+
+    let builder = plex.put_as_user(
+        &format!("/library/parts/{}", part_id),
+        &user_token,
+    )?;
+
+    builder.query(&query_refs).send().await.map_err(|e| {
+        crate::http_error::Error::UpstreamError(format!("Plex request failed: {}", e))
+    })?;
+
+    Ok(HttpResponse::Ok().json(serde_json::json!({"success": true})))
+}
+
+
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg.service(
         web::scope("/media")
@@ -620,6 +667,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
             .service(get_all_leaves)
             .service(get_on_deck)
             .service(get_related)
+            .service(set_part_streams)
             .service(get_metadata),
     );
 }

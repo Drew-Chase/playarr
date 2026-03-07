@@ -10,8 +10,6 @@ pub struct AppConfig {
     pub radarr: RadarrConfig,
     #[serde(default)]
     pub download_clients: Vec<DownloadClientConfig>,
-    #[serde(default)]
-    pub opensubtitles: OpenSubtitlesConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -79,12 +77,6 @@ fn default_true() -> bool {
     true
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct OpenSubtitlesConfig {
-    #[serde(default)]
-    pub api_key: String,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum DownloadClientType {
@@ -101,7 +93,6 @@ pub struct RedactedAppConfig {
     pub sonarr: RedactedSonarrConfig,
     pub radarr: RedactedRadarrConfig,
     pub download_clients: Vec<RedactedDownloadClientConfig>,
-    pub opensubtitles: RedactedOpenSubtitlesConfig,
 }
 
 #[derive(Debug, Serialize)]
@@ -133,11 +124,6 @@ pub struct RedactedDownloadClientConfig {
     pub enabled: bool,
 }
 
-#[derive(Debug, Serialize)]
-pub struct RedactedOpenSubtitlesConfig {
-    pub has_api_key: bool,
-}
-
 impl AppConfig {
     pub fn redacted(&self) -> RedactedAppConfig {
         RedactedAppConfig {
@@ -165,9 +151,6 @@ impl AppConfig {
                     enabled: c.enabled,
                 })
                 .collect(),
-            opensubtitles: RedactedOpenSubtitlesConfig {
-                has_api_key: !self.opensubtitles.api_key.is_empty(),
-            },
         }
     }
 }
