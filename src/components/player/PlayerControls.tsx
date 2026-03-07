@@ -6,7 +6,7 @@ import PlayerSettingsMenu, {type QualityGroup} from "./PlayerSettingsMenu.tsx";
 import SeekBar from "./SeekBar.tsx";
 import ParticipantsPopover from "./ParticipantsPopover.tsx";
 import {motion} from "framer-motion";
-import {createContext, memo, useContext, useEffect, useRef} from "react";
+import {createContext, memo, useContext, useEffect, useRef, useState} from "react";
 import {MemoryRouter, UNSAFE_LocationContext, UNSAFE_RouteContext, useLocation, useNavigate, useParams, useSearchParams} from "react-router-dom";
 import type {NavigateFunction, SetURLSearchParams} from "react-router-dom";
 import {HeroUIProvider} from "@heroui/react";
@@ -339,6 +339,18 @@ const ContentDrawer = memo(function ContentDrawer()
     const mainNavigate = useNavigate();
     const pageToLoad = searchParams.get("from") || "/";
 
+    // Only mount router content while open; unmount after close animation finishes
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        if (isOpen) {
+            setMounted(true);
+        } else {
+            const timer = setTimeout(() => setMounted(false), 500);
+            return () => clearTimeout(timer);
+        }
+    }, [isOpen]);
+
     return (
         <motion.div
             className={`fixed left-0 top-0 w-full h-full z-[20] items-center flex flex-col ${isOpen ? "" : "pointer-events-none"}`}
@@ -352,17 +364,19 @@ const ContentDrawer = memo(function ContentDrawer()
                 </Button>
             </Tooltip>
             <div className={"w-full h-full overflow-y-auto bg-black/30 backdrop-blur-lg data-[open=false]:opacity-0 transition-opacity duration-500 [&_nav]:!sticky"} data-open={isOpen}>
-                <DrawerContext.Provider value={{mainNavigate, mainSetSearchParams: setSearchParams}}>
-                    {/* Reset the parent BrowserRouter context so MemoryRouter can mount independently */}
-                    <UNSAFE_LocationContext.Provider value={null as any}>
-                        <UNSAFE_RouteContext.Provider value={{outlet: null, matches: [], isDataRoute: false}}>
-                            <MemoryRouter initialEntries={[pageToLoad]}>
-                                <DrawerLocationSync/>
-                                <DrawerRoutes/>
-                            </MemoryRouter>
-                        </UNSAFE_RouteContext.Provider>
-                    </UNSAFE_LocationContext.Provider>
-                </DrawerContext.Provider>
+                {mounted && (
+                    <DrawerContext.Provider value={{mainNavigate, mainSetSearchParams: setSearchParams}}>
+                        {/* Reset the parent BrowserRouter context so MemoryRouter can mount independently */}
+                        <UNSAFE_LocationContext.Provider value={null as any}>
+                            <UNSAFE_RouteContext.Provider value={{outlet: null, matches: [], isDataRoute: false}}>
+                                <MemoryRouter initialEntries={[pageToLoad]}>
+                                    <DrawerLocationSync/>
+                                    <DrawerRoutes/>
+                                </MemoryRouter>
+                            </UNSAFE_RouteContext.Provider>
+                        </UNSAFE_LocationContext.Provider>
+                    </DrawerContext.Provider>
+                )}
             </div>
         </motion.div>
     );
