@@ -1,8 +1,9 @@
 import React from "react";
-import {BrowserRouter, Route, Routes, useNavigate} from "react-router-dom";
+import {BrowserRouter, Route, Routes, useLocation, useNavigate} from "react-router-dom";
 import ReactDOM from "react-dom/client";
 import {QueryClient, QueryClientProvider} from "@tanstack/react-query";
 import {Toaster} from "sonner";
+import {useEffect} from "react";
 import {Spinner} from "@heroui/react";
 
 import "./css/index.css";
@@ -22,6 +23,14 @@ import {PlayerProvider} from "./providers/PlayerProvider.tsx";
 import WatchPartyProvider from "./providers/WatchPartyProvider.tsx";
 import {HeroUIProvider} from "@heroui/react";
 import {ReactScanComponent} from "./components/ReactScanComponent.tsx";
+
+function ScrollToTop() {
+    const {pathname} = useLocation();
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, [pathname]);
+    return null;
+}
 
 export function AppRoutes({playerElement}: { playerElement?: React.ReactNode }) {
     return (
@@ -104,6 +113,7 @@ export function MainContentRenderer() {
     return (
         <HeroUIProvider navigate={navigate}>
             {debugMode && <ReactScanComponent/>}
+            <ScrollToTop/>
             <Toaster richColors position="bottom-right"/>
             <AppRoutes/>
         </HeroUIProvider>
