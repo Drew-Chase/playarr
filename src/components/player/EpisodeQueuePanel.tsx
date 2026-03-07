@@ -185,7 +185,6 @@ export default function EpisodeQueuePanel({
 }
 
 const QUEUE_WINDOW = 20;
-const ITEM_HEIGHT = 76; // approximate height of one queue row in px
 
 function QueueTabContent({
     queue,
@@ -211,9 +210,6 @@ function QueueTabContent({
     const endIndex = Math.min(queue.length, queueIndex + QUEUE_WINDOW + 1);
     const visibleItems = queue.slice(startIndex, endIndex);
 
-    const topSpacerHeight = startIndex * ITEM_HEIGHT;
-    const bottomSpacerHeight = (queue.length - endIndex) * ITEM_HEIGHT;
-
     return (
         <div className="flex flex-col">
             {/* Shuffle + Clear Queue buttons */}
@@ -232,8 +228,6 @@ function QueueTabContent({
                     Clear Queue
                 </Button>
             </div>
-
-            {topSpacerHeight > 0 && <div style={{height: topSpacerHeight}}/>}
 
             {visibleItems.map((item, i) => {
                 const index = startIndex + i;
@@ -293,8 +287,6 @@ function QueueTabContent({
                     </div>
                 );
             })}
-
-            {bottomSpacerHeight > 0 && <div style={{height: bottomSpacerHeight}}/>}
 
             {queue.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-12 text-default-400">
