@@ -1,5 +1,6 @@
-import {createContext, ReactNode, useCallback, useContext, useMemo, useState} from "react";
+import {createContext, ReactNode, useCallback, useContext, useMemo, useRef, useState} from "react";
 import type {PlexMediaItem, StreamInfo} from "../lib/types.ts";
+import {shuffleArray} from "../lib/utils.ts";
 
 interface PlayerState {
     currentItem: PlexMediaItem | null;
@@ -28,6 +29,8 @@ interface QueueContextType {
     advanceQueue: () => PlexMediaItem | null;
     retreatQueue: () => PlexMediaItem | null;
     syncQueueIndex: (ratingKey: string) => void;
+    isShuffled: boolean;
+    toggleShuffle: () => void;
 }
 
 interface PlayerContextType extends PlayerState, QueueContextType {
@@ -64,6 +67,8 @@ export function PlayerProvider({children}: { children: ReactNode }) {
     // Queue state
     const [queue, setQueue] = useState<PlexMediaItem[]>([]);
     const [queueIndex, setQueueIndex] = useState(-1);
+    const [isShuffled, setIsShuffled] = useState(false);
+    const originalQueueRef = useRef<PlexMediaItem[]>([]);
 
     const isQueueActive = useMemo(() => queue.length > 0, [queue.length]);
 
@@ -90,6 +95,8 @@ export function PlayerProvider({children}: { children: ReactNode }) {
     const clearQueue = useCallback(() => {
         setQueue([]);
         setQueueIndex(-1);
+        setIsShuffled(false);
+        originalQueueRef.current = [];
     }, []);
 
     const playFromQueue = useCallback((index: number) => {
@@ -119,6 +126,38 @@ export function PlayerProvider({children}: { children: ReactNode }) {
         const idx = queue.findIndex(item => item.ratingKey === ratingKey);
         if (idx >= 0) setQueueIndex(idx);
     }, [queue]);
+
+    const toggleShuffle = useCallback(() => {
+        if (isShuffled) {
+            // Unshuffle: restore original order
+            const currentItem = queue[queueIndex];
+            setQueue(originalQueueRef.current);
+            if (currentItem) {
+                const newIdx = originalQueueRef.current.findIndex(i => i.ratingKey === currentItem.ratingKey);
+                setQueueIndex(newIdx >= 0 ? newIdx : 0);
+            }
+            originalQueueRef.current = [];
+            setIsShuffled(false);
+        } else {
+            // Shuffle: save original, shuffle items after current
+            originalQueueRef.current = queue;
+            const currentItem = queue[queueIndex];
+            const before = queue.slice(0, queueIndex + 1);
+            const after = shuffleArray(queue.slice(queueIndex + 1));
+            const newQueue = [...before, ...after];
+            // Also shuffle items before current for when they go back
+            if (queueIndex > 0) {
+                const shuffledBefore = shuffleArray(queue.slice(0, queueIndex));
+                newQueue.splice(0, queueIndex, ...shuffledBefore);
+            }
+            setQueue(newQueue);
+            if (currentItem) {
+                const newIdx = newQueue.findIndex(i => i.ratingKey === currentItem.ratingKey);
+                setQueueIndex(newIdx >= 0 ? newIdx : queueIndex);
+            }
+            setIsShuffled(true);
+        }
+    }, [isShuffled, queue, queueIndex]);
 
     return (
         <PlayerContext.Provider
@@ -159,6 +198,8 @@ export function PlayerProvider({children}: { children: ReactNode }) {
                 advanceQueue,
                 retreatQueue,
                 syncQueueIndex,
+                isShuffled,
+                toggleShuffle,
             }}
         >
             {children}

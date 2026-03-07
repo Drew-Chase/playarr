@@ -21,7 +21,7 @@ export default function EpisodeQueuePanel({
     currentRatingKey,
     onSelectEpisode,
 }: EpisodeQueuePanelProps) {
-    const {queue, queueIndex, isQueueActive, removeFromQueue, clearQueue, playFromQueue} = usePlayer();
+    const {queue, queueIndex, isQueueActive, removeFromQueue, clearQueue, playFromQueue, isShuffled, toggleShuffle} = usePlayer();
     const currentRef = useRef<HTMLDivElement>(null);
     const queueCurrentRef = useRef<HTMLDivElement>(null);
     const [activeTab, setActiveTab] = useState<string>(isQueueActive ? "queue" : "episodes");
@@ -103,6 +103,8 @@ export default function EpisodeQueuePanel({
                                 }}
                                 onRemove={removeFromQueue}
                                 onClear={clearQueue}
+                                isShuffled={isShuffled}
+                                onToggleShuffle={toggleShuffle}
                             />
                         ) : (
                             <Accordion
@@ -189,6 +191,8 @@ function QueueTabContent({
     onPlay,
     onRemove,
     onClear,
+    isShuffled,
+    onToggleShuffle,
 }: {
     queue: PlexMediaItem[];
     queueIndex: number;
@@ -196,11 +200,23 @@ function QueueTabContent({
     onPlay: (index: number) => void;
     onRemove: (index: number) => void;
     onClear: () => void;
+    isShuffled: boolean;
+    onToggleShuffle: () => void;
 }) {
     return (
         <div className="flex flex-col">
-            {/* Clear Queue button */}
-            <div className="flex justify-end px-4 py-2 border-b border-divider">
+            {/* Shuffle + Clear Queue buttons */}
+            <div className="flex justify-end gap-2 px-4 py-2 border-b border-divider">
+                <Button
+                    size="sm"
+                    variant="flat"
+                    color={isShuffled ? "primary" : "default"}
+                    onPress={onToggleShuffle}
+                    startContent={<Icon icon="mdi:shuffle-variant" width="16"/>}
+                    isDisabled={queue.length < 2}
+                >
+                    Shuffle
+                </Button>
                 <Button size="sm" variant="flat" color="danger" onPress={onClear} startContent={<Icon icon="mdi:delete-sweep" width="16"/>}>
                     Clear Queue
                 </Button>

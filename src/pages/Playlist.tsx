@@ -1,9 +1,11 @@
-import {useParams} from "react-router-dom";
-import {Spinner} from "@heroui/react";
+import {useNavigate, useParams} from "react-router-dom";
+import {Button, Spinner} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
+import {toast} from "sonner";
 import {usePlaylistMetadata, usePlaylistItems} from "../hooks/usePlex.ts";
 import type {PlexMediaItem} from "../lib/types.ts";
-import {plexImage, formatDuration} from "../lib/utils.ts";
+import {plexImage, formatDuration, shuffleArray} from "../lib/utils.ts";
+import {usePlayer} from "../providers/PlayerProvider.tsx";
 import ContentRow from "../components/layout/ContentRow.tsx";
 import MediaCard from "../components/media/MediaCard.tsx";
 
@@ -55,8 +57,27 @@ function groupPlaylistItems(items: PlexMediaItem[]): ItemGroup[] {
 
 export default function Playlist() {
     const {id} = useParams<{ id: string }>();
+    const navigate = useNavigate();
+    const {addToQueue, clearQueue} = usePlayer();
     const {data: playlist, isLoading: metaLoading} = usePlaylistMetadata(id || "");
     const {data: items, isLoading: itemsLoading} = usePlaylistItems(id || "");
+
+    const handlePlayAll = () => {
+        if (!items || items.length === 0) return;
+        clearQueue();
+        addToQueue(items);
+        navigate(`/player/${items[0].ratingKey}?from=${encodeURIComponent(`/playlist/${id}`)}`);
+        toast.success(`Playing ${items.length} items`);
+    };
+
+    const handleShufflePlay = () => {
+        if (!items || items.length === 0) return;
+        clearQueue();
+        const shuffled = shuffleArray(items);
+        addToQueue(shuffled);
+        navigate(`/player/${shuffled[0].ratingKey}?from=${encodeURIComponent(`/playlist/${id}`)}`);
+        toast.success(`Shuffling ${items.length} items`);
+    };
 
     if (metaLoading || itemsLoading) {
         return (
@@ -95,7 +116,7 @@ export default function Playlist() {
                     <Icon icon="mdi:playlist-play" width="32" className="text-primary"/>
                     <h1 className="text-3xl font-bold">{playlist.title}</h1>
                 </div>
-                <div className="flex items-center gap-4 text-default-400 text-sm mb-8">
+                <div className="flex items-center gap-4 text-default-400 text-sm mb-4">
                     {playlist.leafCount != null && (
                         <span>{playlist.leafCount} items</span>
                     )}
@@ -103,6 +124,24 @@ export default function Playlist() {
                         <span>{formatDuration(playlist.duration)}</span>
                     )}
                 </div>
+                {items && items.length > 0 && (
+                    <div className="flex gap-3 mb-8">
+                        <Button
+                            color="primary"
+                            startContent={<Icon icon="mdi:play" width="18"/>}
+                            onPress={handlePlayAll}
+                        >
+                            Play All
+                        </Button>
+                        <Button
+                            variant="flat"
+                            startContent={<Icon icon="mdi:shuffle-variant" width="18"/>}
+                            onPress={handleShufflePlay}
+                        >
+                            Shuffle & Play
+                        </Button>
+                    </div>
+                )}
 
                 {/* Grouped items */}
                 {groups.length === 0 && (

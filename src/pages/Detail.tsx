@@ -1,6 +1,6 @@
 import {useLocation, useNavigate, useParams} from "react-router-dom";
 import {useRef, useState} from "react";
-import {BreadcrumbItem, Breadcrumbs, Button, Chip, Dropdown, DropdownItem, DropdownMenu, DropdownSection, DropdownTrigger, Modal, ModalBody, ModalContent, Progress, Spinner} from "@heroui/react";
+import {BreadcrumbItem, Breadcrumbs, Button, Chip, Dropdown, DropdownItem, DropdownMenu, DropdownSection, DropdownTrigger, Modal, ModalBody, ModalContent, Progress, Spinner, Tooltip} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {useAllEpisodes, useChildren, useMetadata, useShowOnDeck, useTmdbTrailer} from "../hooks/usePlex.ts";
 import {useRadarrMovieByTmdb, useServiceUrls, useSonarrEpisodes, useSonarrSeriesByTmdb} from "../hooks/useDiscover.ts";
@@ -12,8 +12,9 @@ import ResumePlaybackModal from "../components/media/ResumePlaybackModal.tsx";
 import ManualSearchModal from "../components/discover/ManualSearchModal.tsx";
 import {plexApi} from "../lib/plex.ts";
 import {api} from "../lib/api.ts";
-import {formatDuration, plexImage} from "../lib/utils.ts";
+import {formatDuration, plexImage, shuffleArray} from "../lib/utils.ts";
 import {useAuth} from "../providers/AuthProvider.tsx";
+import {usePlayer} from "../providers/PlayerProvider.tsx";
 import {useQuery} from "@tanstack/react-query";
 import {toast} from "sonner";
 import type {PlexExtra, PlexMediaItem, PlexReview, PlexRole, TmdbVideo} from "../lib/types.ts";
@@ -399,6 +400,7 @@ function ActionButtons({item, progress, onDeckEpisode, plexTrailer, tmdbTrailer,
     const navigate = useNavigate();
     const location = useLocation();
     const {isGuest} = useAuth();
+    const {addToQueue, clearQueue} = usePlayer();
     const [showResumeModal, setShowResumeModal] = useState(false);
     const [watchedOverride, setWatchedOverride] = useState<boolean | null>(null);
     const [youtubeOpen, setYoutubeOpen] = useState(false);
@@ -433,6 +435,21 @@ function ActionButtons({item, progress, onDeckEpisode, plexTrailer, tmdbTrailer,
 
     const isCollectionType = item.type === "show" || item.type === "season";
 
+    const handleShufflePlay = async () => {
+        try {
+            const episodes = item.type === "show"
+                ? await plexApi.getAllEpisodes(item.ratingKey)
+                : await plexApi.getChildren(item.ratingKey);
+            if (episodes.length === 0) return;
+            const shuffled = shuffleArray(episodes);
+            clearQueue();
+            addToQueue(shuffled);
+            navigate(`/player/${shuffled[0].ratingKey}?from=${encodeURIComponent(location.pathname)}`);
+        } catch {
+            toast.error("Failed to fetch episodes");
+        }
+    };
+
     // Build the play button label
     let playLabel: string;
     if (onDeckEpisode) {
@@ -459,6 +476,20 @@ function ActionButtons({item, progress, onDeckEpisode, plexTrailer, tmdbTrailer,
             >
                 {playLabel}
             </Button>
+            {isCollectionType && (
+                <Tooltip content="Shuffle and play">
+                    <Button
+                        variant="ghost"
+                        radius="sm"
+                        size="lg"
+                        isIconOnly
+                        className="border-2 border-white/90"
+                        onPress={handleShufflePlay}
+                    >
+                        <Icon icon="mdi:shuffle-variant" width="22"/>
+                    </Button>
+                </Tooltip>
+            )}
             {/* TODO: Fix trailer fix trailer implementation */}
             {/*{(plexTrailer || tmdbTrailer) && (*/}
             {/*    <Button*/}

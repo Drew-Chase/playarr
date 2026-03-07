@@ -5,7 +5,7 @@ import {motion} from "framer-motion";
 import {Icon} from "@iconify-icon/react";
 import {toast} from "sonner";
 import type {PlexMediaItem} from "../../lib/types.ts";
-import {plexImage} from "../../lib/utils.ts";
+import {plexImage, shuffleArray} from "../../lib/utils.ts";
 import {plexApi} from "../../lib/plex.ts";
 import {usePlayer} from "../../providers/PlayerProvider.tsx";
 import ResumePlaybackModal from "./ResumePlaybackModal.tsx";
@@ -55,6 +55,19 @@ export default function MediaCard({item, showProgress, width, variant = "portrai
         toast.success(`Playing ${items.length > 1 ? `${items.length} episodes` : item.title} next`);
     };
 
+    const handleShuffleAndPlay = async () => {
+        const items = await resolveQueueItems(item);
+        if (items.length > 1) {
+            addToQueue(shuffleArray(items));
+            toast.success(`Shuffled ${items.length} episodes into queue`);
+        } else {
+            addToQueue(items);
+            toast.success(`Added ${item.title} to queue`);
+        }
+    };
+
+    const isMultiItem = item.type === "show" || item.type === "season";
+
     const resumeModal = (
         <ResumePlaybackModal
             isOpen={showResumeModal}
@@ -89,6 +102,7 @@ export default function MediaCard({item, showProgress, width, variant = "portrai
                     if (key === "play") handlePlay({stopPropagation: () => {}} as React.MouseEvent);
                     if (key === "play-next") handlePlayNext();
                     if (key === "add-to-queue") handleAddToQueue();
+                    if (key === "shuffle-and-play") handleShuffleAndPlay();
                 }}>
                     <DropdownSection title="Playback">
                         <DropdownItem key="play" startContent={<Icon icon="mdi:play" width="16"/>}>
@@ -102,6 +116,11 @@ export default function MediaCard({item, showProgress, width, variant = "portrai
                         <DropdownItem key="add-to-queue" startContent={<Icon icon="mdi:playlist-plus" width="16"/>}>
                             Add to Queue
                         </DropdownItem>
+                        {isMultiItem ? (
+                            <DropdownItem key="shuffle-and-play" startContent={<Icon icon="mdi:shuffle-variant" width="16"/>}>
+                                Shuffle & Play
+                            </DropdownItem>
+                        ) : null}
                     </DropdownSection>
                 </DropdownMenu>
             </Dropdown>

@@ -34,7 +34,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const fromParam = searchParams.get("from");
     const backPath = fromParam || "/";
     const {isGuest} = useAuth();
-    const {isDrawerOpen, isQueueActive} = usePlayer();
+    const {isDrawerOpen, isQueueActive, isShuffled, toggleShuffle} = usePlayer();
     const watchParty = useWatchPartyContext();
     const videoRef = useRef<HTMLVideoElement>(null);
     const hlsRef = useRef<Hls | null>(null);
@@ -1194,6 +1194,8 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 hostUserId={watchParty?.activeRoom?.host_user_id}
                 bufferingUsers={isInParty ? bufferingUsers : undefined}
                 onToggleQueue={(episodes?.length || isInParty || isQueueActive) ? () => setShowQueue(q => !q) : undefined}
+                isShuffled={isShuffled}
+                onToggleShuffle={isQueueActive ? toggleShuffle : undefined}
                 onNext={onNext}
                 onPrevious={onPrevious}
                 hasNext={hasNext}

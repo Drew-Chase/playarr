@@ -50,6 +50,8 @@ interface PlayerControlsProps
     onDragChange?: (isDragging: boolean) => void;
     onMouseEnter?: () => void;
     onMouseLeave?: () => void;
+    isShuffled?: boolean;
+    onToggleShuffle?: () => void;
 }
 
 export default function PlayerControls({
@@ -87,7 +89,9 @@ export default function PlayerControls({
                                            displayRate,
                                            onDragChange,
                                            onMouseEnter,
-                                           onMouseLeave
+                                           onMouseLeave,
+                                           isShuffled,
+                                           onToggleShuffle,
                                        }: PlayerControlsProps)
 {
     return (
@@ -227,6 +231,17 @@ export default function PlayerControls({
                     />
                     {isInParty && participants && hostUserId !== undefined && (
                         <ParticipantsPopover participants={participants} hostUserId={hostUserId} bufferingUsers={bufferingUsers}/>
+                    )}
+                    {onToggleShuffle && (
+                        <Button
+                            isIconOnly
+                            variant="light"
+                            size="sm"
+                            onPress={onToggleShuffle}
+                            className={isShuffled ? "text-primary" : "text-white"}
+                        >
+                            <Icon icon="mdi:shuffle-variant" width="20"/>
+                        </Button>
                     )}
                     {onToggleQueue && (
                         <Button
