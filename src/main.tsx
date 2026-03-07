@@ -21,6 +21,7 @@ import {AuthProvider, useAuth} from "./providers/AuthProvider.tsx";
 import {PlayerProvider} from "./providers/PlayerProvider.tsx";
 import WatchPartyProvider from "./providers/WatchPartyProvider.tsx";
 import {HeroUIProvider} from "@heroui/react";
+import {ReactScanComponent} from "./components/ReactScanComponent.tsx";
 
 export function AppRoutes({playerElement}: { playerElement?: React.ReactNode }) {
     return (
@@ -66,7 +67,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
 
 export function MainContentRenderer() {
     const navigate = useNavigate();
-    const {isAuthenticated, isLoading, setupComplete} = useAuth();
+    const {isAuthenticated, isLoading, setupComplete, debugMode} = useAuth();
 
     // Still checking setup status or user session
     if (setupComplete === null || isLoading) {
@@ -102,6 +103,7 @@ export function MainContentRenderer() {
     // Fully authenticated — show main app
     return (
         <HeroUIProvider navigate={navigate}>
+            {debugMode && <ReactScanComponent/>}
             <Toaster richColors position="bottom-right"/>
             <AppRoutes/>
         </HeroUIProvider>

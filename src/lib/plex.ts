@@ -33,7 +33,7 @@ const sessionHeaders = { "X-Playarr-Session": playbackSessionId };
 
 // Status
 export const plexApi = {
-    getStatus: () => api.get<{ setup_complete: boolean; version: string }>("/status"),
+    getStatus: () => api.get<{ setup_complete: boolean; version: string; debug: boolean }>("/status"),
 
     completeSetup: (data: SetupData) => api.post("/setup", data),
 

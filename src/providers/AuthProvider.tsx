@@ -9,6 +9,7 @@ interface AuthContextType {
     isGuest: boolean;
     isLoading: boolean;
     setupComplete: boolean | null;
+    debugMode: boolean;
     login: () => Promise<{ code: string; id: number }>;
     pollLogin: (id: number) => Promise<boolean>;
     guestLogin: () => Promise<void>;
@@ -23,6 +24,7 @@ export function AuthProvider({children}: { children: ReactNode }) {
     const [user, setUser] = useState<PlexUser | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [setupComplete, setSetupComplete] = useState<boolean | null>(null);
+    const [debugMode, setDebugMode] = useState(false);
 
     const refresh = useCallback(async () => {
         try {
@@ -40,6 +42,7 @@ export function AuthProvider({children}: { children: ReactNode }) {
             try {
                 const status = await plexApi.getStatus();
                 setSetupComplete(status.setup_complete);
+                setDebugMode(status.debug);
                 if (status.setup_complete) {
                     await refresh();
                 } else {
@@ -92,6 +95,7 @@ export function AuthProvider({children}: { children: ReactNode }) {
                 isGuest: !!user?.isGuest,
                 isLoading,
                 setupComplete,
+                debugMode,
                 login,
                 pollLogin,
                 guestLogin,
