@@ -1,5 +1,5 @@
 import {useEffect, useRef, useState} from "react";
-import {Button, Progress} from "@heroui/react";
+import {Button} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import type {PlexMarker} from "../../lib/types.ts";
 
@@ -9,13 +9,15 @@ interface SkipButtonProps {
     onSkip: (time: number) => void;
 }
 
-const AUTO_SKIP_DURATION = 3; // seconds
+const AUTO_SKIP_DURATION = 5; // seconds
+const AUTO_SKIP_KEY = "playarr-auto-skip-intro";
 
 export default function SkipButton({markers, currentTime, onSkip}: SkipButtonProps) {
-    const [autoSkip, setAutoSkip] = useState(false);
-    const [countdown, setCountdown] = useState(0);
-    const animRef = useRef<number | null>(null);
-    const startRef = useRef(0);
+    const [autoSkipEnabled, setAutoSkipEnabled] = useState(() => localStorage.getItem(AUTO_SKIP_KEY) === "true");
+    const [counting, setCounting] = useState(false);
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const onSkipRef = useRef(onSkip);
+    onSkipRef.current = onSkip;
 
     const activeMarker = markers?.find(
         (m) => m.type === "intro"
@@ -23,49 +25,58 @@ export default function SkipButton({markers, currentTime, onSkip}: SkipButtonPro
             && currentTime < m.endTimeOffset / 1000
     );
 
-    // Reset auto-skip state when marker disappears
-    useEffect(() => {
-        if (!activeMarker) {
-            setAutoSkip(false);
-            setCountdown(0);
-            if (animRef.current != null) {
-                cancelAnimationFrame(animRef.current);
-                animRef.current = null;
-            }
+    const markerEndRef = useRef(0);
+    if (activeMarker) {
+        markerEndRef.current = activeMarker.endTimeOffset / 1000;
+    }
+
+    const markerKey = activeMarker
+        ? `${activeMarker.startTimeOffset}-${activeMarker.endTimeOffset}`
+        : null;
+
+    const toggleAutoSkip = () => {
+        const next = !autoSkipEnabled;
+        setAutoSkipEnabled(next);
+        localStorage.setItem(AUTO_SKIP_KEY, String(next));
+        if (!next) {
+            setCounting(false);
         }
-    }, [activeMarker]);
+    };
 
-    // Run countdown when auto-skip is active
+    // Start/stop countdown based on marker presence and auto-skip setting
     useEffect(() => {
-        if (!autoSkip || !activeMarker) return;
+        if (markerKey && autoSkipEnabled) {
+            setCounting(true);
+        }
+        if (!markerKey) {
+            setCounting(false);
+        }
+    }, [markerKey, autoSkipEnabled]);
 
-        startRef.current = performance.now();
-
-        const tick = (now: number) => {
-            const elapsed = (now - startRef.current) / 1000;
-            if (elapsed >= AUTO_SKIP_DURATION) {
-                setAutoSkip(false);
-                setCountdown(0);
-                onSkip(activeMarker.endTimeOffset / 1000);
-                return;
+    // Fire skip after the duration — the progress bar is pure CSS
+    useEffect(() => {
+        if (!counting) {
+            if (timerRef.current) {
+                clearTimeout(timerRef.current);
+                timerRef.current = null;
             }
-            setCountdown(elapsed);
-            animRef.current = requestAnimationFrame(tick);
-        };
+            return;
+        }
 
-        animRef.current = requestAnimationFrame(tick);
+        timerRef.current = setTimeout(() => {
+            setCounting(false);
+            onSkipRef.current(markerEndRef.current);
+        }, AUTO_SKIP_DURATION * 1000);
 
         return () => {
-            if (animRef.current != null) {
-                cancelAnimationFrame(animRef.current);
-                animRef.current = null;
+            if (timerRef.current) {
+                clearTimeout(timerRef.current);
+                timerRef.current = null;
             }
         };
-    }, [autoSkip, activeMarker, onSkip]);
+    }, [counting]);
 
     if (!activeMarker) return null;
-
-    const progress = autoSkip ? (countdown / AUTO_SKIP_DURATION) * 100 : 0;
 
     return (
         <div className="absolute bottom-24 right-6 z-20 flex flex-col items-end gap-1.5">
@@ -75,13 +86,13 @@ export default function SkipButton({markers, currentTime, onSkip}: SkipButtonPro
                     size="sm"
                     variant="bordered"
                     className={`border-white/50 backdrop-blur-sm ${
-                        autoSkip
+                        autoSkipEnabled
                             ? "bg-primary/30 text-primary border-primary/50"
                             : "bg-black/70 text-white hover:bg-white/20"
                     }`}
-                    onPress={() => setAutoSkip(!autoSkip)}
+                    onPress={toggleAutoSkip}
                 >
-                    <Icon icon={autoSkip ? "mdi:timer-off" : "mdi:timer"} width="18"/>
+                    <Icon icon={autoSkipEnabled ? "mdi:timer-off" : "mdi:timer"} width="18"/>
                 </Button>
                 <Button
                     variant="bordered"
@@ -92,17 +103,17 @@ export default function SkipButton({markers, currentTime, onSkip}: SkipButtonPro
                     Skip Intro
                 </Button>
             </div>
-            {autoSkip && (
-                <Progress
-                    size="sm"
-                    value={progress}
-                    className="w-full max-w-[200px]"
-                    classNames={{
-                        indicator: "bg-primary",
-                        track: "bg-white/20"
-                    }}
-                    aria-label="Auto-skip countdown"
-                />
+            {counting && (
+                <div className="w-full max-w-[200px] h-1.5 rounded-full bg-white/20 overflow-hidden">
+                    <div
+                        className="h-full bg-primary rounded-full"
+                        style={{
+                            width: "100%",
+                            transition: `width ${AUTO_SKIP_DURATION}s linear`,
+                            animation: `skip-progress ${AUTO_SKIP_DURATION}s linear forwards`,
+                        }}
+                    />
+                </div>
             )}
         </div>
     );
