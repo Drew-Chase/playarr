@@ -46,8 +46,8 @@ async fn recently_added(
     Ok(HttpResponse::Ok().json(&body["MediaContainer"]["Metadata"]))
 }
 
-/// Build "Because You Watched X" recommendations from the user's continue-watching list.
-/// Fetches similar items for up to 3 recently watched titles concurrently.
+/// Build "Because You Watched X" recommendations from the user's watch history.
+/// Fetches similar items for up to 10 movies and 10 TV shows concurrently.
 #[get("/recommendations")]
 async fn recommendations(
     req: HttpRequest,
@@ -55,49 +55,77 @@ async fn recommendations(
 ) -> Result<impl Responder> {
     let user_token = PlexClient::user_token_from_request(&req).unwrap_or_default();
 
-    // Fetch continue-watching hub for this user
-    let cw_body = plex
-        .get_json_as_user("/hubs/continueWatching", &user_token, &[("X-Plex-Container-Size", "20")])
-        .await;
+    // Fetch multiple sources of watch history concurrently
+    let (cw_result, od_result, rv_result) = futures_util::future::join3(
+        plex.get_json_as_user("/hubs/continueWatching", &user_token, &[("X-Plex-Container-Size", "30")]),
+        plex.get_json_as_user("/library/onDeck", &user_token, &[("X-Plex-Container-Size", "30")]),
+        plex.get_json_as_user("/library/recentlyViewed", &user_token, &[("X-Plex-Container-Size", "50")]),
+    ).await;
 
-    let items = match cw_body {
-        Ok(ref body) => {
-            let hubs = &body["MediaContainer"]["Hub"];
-            hubs.as_array()
-                .and_then(|a| a.first())
-                .and_then(|hub| hub["Metadata"].as_array())
-                .cloned()
-                .unwrap_or_default()
+    // Collect all items from all sources
+    let mut all_items: Vec<serde_json::Value> = Vec::new();
+
+    if let Ok(ref body) = cw_result {
+        let hubs = &body["MediaContainer"]["Hub"];
+        if let Some(arr) = hubs.as_array().and_then(|a| a.first()).and_then(|hub| hub["Metadata"].as_array()) {
+            all_items.extend(arr.iter().cloned());
         }
-        Err(_) => vec![],
-    };
+    }
+    if let Ok(ref body) = od_result {
+        if let Some(arr) = body["MediaContainer"]["Metadata"].as_array() {
+            all_items.extend(arr.iter().cloned());
+        }
+    }
+    if let Ok(ref body) = rv_result {
+        if let Some(arr) = body["MediaContainer"]["Metadata"].as_array() {
+            all_items.extend(arr.iter().cloned());
+        }
+    }
 
-    if items.is_empty() {
+    if all_items.is_empty() {
         return Ok(HttpResponse::Ok().json(serde_json::json!([])));
     }
 
-    // Extract up to 3 unique source items (deduplicate shows by grandparentRatingKey)
-    let mut sources: Vec<(String, String)> = Vec::new(); // (ratingKey for similar, display title)
+    // Separate into movie sources and TV show sources, deduplicate
+    let mut movie_sources: Vec<(String, String)> = Vec::new();
+    let mut show_sources: Vec<(String, String)> = Vec::new();
     let mut seen = HashSet::new();
-    for item in &items {
-        if sources.len() >= 3 { break; }
+
+    for item in &all_items {
         let item_type = item["type"].as_str().unwrap_or("");
-        let (source_id, title) = if item_type == "episode" {
-            let gid = item["grandparentRatingKey"].as_str().unwrap_or("");
-            let gtitle = item["grandparentTitle"].as_str().unwrap_or("Unknown");
-            (gid.to_string(), gtitle.to_string())
-        } else {
-            let id = item["ratingKey"].as_str().unwrap_or("");
-            let t = item["title"].as_str().unwrap_or("Unknown");
-            (id.to_string(), t.to_string())
-        };
-        if !source_id.is_empty() && seen.insert(source_id.clone()) {
-            sources.push((source_id, title));
+        match item_type {
+            "movie" => {
+                if movie_sources.len() >= 10 { continue; }
+                let id = item["ratingKey"].as_str().unwrap_or("").to_string();
+                let title = item["title"].as_str().unwrap_or("Unknown").to_string();
+                if !id.is_empty() && seen.insert(id.clone()) {
+                    movie_sources.push((id, title));
+                }
+            }
+            "episode" => {
+                if show_sources.len() >= 10 { continue; }
+                let gid = item["grandparentRatingKey"].as_str().unwrap_or("").to_string();
+                let gtitle = item["grandparentTitle"].as_str().unwrap_or("Unknown").to_string();
+                if !gid.is_empty() && seen.insert(gid.clone()) {
+                    show_sources.push((gid, gtitle));
+                }
+            }
+            "show" => {
+                if show_sources.len() >= 10 { continue; }
+                let id = item["ratingKey"].as_str().unwrap_or("").to_string();
+                let title = item["title"].as_str().unwrap_or("Unknown").to_string();
+                if !id.is_empty() && seen.insert(id.clone()) {
+                    show_sources.push((id, title));
+                }
+            }
+            _ => {}
         }
     }
 
-    // Fetch similar items concurrently for each source
-    let futures: Vec<_> = sources.iter().map(|(id, title)| {
+    // Fetch similar items for all sources concurrently
+    let all_sources: Vec<_> = movie_sources.into_iter().chain(show_sources).collect();
+
+    let futures: Vec<_> = all_sources.iter().map(|(id, title)| {
         let plex = plex.clone();
         let id = id.clone();
         let title = title.clone();
