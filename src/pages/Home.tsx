@@ -296,7 +296,7 @@ export default function Home() {
                 {!isGuest && recommendations?.map((rec) => (
                     rec.items.length > 0 && (
                         <ContentRow key={rec.title} title={rec.title}>
-                            {rec.items.map((item) => (
+                            {rec.items.slice(0, 20).map((item) => (
                                 <MediaCard key={item.ratingKey} item={item} variant="portrait" width={250}/>
                             ))}
                         </ContentRow>
