@@ -1,7 +1,6 @@
 import React, {memo, useEffect, useRef, useState} from "react";
 import {Progress, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, DropdownSection, Button} from "@heroui/react";
 import {useNavigate, useLocation} from "react-router-dom";
-import {motion} from "framer-motion";
 import {Icon} from "@iconify-icon/react";
 import {toast} from "sonner";
 import type {PlexMediaItem} from "../../lib/types.ts";
@@ -168,10 +167,8 @@ const MediaCardInner = memo(function MediaCardInner({item, showProgress, width, 
 
         return (
             <>
-                <motion.div
-                    whileHover={{scale: 1.05}}
-                    transition={{type: "tween", duration: 0.2}}
-                    className="shrink-0 cursor-pointer group scroll-snap-start"
+                <div
+                    className="shrink-0 cursor-pointer group scroll-snap-start transition-transform duration-200 hover:scale-105"
                     onClick={handleClick}
                 >
                     <div className="relative aspect-[3/1.5] rounded-lg overflow-hidden bg-content2" style={{width: width ? `${width}px` : "100%"}}>
@@ -208,7 +205,7 @@ const MediaCardInner = memo(function MediaCardInner({item, showProgress, width, 
                             </div>
                         )}
                     </div>
-                </motion.div>
+                </div>
                 {resumeModal}
             </>
         );
@@ -219,10 +216,8 @@ const MediaCardInner = memo(function MediaCardInner({item, showProgress, width, 
 
     return (
         <>
-            <motion.div
-                whileHover={{scale: 1.05}}
-                transition={{type: "tween", duration: 0.2}}
-                className="cursor-pointer group"
+            <div
+                className="cursor-pointer group transition-transform duration-200 hover:scale-105"
                 onClick={handleClick}
             >
                 <div className="relative rounded-lg overflow-hidden bg-content2 aspect-[2/3]" style={{width: width ?? "unset"}}>
@@ -266,7 +261,7 @@ const MediaCardInner = memo(function MediaCardInner({item, showProgress, width, 
                     <p className="text-sm font-semibold truncate">{title}</p>
                     <p className="text-xs text-default-400 truncate">{subtitle}</p>
                 </div>
-            </motion.div>
+            </div>
             {resumeModal}
         </>
     );

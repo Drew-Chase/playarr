@@ -1,5 +1,4 @@
 import {Chip} from "@heroui/react";
-import {motion} from "framer-motion";
 import {Icon} from "@iconify-icon/react";
 import {useNavigate} from "react-router-dom";
 import type {TmdbItem} from "../../lib/types.ts";
@@ -11,10 +10,8 @@ export default function DiscoverCard({item, mediaType}: { item: TmdbItem; mediaT
     const date = item.release_date || item.first_air_date || "";
 
     return (
-        <motion.div
-            whileHover={{scale: 1.05}}
-            transition={{type: "tween", duration: 0.2}}
-            className="shrink-0 w-[185px] group scroll-snap-start cursor-pointer"
+        <div
+            className="shrink-0 w-[185px] group scroll-snap-start cursor-pointer transition-transform duration-200 hover:scale-105"
             onClick={() => navigate(`/discover/${mediaType}/${item.id}`)}
         >
             <div className="relative w-[185px] h-[278px] rounded-lg overflow-hidden bg-content2">
@@ -46,6 +43,6 @@ export default function DiscoverCard({item, mediaType}: { item: TmdbItem; mediaT
                 <p className="text-sm font-semibold truncate">{title}</p>
                 <p className="text-xs text-default-400">{date.slice(0, 4)}</p>
             </div>
-        </motion.div>
+        </div>
     );
 }

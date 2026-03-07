@@ -1,5 +1,4 @@
 import {Chip, Skeleton} from "@heroui/react";
-import {motion} from "framer-motion";
 import {Icon} from "@iconify-icon/react";
 import {useQuery} from "@tanstack/react-query";
 import {
@@ -142,10 +141,8 @@ function PlaylistCard({playlist}: { playlist: PlexPlaylist }) {
     const navigate = useNavigate();
     const imgSrc = plexImage(playlist.composite || playlist.thumb, 300, 450);
     return (
-        <motion.div
-            whileHover={{scale: 1.05}}
-            transition={{type: "tween", duration: 0.2}}
-            className="shrink-0 w-[250px] group scroll-snap-start cursor-pointer"
+        <div
+            className="shrink-0 w-[250px] group scroll-snap-start cursor-pointer transition-transform duration-200 hover:scale-105"
             onClick={() => navigate(`/playlist/${playlist.ratingKey}`)}
         >
             <div className="relative w-[250px] h-[375px] rounded-lg overflow-hidden bg-content2">
@@ -168,7 +165,7 @@ function PlaylistCard({playlist}: { playlist: PlexPlaylist }) {
             <div className="mt-2 px-1">
                 <p className="text-sm font-semibold truncate">{playlist.title}</p>
             </div>
-        </motion.div>
+        </div>
     );
 }
 
