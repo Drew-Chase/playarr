@@ -6,7 +6,7 @@ import PlayerSettingsMenu, {type QualityGroup} from "./PlayerSettingsMenu.tsx";
 import SeekBar from "./SeekBar.tsx";
 import ParticipantsPopover from "./ParticipantsPopover.tsx";
 import {motion} from "framer-motion";
-import {createContext, useContext, useEffect, useRef} from "react";
+import {createContext, memo, useContext, useEffect, useRef} from "react";
 import {MemoryRouter, UNSAFE_LocationContext, UNSAFE_RouteContext, useLocation, useNavigate, useParams, useSearchParams} from "react-router-dom";
 import type {NavigateFunction, SetURLSearchParams} from "react-router-dom";
 import {HeroUIProvider} from "@heroui/react";
@@ -332,7 +332,7 @@ function DrawerRoutes()
     );
 }
 
-function ContentDrawer()
+const ContentDrawer = memo(function ContentDrawer()
 {
     const {isDrawerOpen: isOpen, setIsDrawerOpen: setIsOpen} = usePlayer();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -366,4 +366,4 @@ function ContentDrawer()
             </div>
         </motion.div>
     );
-}
+});

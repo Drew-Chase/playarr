@@ -184,6 +184,9 @@ export default function EpisodeQueuePanel({
     );
 }
 
+const QUEUE_WINDOW = 20;
+const ITEM_HEIGHT = 76; // approximate height of one queue row in px
+
 function QueueTabContent({
     queue,
     queueIndex,
@@ -203,6 +206,14 @@ function QueueTabContent({
     isShuffled: boolean;
     onToggleShuffle: () => void;
 }) {
+    // Only render items within QUEUE_WINDOW of the current index
+    const startIndex = Math.max(0, queueIndex - QUEUE_WINDOW);
+    const endIndex = Math.min(queue.length, queueIndex + QUEUE_WINDOW + 1);
+    const visibleItems = queue.slice(startIndex, endIndex);
+
+    const topSpacerHeight = startIndex * ITEM_HEIGHT;
+    const bottomSpacerHeight = (queue.length - endIndex) * ITEM_HEIGHT;
+
     return (
         <div className="flex flex-col">
             {/* Shuffle + Clear Queue buttons */}
@@ -222,7 +233,10 @@ function QueueTabContent({
                 </Button>
             </div>
 
-            {queue.map((item, index) => {
+            {topSpacerHeight > 0 && <div style={{height: topSpacerHeight}}/>}
+
+            {visibleItems.map((item, i) => {
+                const index = startIndex + i;
                 const isCurrent = index === queueIndex;
                 const thumbUrl = item.thumb ? `/api/media/${item.ratingKey}/thumb` : "";
                 const isEpisode = item.type === "episode";
@@ -271,7 +285,6 @@ function QueueTabContent({
                             variant="light"
                             className="self-center min-w-6 w-6 h-6"
                             onPress={() => {
-                                // Stop propagation so clicking remove doesn't also play
                                 onRemove(index);
                             }}
                         >
@@ -280,6 +293,8 @@ function QueueTabContent({
                     </div>
                 );
             })}
+
+            {bottomSpacerHeight > 0 && <div style={{height: bottomSpacerHeight}}/>}
 
             {queue.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-12 text-default-400">
