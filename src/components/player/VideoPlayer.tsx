@@ -1160,7 +1160,6 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 markers={item.Marker}
                 currentTime={currentTime}
                 onSkip={handleSeek}
-                visible={showControls && !creditsActive}
             />
 
             <PlayerControls
