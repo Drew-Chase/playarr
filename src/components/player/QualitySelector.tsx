@@ -1,7 +1,7 @@
 import {Button, Dropdown, DropdownItem, DropdownMenu, DropdownTrigger} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 
-const QUALITY_OPTIONS = [
+export const QUALITY_OPTIONS = [
     {key: "original", label: "Original"},
     {key: "1080p", label: "1080p"},
     {key: "720p", label: "720p"},
@@ -10,10 +10,12 @@ const QUALITY_OPTIONS = [
 
 interface QualitySelectorProps {
     quality: string;
+    options?: typeof QUALITY_OPTIONS;
     onQualityChange: (q: string) => void;
 }
 
-export default function QualitySelector({quality, onQualityChange}: QualitySelectorProps) {
+export default function QualitySelector({quality, options, onQualityChange}: QualitySelectorProps) {
+    const items = options ?? QUALITY_OPTIONS;
     return (
         <Dropdown>
             <DropdownTrigger>
@@ -30,7 +32,7 @@ export default function QualitySelector({quality, onQualityChange}: QualitySelec
                     if (selected) onQualityChange(selected);
                 }}
             >
-                {QUALITY_OPTIONS.map((opt) => (
+                {items.map((opt) => (
                     <DropdownItem key={opt.key}>{opt.label}</DropdownItem>
                 ))}
             </DropdownMenu>

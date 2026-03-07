@@ -2,7 +2,8 @@ import {useCallback, useEffect, useMemo, useRef, useState} from "react";
 import Hls from "hls.js";
 import {useNavigate, useSearchParams} from "react-router-dom";
 import {plexApi} from "../../lib/plex.ts";
-import {checkDirectPlayability} from "../../lib/codec-support.ts";
+import {checkDirectPlayability, type PlayRecommendation} from "../../lib/codec-support.ts";
+import {QUALITY_OPTIONS} from "./QualitySelector.tsx";
 import {parseBif} from "../../lib/bif-parser.ts";
 import type {PlexMediaItem, StreamInfo, PlexStream, BifData, WsMessage} from "../../lib/types.ts";
 import {useAuth} from "../../providers/AuthProvider.tsx";
@@ -116,6 +117,29 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         if (idx < 0 || idx >= episodes.length - 1) return null;
         return episodes[idx + 1];
     }, [episodes, item.ratingKey, hasNext]);
+
+    // Check if direct play / directstream is possible for this item
+    const playRecommendation: PlayRecommendation = useMemo(() => {
+        const media = item.Media?.[0];
+        if (!media) return "transcode";
+        return checkDirectPlayability(media.videoCodec, media.audioCodec, media.container).recommendation;
+    }, [item.Media]);
+
+    // Only show "Original" when the browser can handle direct play or directstream
+    const availableQualityOptions = useMemo(() => {
+        if (playRecommendation === "transcode") {
+            return QUALITY_OPTIONS.filter(o => o.key !== "original");
+        }
+        return QUALITY_OPTIONS;
+    }, [playRecommendation]);
+
+    // If saved quality is "original" but it's not available, fall back to highest transcode
+    useEffect(() => {
+        if (quality === "original" && playRecommendation === "transcode") {
+            setQuality("1080p");
+            localStorage.setItem("playarr-quality", "1080p");
+        }
+    }, [quality, playRecommendation]);
 
     // Stable callback for credits overlay countdown (uses ref to avoid resetting timer)
     const handleCreditsAdvance = useCallback(() => {
@@ -250,26 +274,9 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
 
         try {
             if (quality === "original") {
-                // Check codec compatibility before attempting direct play
-                const media = item.Media?.[0];
-                if (media) {
-                    const {recommendation, reason} = checkDirectPlayability(
-                        media.videoCodec,
-                        media.audioCodec,
-                        media.container,
-                    );
-
-                    if (recommendation === "direct") {
-                        info = await plexApi.getStreamUrl(item.ratingKey, quality, true);
-                    } else if (recommendation === "directstream") {
-                        // Video OK, audio/container incompatible - use directstream
-                        info = await plexApi.getStreamUrl(item.ratingKey, quality, false, true);
-                        console.info(`DirectStream mode: ${reason}`);
-                    } else {
-                        // Full transcode needed
-                        info = await plexApi.getStreamUrl(item.ratingKey, "1080p", false);
-                        console.info(`Auto-transcode: ${reason}`);
-                    }
+                // "Original" is only available when codec check passed (direct or directstream)
+                if (playRecommendation === "directstream") {
+                    info = await plexApi.getStreamUrl(item.ratingKey, quality, false, true);
                 } else {
                     info = await plexApi.getStreamUrl(item.ratingKey, quality, true);
                 }
@@ -1150,13 +1157,18 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 subtitleStreams={subtitleStreams}
                 audioStreams={audioStreams}
                 quality={quality}
+                qualityOptions={availableQualityOptions}
                 bifData={bifData}
                 onTogglePlay={togglePlay}
                 onSeek={handleSeek}
                 onVolumeChange={handleVolumeChange}
                 onMuteToggle={handleMuteToggle}
                 onToggleFullscreen={toggleFullscreen}
-                onQualityChange={(q) => { setQuality(q); localStorage.setItem("playarr-quality", q); }}
+                onQualityChange={(q) => {
+                    savedPositionRef.current = videoRef.current?.currentTime ?? 0;
+                    setQuality(q);
+                    localStorage.setItem("playarr-quality", q);
+                }}
                 isInParty={isInParty}
                 participants={watchParty?.activeRoom?.participants}
                 hostUserId={watchParty?.activeRoom?.host_user_id}

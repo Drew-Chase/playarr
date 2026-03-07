@@ -580,7 +580,8 @@ async fn media_stream_direct_play() {
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["type"], "direct");
     assert!(body["url"].as_str().unwrap().contains("/library/parts/50/file.mkv"));
-    assert!(body["url"].as_str().unwrap().contains("X-Plex-Token="));
+    // URL is now a proxy path — token is handled server-side
+    assert!(body["url"].as_str().unwrap().starts_with("/api/media/stream-proxy"));
 }
 
 #[actix_rt::test]
@@ -596,6 +597,19 @@ async fn media_stream_transcode() {
         })))
         .mount(&mock_server).await;
 
+    // Mock the decision endpoint (Plex cache-bust, result ignored by backend)
+    Mock::given(method("GET"))
+        .and(path("/video/:/transcode/universal/decision"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+        .mount(&mock_server).await;
+
+    // Mock start.m3u8 — return a fake master m3u8 with a session URL
+    Mock::given(method("GET"))
+        .and(path("/video/:/transcode/universal/start.m3u8"))
+        .respond_with(ResponseTemplate::new(200)
+            .set_body_string("#EXTM3U\nsession/abc-123/base/index.m3u8"))
+        .mount(&mock_server).await;
+
     let app = test_app!(mock_config(&mock_server.uri(), "valid-token"));
 
     let req = test::TestRequest::get()
@@ -606,8 +620,51 @@ async fn media_stream_transcode() {
 
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["type"], "hls");
-    assert!(body["url"].as_str().unwrap().contains("start.m3u8"));
-    assert!(body["url"].as_str().unwrap().contains("maxVideoBitrate=4000"));
+    assert!(body["url"].as_str().unwrap().contains("/api/media/transcode/"));
+    assert!(body["session"].as_str().is_some(), "transcode should include session id");
+}
+
+#[actix_rt::test]
+async fn media_stream_directstream() {
+    let mock_server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/library/metadata/50"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "MediaContainer": { "Metadata": [{
+                "ratingKey": "50",
+                "Media": [{ "Part": [{"key": "/library/parts/50/file.mkv"}], "videoCodec": "h264", "audioCodec": "truehd", "container": "mkv" }]
+            }] }
+        })))
+        .mount(&mock_server).await;
+
+    // Mock the decision endpoint — directstream must also call this to bust Plex cache
+    Mock::given(method("GET"))
+        .and(path("/video/:/transcode/universal/decision"))
+        .and(query_param("directStream", "1"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+        .expect(1)
+        .mount(&mock_server).await;
+
+    // Mock start.m3u8 for directstream
+    Mock::given(method("GET"))
+        .and(path("/video/:/transcode/universal/start.m3u8"))
+        .and(query_param("directStream", "1"))
+        .respond_with(ResponseTemplate::new(200)
+            .set_body_string("#EXTM3U\nsession/ds-456/base/index.m3u8"))
+        .mount(&mock_server).await;
+
+    let app = test_app!(mock_config(&mock_server.uri(), "valid-token"));
+
+    let req = test::TestRequest::get()
+        .uri("/api/media/50/stream?direct_play=false&direct_stream=true&quality=original")
+        .to_request();
+    let resp = test::call_service(&app, req).await;
+    assert_eq!(resp.status(), 200);
+
+    let body: Value = test::read_body_json(resp).await;
+    assert_eq!(body["type"], "directstream");
+    assert!(body["url"].as_str().unwrap().contains("/api/media/transcode/"));
+    assert!(body["session"].as_str().is_some(), "directstream should include session id");
 }
 
 // ─── Plex Hubs ───────────────────────────────────────────────────────────────

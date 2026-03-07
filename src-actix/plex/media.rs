@@ -161,25 +161,48 @@ async fn get_stream_url(
         })))
     } else if direct_stream {
         // DirectStream: video passes through untouched, only audio is transcoded
-        let transcode_url = format!(
-            "{}/video/:/transcode/universal/start.m3u8?\
-            path=/library/metadata/{}&mediaIndex=0&partIndex=0\
-            &protocol=hls\
-            &directPlay=0&directStream=1&directStreamAudio=0\
-            &videoBitrate=200000\
-            &autoAdjustQuality=0\
-            &subtitleSize=100&audioBoost=100\
-            &location=lan&transcodeSessionId={}",
-            base_url, id, session
-        );
+        let media_path = format!("/library/metadata/{}", id);
+        let ds_params: Vec<(&str, &str)> = vec![
+            ("path", &media_path),
+            ("mediaIndex", "0"),
+            ("partIndex", "0"),
+            ("protocol", "hls"),
+            ("directPlay", "0"),
+            ("directStream", "1"),
+            ("directStreamAudio", "0"),
+            ("videoBitrate", "200000"),
+            ("autoAdjustQuality", "0"),
+            ("subtitleSize", "100"),
+            ("audioBoost", "100"),
+            ("location", "lan"),
+            ("session", &session),
+            ("X-Plex-Token", &token),
+            ("X-Plex-Client-Identifier", &client_id),
+            ("X-Plex-Product", "Playarr"),
+            ("X-Plex-Platform", "Chrome"),
+        ];
 
-        // Proxy through backend — X-Plex-Token must be a header
+        // Call the decision endpoint first to bust Plex's cached transcode decision.
+        // Without this, switching from a lower-quality transcode (e.g. 480p) to
+        // directstream causes Plex to reuse the old quality settings.
+        let decision_url = format!(
+            "{}/video/:/transcode/universal/decision",
+            base_url
+        );
+        let _ = plex.http
+            .get(&decision_url)
+            .query(&ds_params)
+            .header("Accept", "application/json")
+            .send()
+            .await;
+
+        let start_url = format!(
+            "{}/video/:/transcode/universal/start.m3u8",
+            base_url
+        );
         let resp = plex.http
-            .get(&transcode_url)
-            .header("X-Plex-Token", &token)
-            .header("X-Plex-Client-Identifier", &client_id)
-            .header("X-Plex-Product", "Playarr")
-            .header("X-Plex-Platform", "Chrome")
+            .get(&start_url)
+            .query(&ds_params)
             .send()
             .await
             .map_err(|e| anyhow::anyhow!("DirectStream request failed: {}", e))?;
