@@ -245,9 +245,15 @@ async fn get_stream_url(
         // Quality presets: (bitrate in kbps, resolution WxH)
         let (bitrate, resolution) = match query.quality.as_deref() {
             Some("4k") => ("20000", "3840x2160"),
+            Some("1080p-high") => ("20000", "1920x1080"),
+            Some("1080p-medium") => ("12000", "1920x1080"),
             Some("1080p") | Some("1080") => ("10000", "1920x1080"),
-            Some("720p") | Some("720") => ("4000", "1280x720"),
+            Some("1080p-low") => ("8000", "1920x1080"),
+            Some("720p-high") => ("4000", "1280x720"),
+            Some("720p-medium") => ("3000", "1280x720"),
+            Some("720p") | Some("720") => ("2000", "1280x720"),
             Some("480p") | Some("480") => ("1500", "720x480"),
+            Some("360p") => ("700", "480x360"),
             Some("original") => ("200000", "1920x1080"),
             _ => ("10000", "1920x1080"),
         };

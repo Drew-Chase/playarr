@@ -3,7 +3,7 @@ import Hls from "hls.js";
 import {useNavigate, useSearchParams} from "react-router-dom";
 import {plexApi} from "../../lib/plex.ts";
 import {checkDirectPlayability, type PlayRecommendation} from "../../lib/codec-support.ts";
-import {QUALITY_OPTIONS} from "./QualitySelector.tsx";
+import {QUALITY_GROUPS, ALL_QUALITY_KEYS} from "./QualitySelector.tsx";
 import {parseBif} from "../../lib/bif-parser.ts";
 import type {PlexMediaItem, StreamInfo, PlexStream, BifData, WsMessage} from "../../lib/types.ts";
 import {useAuth} from "../../providers/AuthProvider.tsx";
@@ -70,8 +70,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const [showControls, setShowControls] = useState(true);
     const [quality, setQuality] = useState(() => {
         const saved = localStorage.getItem("playarr-quality");
-        const validOptions = ["original", "1080p", "720p", "480p"];
-        return saved && validOptions.includes(saved) ? saved : "original";
+        return saved && ALL_QUALITY_KEYS.includes(saved) ? saved : "original";
     });
     const [bifData, setBifData] = useState<BifData | null>(null);
     const [showQueue, setShowQueue] = useState(false);
@@ -126,12 +125,22 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     }, [item.Media]);
 
     // Only show "Original" when the browser can handle direct play or directstream
-    const availableQualityOptions = useMemo(() => {
+    const availableQualityGroups = useMemo(() => {
         if (playRecommendation === "transcode") {
-            return QUALITY_OPTIONS.filter(o => o.key !== "original");
+            return QUALITY_GROUPS.filter(g => g.resolution !== "original");
         }
-        return QUALITY_OPTIONS;
-    }, [playRecommendation]);
+        const media = item.Media?.[0];
+        if (media) {
+            const bitrate = media.bitrate >= 1000
+                ? `${(media.bitrate / 1000).toFixed(1)} Mbps`
+                : `${media.bitrate} Kbps`;
+            const desc = `${media.width}×${media.height} ${media.videoCodec.toUpperCase()} · ${bitrate}`;
+            return QUALITY_GROUPS.map(g =>
+                g.resolution === "original" ? {...g, description: desc} : g
+            );
+        }
+        return QUALITY_GROUPS;
+    }, [playRecommendation, item.Media]);
 
     // If saved quality is "original" but it's not available, fall back to highest transcode
     useEffect(() => {
@@ -1157,7 +1166,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                 subtitleStreams={subtitleStreams}
                 audioStreams={audioStreams}
                 quality={quality}
-                qualityOptions={availableQualityOptions}
+                qualityGroups={availableQualityGroups}
                 bifData={bifData}
                 onTogglePlay={togglePlay}
                 onSeek={handleSeek}

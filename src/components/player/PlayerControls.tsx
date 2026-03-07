@@ -4,7 +4,7 @@ import {formatTimestamp} from "../../lib/utils.ts";
 import type {BifData, PlexStream, WatchPartyParticipant} from "../../lib/types.ts";
 import SubtitleSelector from "./SubtitleSelector.tsx";
 import AudioSelector from "./AudioSelector.tsx";
-import QualitySelector, {QUALITY_OPTIONS} from "./QualitySelector.tsx";
+import QualitySelector, {type QualityGroup} from "./QualitySelector.tsx";
 import SeekBar from "./SeekBar.tsx";
 import ParticipantsPopover from "./ParticipantsPopover.tsx";
 import {motion} from "framer-motion";
@@ -28,7 +28,7 @@ interface PlayerControlsProps
     subtitleStreams: PlexStream[];
     audioStreams: PlexStream[];
     quality: string;
-    qualityOptions?: typeof QUALITY_OPTIONS;
+    qualityGroups?: QualityGroup[];
     bifData: BifData | null;
     onTogglePlay: () => void;
     onSeek: (time: number) => void;
@@ -65,7 +65,7 @@ export default function PlayerControls({
                                            subtitleStreams,
                                            audioStreams,
                                            quality,
-                                           qualityOptions,
+                                           qualityGroups,
                                            bifData,
                                            onTogglePlay,
                                            onSeek,
@@ -233,7 +233,7 @@ export default function PlayerControls({
                     {audioStreams.length > 1 && (
                         <AudioSelector streams={audioStreams}/>
                     )}
-                    <QualitySelector quality={quality} options={qualityOptions} onQualityChange={onQualityChange}/>
+                    <QualitySelector quality={quality} groups={qualityGroups} onQualityChange={onQualityChange}/>
                     {isInParty && participants && hostUserId !== undefined && (
                         <ParticipantsPopover participants={participants} hostUserId={hostUserId} bufferingUsers={bufferingUsers}/>
                     )}
