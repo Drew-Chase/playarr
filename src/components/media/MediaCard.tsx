@@ -23,7 +23,8 @@ export default function MediaCard({item, showProgress, width, variant = "portrai
     const navigate = useNavigate();
     const location = useLocation();
     const [showResumeModal, setShowResumeModal] = useState(false);
-    const {addToQueue, playNext} = usePlayer();
+    const {addToQueue, playNext, clearQueue} = usePlayer();
+    const isOnPlayerPage = location.pathname.startsWith("/player/");
 
     const handleClick = () =>
     {
@@ -43,27 +44,34 @@ export default function MediaCard({item, showProgress, width, variant = "portrai
         }
     };
 
+    const navigateToPlayerIfNeeded = (ratingKey: string) => {
+        if (!isOnPlayerPage) {
+            navigate(`/player/${ratingKey}?from=${encodeURIComponent(location.pathname)}`);
+        }
+    };
+
     const handleAddToQueue = async () => {
         const items = await resolveQueueItems(item);
         addToQueue(items);
         toast.success(`Added ${items.length > 1 ? `${items.length} episodes` : item.title} to queue`);
+        navigateToPlayerIfNeeded(items[0].ratingKey);
     };
 
     const handlePlayNext = async () => {
         const items = await resolveQueueItems(item);
         playNext(items);
         toast.success(`Playing ${items.length > 1 ? `${items.length} episodes` : item.title} next`);
+        navigateToPlayerIfNeeded(items[0].ratingKey);
     };
 
     const handleShuffleAndPlay = async () => {
         const items = await resolveQueueItems(item);
-        if (items.length > 1) {
-            addToQueue(shuffleArray(items));
-            toast.success(`Shuffled ${items.length} episodes into queue`);
-        } else {
-            addToQueue(items);
-            toast.success(`Added ${item.title} to queue`);
-        }
+        if (items.length === 0) return;
+        const shuffled = items.length > 1 ? shuffleArray(items) : items;
+        clearQueue();
+        addToQueue(shuffled);
+        toast.success(items.length > 1 ? `Shuffled ${items.length} episodes into queue` : `Added ${item.title} to queue`);
+        navigate(`/player/${shuffled[0].ratingKey}?from=${encodeURIComponent(location.pathname)}`);
     };
 
     const isMultiItem = item.type === "show" || item.type === "season";
