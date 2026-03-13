@@ -44,7 +44,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const isTransitioningRef = useRef(false);
     const syncFromPartyRef = useRef(false);
     const remoteRef = useRef({ t: 0, playing: false, m: performance.now() });
-    const rateTimerRef = useRef<number | null>(null);
+
     const prevRatingKeyRef = useRef<string>("");
     const currentRatingKeyRef = useRef<string>(item.ratingKey);
     const bufferingUsersRef = useRef<Set<number>>(new Set());
@@ -624,10 +624,14 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             }
             video.playbackRate = 1;
         } else if (remoteRef.current.playing) {
-            // Proportional rate correction for small drift
-            video.playbackRate = Math.max(0.5, Math.min(1.5, 1 + diff * 0.2));
-            if (rateTimerRef.current) clearTimeout(rateTimerRef.current);
-            rateTimerRef.current = window.setTimeout(() => { video.playbackRate = 1; }, 800);
+            // Gentle proportional rate correction for small drift.
+            // Clamped to ±5% to avoid A/V desync on HLS streams.
+            // Dead zone: don't adjust for drifts under 50ms.
+            if (Math.abs(diff) < 0.05) {
+                video.playbackRate = 1;
+            } else {
+                video.playbackRate = Math.max(0.95, Math.min(1.05, 1 + diff * 0.1));
+            }
         }
 
         // Match play/pause state
