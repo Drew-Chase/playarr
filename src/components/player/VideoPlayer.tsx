@@ -46,6 +46,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const remoteRef = useRef({ t: 0, playing: false, m: performance.now() });
     const audioContextRef = useRef<AudioContext | null>(null);
     const gainNodeRef = useRef<GainNode | null>(null);
+    const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
 
     const prevRatingKeyRef = useRef<string>("");
     const currentRatingKeyRef = useRef<string>(item.ratingKey);
@@ -220,13 +221,29 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         }).catch(() => {});
     }, [item.ratingKey, item.key, isGuest]);
 
-    // Set up Web Audio API for volume amplification (supports >100%)
+    // Set up Web Audio API for volume amplification (supports >100%).
+    // createMediaElementSource permanently binds to the element — it can
+    // never be called again on the same <video>, even after disconnect.
+    // Guard with sourceNodeRef so StrictMode double-mount and re-renders
+    // don't crash.
     useEffect(() => {
         const video = videoRef.current;
         if (!video) return;
 
-        const ctx = new AudioContext();
-        const source = ctx.createMediaElementSource(video);
+        // Reuse existing source node if already bound to this element
+        let ctx: AudioContext;
+        let source: MediaElementAudioSourceNode;
+
+        if (sourceNodeRef.current && audioContextRef.current) {
+            ctx = audioContextRef.current;
+            source = sourceNodeRef.current;
+        } else {
+            ctx = new AudioContext();
+            source = ctx.createMediaElementSource(video);
+            sourceNodeRef.current = source;
+            audioContextRef.current = ctx;
+        }
+
         const gain = ctx.createGain();
         source.connect(gain);
         gain.connect(ctx.destination);
@@ -235,7 +252,6 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         video.volume = 1; // Always 1; GainNode controls actual volume
         video.muted = isMuted;
 
-        audioContextRef.current = ctx;
         gainNodeRef.current = gain;
 
         // Resume AudioContext on first user interaction (browser autoplay policy)
@@ -246,10 +262,9 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
 
         return () => {
             video.removeEventListener("play", resume);
+            // Disconnect gain but keep source + context alive for re-mount
             source.disconnect();
             gain.disconnect();
-            ctx.close();
-            audioContextRef.current = null;
             gainNodeRef.current = null;
         };
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -308,13 +323,13 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         // Use saved position for quality changes; for party members joining mid-stream,
         // start at the room's current position so we don't reset everyone.
         // Only use activeRoom.position_ms if the room is playing the SAME media
-        // (joining mid-stream). For new episodes, start at 0.
+        // (joining mid-stream). Otherwise fall back to Plex's viewOffset (resume point).
         const resumePosition = savedPositionRef.current > 0
             ? savedPositionRef.current
             : (isInParty
                 ? (watchParty?.activeRoom?.media_id === item.ratingKey
                     ? (watchParty?.activeRoom?.position_ms ?? 0) / 1000
-                    : 0)
+                    : (item.viewOffset ? item.viewOffset / 1000 : 0))
                 : (startTimeParam !== null
                     ? Number(startTimeParam)
                     : (item.viewOffset ? item.viewOffset / 1000 : 0)));
@@ -375,7 +390,16 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             if (isInParty && watchParty && isHost && !isQualityChange) {
                 const roomStatus = watchParty?.activeRoom?.status;
                 if (roomStatus !== "idle") return;
-                watchParty.sendPlay(Math.floor((video?.currentTime ?? 0) * 1000));
+                // Use resumePosition instead of video.currentTime — at
+                // MANIFEST_PARSED time, HLS hasn't seeked yet so
+                // currentTime is still 0.
+                const posMs = Math.floor(resumePosition * 1000);
+                // Update remoteRef immediately so applySync doesn't pause us
+                // before the server broadcasts the play event back
+                remoteRef.current.t = resumePosition;
+                remoteRef.current.playing = true;
+                remoteRef.current.m = performance.now();
+                watchParty.sendPlay(posMs);
             }
         };
 
