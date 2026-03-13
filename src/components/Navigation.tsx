@@ -14,7 +14,8 @@ import {
     DropdownTrigger,
     DropdownMenu,
     DropdownItem,
-    useDisclosure, DropdownSection
+    useDisclosure, DropdownSection,
+    Modal, ModalContent, ModalHeader, ModalBody, ModalFooter
 } from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {useAuth} from "../providers/AuthProvider.tsx";
@@ -35,6 +36,7 @@ export default function Navigation()
     const {data: libraries} = useLibraries();
     const {isOpen: isSettingsOpen, onOpen: onSettingsOpen, onClose: onSettingsClose} = useDisclosure();
     const {isOpen: isDownloadsOpen, onOpen: onDownloadsOpen, onClose: onDownloadsClose} = useDisclosure();
+    const {isOpen: isSignOutOpen, onOpen: onSignOutOpen, onClose: onSignOutClose} = useDisclosure();
 
     const handleSearch = useCallback((e: React.FormEvent) =>
     {
@@ -254,7 +256,7 @@ export default function Navigation()
                                         </DropdownItem>
                                     ),
                                     <DropdownItem key="logout" color="danger" className="text-danger"
-                                                  onPress={logout}
+                                                  onPress={onSignOutOpen}
                                                   startContent={<Icon icon="mdi:logout" width="18"/>}>
                                         Sign Out
                                     </DropdownItem>
@@ -393,7 +395,7 @@ export default function Navigation()
                             onClick={() =>
                             {
                                 setIsMenuOpen(false);
-                                logout();
+                                onSignOutOpen();
                             }}
                         >
                             <Icon icon="mdi:logout" width="18"/>
@@ -404,6 +406,20 @@ export default function Navigation()
             </Navbar>
             <SettingsModal isOpen={isSettingsOpen} onClose={onSettingsClose}/>
             <DownloadsDrawer isOpen={isDownloadsOpen} onClose={onDownloadsClose}/>
+            <Modal isOpen={isSignOutOpen} onClose={onSignOutClose} size="sm">
+                <ModalContent>
+                    <ModalHeader>Sign Out</ModalHeader>
+                    <ModalBody>
+                        <p>Are you sure you want to sign out?</p>
+                    </ModalBody>
+                    <ModalFooter>
+                        <Button variant="light" onPress={onSignOutClose}>Cancel</Button>
+                        <Button color="danger" onPress={() => { onSignOutClose(); logout(); }}>
+                            Sign Out
+                        </Button>
+                    </ModalFooter>
+                </ModalContent>
+            </Modal>
         </>
     );
 }
