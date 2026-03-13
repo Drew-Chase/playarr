@@ -44,6 +44,8 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const isTransitioningRef = useRef(false);
     const syncFromPartyRef = useRef(false);
     const remoteRef = useRef({ t: 0, playing: false, m: performance.now() });
+    const audioContextRef = useRef<AudioContext | null>(null);
+    const gainNodeRef = useRef<GainNode | null>(null);
 
     const prevRatingKeyRef = useRef<string>("");
     const currentRatingKeyRef = useRef<string>(item.ratingKey);
@@ -63,7 +65,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const [duration, setDuration] = useState(0);
     const [volume, setVolume] = useState(() => {
         const saved = localStorage.getItem("playarr-volume");
-        return saved !== null ? Number(saved) : 1;
+        return saved !== null ? Math.min(6, Math.max(0, Number(saved))) : 1;
     });
     const [isMuted, setIsMuted] = useState(() => localStorage.getItem("playarr-muted") === "true");
     const [isFullscreen, setIsFullscreen] = useState(false);
@@ -218,13 +220,38 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
         }).catch(() => {});
     }, [item.ratingKey, item.key, isGuest]);
 
-    // Apply saved volume/mute to video element on mount
+    // Set up Web Audio API for volume amplification (supports >100%)
     useEffect(() => {
         const video = videoRef.current;
-        if (video) {
-            video.volume = volume;
-            video.muted = isMuted;
-        }
+        if (!video) return;
+
+        const ctx = new AudioContext();
+        const source = ctx.createMediaElementSource(video);
+        const gain = ctx.createGain();
+        source.connect(gain);
+        gain.connect(ctx.destination);
+
+        gain.gain.value = volume;
+        video.volume = 1; // Always 1; GainNode controls actual volume
+        video.muted = isMuted;
+
+        audioContextRef.current = ctx;
+        gainNodeRef.current = gain;
+
+        // Resume AudioContext on first user interaction (browser autoplay policy)
+        const resume = () => {
+            if (ctx.state === "suspended") ctx.resume();
+        };
+        video.addEventListener("play", resume);
+
+        return () => {
+            video.removeEventListener("play", resume);
+            source.disconnect();
+            gain.disconnect();
+            ctx.close();
+            audioContextRef.current = null;
+            gainNodeRef.current = null;
+        };
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Load BIF data for timeline previews
@@ -807,14 +834,18 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     handleSeekRef.current = handleSeek;
 
     const handleVolumeChange = useCallback((vol: number) => {
-        const video = videoRef.current;
-        if (video) {
-            video.volume = vol;
-            setVolume(vol);
-            setIsMuted(vol === 0);
-            localStorage.setItem("playarr-volume", String(vol));
-            localStorage.setItem("playarr-muted", String(vol === 0));
+        const gain = gainNodeRef.current;
+        if (gain) {
+            gain.gain.value = vol;
+        } else {
+            // Fallback if AudioContext not yet ready
+            const video = videoRef.current;
+            if (video) video.volume = Math.min(1, vol);
         }
+        setVolume(vol);
+        setIsMuted(vol === 0);
+        localStorage.setItem("playarr-volume", String(vol));
+        localStorage.setItem("playarr-muted", String(vol === 0));
     }, []);
 
     const handleMuteToggle = useCallback(() => {
@@ -954,11 +985,11 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
                     break;
                 case "ArrowUp":
                     e.preventDefault();
-                    handleVolumeChange(Math.min(1, volume + 0.1));
+                    handleVolumeChange(Math.min(6, volume + (volume >= 1 ? 0.5 : 0.1)));
                     break;
                 case "ArrowDown":
                     e.preventDefault();
-                    handleVolumeChange(Math.max(0, volume - 0.1));
+                    handleVolumeChange(Math.max(0, volume - (volume > 1 ? 0.5 : 0.1)));
                     break;
                 case "N":
                     if (e.shiftKey && onNext) {

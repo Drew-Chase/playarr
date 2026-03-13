@@ -1,10 +1,11 @@
-import {Button, Slider, Tooltip} from "@heroui/react";
+import {Button, Tooltip} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {formatTimestamp} from "../../lib/utils.ts";
 import type {BifData, PlexStream, WatchPartyParticipant} from "../../lib/types.ts";
 import PlayerSettingsMenu, {type QualityGroup} from "./PlayerSettingsMenu.tsx";
 import SeekBar from "./SeekBar.tsx";
 import ParticipantsPopover from "./ParticipantsPopover.tsx";
+import VolumeControl from "./VolumeControl.tsx";
 import {motion} from "framer-motion";
 import {createContext, memo, useContext, useEffect, useRef, useState} from "react";
 import {MemoryRouter, UNSAFE_LocationContext, UNSAFE_RouteContext, useLocation, useNavigate, useParams, useSearchParams} from "react-router-dom";
@@ -150,45 +151,12 @@ export default function PlayerControls({
                     )}
 
                     {/* Volume */}
-                    <Button
-                        isIconOnly
-                        variant="light"
-                        size="sm"
-                        onPress={onMuteToggle}
-                        className="text-white"
-                    >
-                        <Icon
-                            icon={
-                                isMuted || volume === 0
-                                    ? "mdi:volume-off"
-                                    : volume < 0.5
-                                        ? "mdi:volume-low"
-                                        : "mdi:volume-high"
-                            }
-                            width="20"
-                        />
-                    </Button>
-                    <Slider
-                        size="sm"
-                        color="foreground"
-                        step={0.01}
-                        minValue={0}
-                        maxValue={1}
-                        showTooltip
-                        getTooltipValue={() => `Volume ${Math.round(volume * 100)}%`}
-                        value={isMuted ? 0 : volume}
-                        onChange={(val) =>
-                        {
-                            onDragChange?.(true);
-                            onVolumeChange(val as number);
-                        }}
-                        onChangeEnd={() => onDragChange?.(false)}
-                        className="w-24"
-                        classNames={{
-                            track: "h-1 hover:h-3 transition-all"
-                        }}
-                        aria-label="Volume"
-                        hideThumb
+                    <VolumeControl
+                        volume={volume}
+                        isMuted={isMuted}
+                        onVolumeChange={onVolumeChange}
+                        onMuteToggle={onMuteToggle}
+                        onDragChange={onDragChange}
                     />
 
                     <span className="text-white text-xs ml-2">
