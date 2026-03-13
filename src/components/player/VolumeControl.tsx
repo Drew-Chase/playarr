@@ -1,4 +1,4 @@
-import {useCallback, useRef, useState} from "react";
+import {useCallback, useEffect, useRef, useState} from "react";
 import {Button} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 
@@ -50,7 +50,6 @@ export default function VolumeControl({volume, isMuted, onVolumeChange, onMuteTo
     const [isHovered, setIsHovered] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
     const hitAreaRef = useRef<HTMLDivElement>(null);
-    const hoverTimeoutRef = useRef<number | null>(null);
 
     const displayVolume = isMuted ? 0 : volume;
 
@@ -58,13 +57,16 @@ export default function VolumeControl({volume, isMuted, onVolumeChange, onMuteTo
     const normalFillPct = Math.min(displayVolume, 1) * 100;          // 0–100% of normal bar
     const boostFillPct = displayVolume > 1 ? ((displayVolume - 1) / 5) * 100 : 0; // 0–100% of boost bar
 
+    // Hide popover instantly when window loses focus
+    useEffect(() =>
+    {
+        const handleBlur = () => setIsHovered(false);
+        window.addEventListener("blur", handleBlur);
+        return () => window.removeEventListener("blur", handleBlur);
+    }, []);
+
     const handleMouseEnter = useCallback(() =>
     {
-        if (hoverTimeoutRef.current)
-        {
-            clearTimeout(hoverTimeoutRef.current);
-            hoverTimeoutRef.current = null;
-        }
         setIsHovered(true);
     }, []);
 
@@ -72,7 +74,7 @@ export default function VolumeControl({volume, isMuted, onVolumeChange, onMuteTo
     {
         if (!isDragging)
         {
-            hoverTimeoutRef.current = window.setTimeout(() => setIsHovered(false), 300);
+            setIsHovered(false);
         }
     }, [isDragging]);
 
@@ -98,12 +100,18 @@ export default function VolumeControl({volume, isMuted, onVolumeChange, onMuteTo
         {
             onVolumeChange(getVolumeFromY(ev.clientY));
         };
-        const handleUp = () =>
+        const handleUp = (ev: MouseEvent) =>
         {
             setIsDragging(false);
             onDragChange?.(false);
             document.removeEventListener("mousemove", handleMove);
             document.removeEventListener("mouseup", handleUp);
+            // If mouse released outside the component, hide popover
+            const container = hitAreaRef.current?.closest("[data-volume-root]");
+            if (container && !container.contains(ev.target as Node))
+            {
+                setIsHovered(false);
+            }
         };
         document.addEventListener("mousemove", handleMove);
         document.addEventListener("mouseup", handleUp);
@@ -123,6 +131,7 @@ export default function VolumeControl({volume, isMuted, onVolumeChange, onMuteTo
 
     return (
         <div
+            data-volume-root
             className="relative flex items-center"
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}

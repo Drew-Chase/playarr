@@ -94,6 +94,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const isOverControlsRef = useRef(false);
     const clickTimerRef = useRef<number | null>(null);
     const hideTimerRef = useRef<number | null>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
 
     const isInParty = watchParty?.isInParty ?? false;
     const isHost = watchParty?.isHost ?? false;
@@ -567,11 +568,27 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
 
     // Auto-hide controls:
     // - Show on any mouse movement, start 3s hide timer
-    // - Hide immediately when mouse leaves the viewport
+    // Controls auto-hide logic:
+    // - 3s idle timer after mouse movement over the video area
+    // - Hide instantly when mouse leaves the player container (works in fullscreen)
+    // - Hide instantly when window loses focus (alt-tab)
     // - Suppress hiding while hovering over top/bottom overlays or dragging
-    // - When playback starts, begin countdown immediately (handles click-to-play)
     // - When paused, always show controls
     useEffect(() => {
+        const container = containerRef.current;
+        if (!container) return;
+
+        const hideNow = () => {
+            if (hideTimerRef.current) {
+                clearTimeout(hideTimerRef.current);
+                hideTimerRef.current = null;
+            }
+            isOverControlsRef.current = false;
+            if (isPlaying && !isDraggingRef.current) {
+                setShowControls(false);
+            }
+        };
+
         const startHideTimer = () => {
             if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
             hideTimerRef.current = window.setTimeout(() => {
@@ -595,15 +612,13 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             }
         };
 
-        const handleMouseLeave = () => {
-            if (hideTimerRef.current) {
-                clearTimeout(hideTimerRef.current);
-                hideTimerRef.current = null;
-            }
-            if (isPlaying && !isDraggingRef.current) {
-                setShowControls(false);
-            }
-        };
+        // Mouse left the player container — hide instantly.
+        // This works in both windowed and fullscreen mode, unlike
+        // document.mouseleave which doesn't fire in fullscreen.
+        const handleMouseLeave = () => hideNow();
+
+        // Window lost focus (alt-tab, etc.)
+        const handleBlur = () => hideNow();
 
         // When playback starts, begin auto-hide countdown immediately
         // When paused, always show controls
@@ -617,11 +632,13 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
             setShowControls(true);
         }
 
-        document.addEventListener("mousemove", handleMouseMove);
-        document.addEventListener("mouseleave", handleMouseLeave);
+        container.addEventListener("mousemove", handleMouseMove);
+        container.addEventListener("mouseleave", handleMouseLeave);
+        window.addEventListener("blur", handleBlur);
         return () => {
-            document.removeEventListener("mousemove", handleMouseMove);
-            document.removeEventListener("mouseleave", handleMouseLeave);
+            container.removeEventListener("mousemove", handleMouseMove);
+            container.removeEventListener("mouseleave", handleMouseLeave);
+            window.removeEventListener("blur", handleBlur);
             if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
         };
     }, [isPlaying]);
@@ -1081,6 +1098,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
 
     return (
         <div
+            ref={containerRef}
             className="relative w-screen h-screen bg-black overflow-none"
             style={{cursor: (showControls || creditsActive) ? "default" : "none"}}
         >
