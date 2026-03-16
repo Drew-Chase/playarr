@@ -5,6 +5,7 @@ import {
     useContinueWatching,
     useOnDeck,
     useRecentlyAdded,
+    useRecentlyAired,
     useRecommendations,
     useLibraries,
     useLibraryGenres,
@@ -174,6 +175,7 @@ export default function Home() {
     const {data: continueWatching, isLoading: cwLoading} = useContinueWatching();
     const {data: onDeck, isLoading: odLoading} = useOnDeck();
     const {data: recentlyAdded, isLoading: raLoading} = useRecentlyAdded();
+    const {data: recentAired, isLoading: recentAiredLoading} = useRecentlyAired();
     const {data: recommendations, isLoading: recLoading} = useRecommendations();
     const {data: libraries} = useLibraries();
 
@@ -251,6 +253,28 @@ export default function Home() {
                     </ContentRow>
                 )}
 
+                {/* Recently Aired Episodes */}
+                {recentAiredLoading && (
+                    <SkeletonRow title="Recently Aired Episodes" width={480} landscape count={4}/>
+                )}
+                {!recentAiredLoading && recentAired && recentAired.length > 0 && (
+                    <ContentRow title="Recently Aired Episodes">
+                        {recentAired.map((item) => (
+                            <MediaCard key={item.ratingKey} item={item} variant="landscape" width={480} showAirDate/>
+                        ))}
+                    </ContentRow>
+                )}
+
+
+                {/* Recently Added TV Shows */}
+                {!raLoading && recentTV.length > 0 && (
+                    <ContentRow title="Recently Added TV Shows">
+                        {recentTV.map((item) => (
+                            <MediaCard key={item.ratingKey} item={item} variant="portrait" width={250}/>
+                        ))}
+                    </ContentRow>
+                )}
+
                 {/* Recently Added Movies */}
                 {!raLoading && recentMovies.length > 0 && (
                     <ContentRow title="Recently Added Movies">
@@ -261,14 +285,6 @@ export default function Home() {
                 )}
                 {raLoading && <SkeletonRow title="Recently Added Movies"/>}
 
-                {/* Recently Added TV Shows */}
-                {!raLoading && recentTV.length > 0 && (
-                    <ContentRow title="Recently Added TV Shows">
-                        {recentTV.map((item) => (
-                            <MediaCard key={item.ratingKey} item={item} variant="portrait" width={250}/>
-                        ))}
-                    </ContentRow>
-                )}
                 {raLoading && <SkeletonRow title="Recently Added TV Shows"/>}
 
                 {/* Collections per library */}

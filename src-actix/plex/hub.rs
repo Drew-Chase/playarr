@@ -53,6 +53,76 @@ async fn recently_added(
     Ok(HttpResponse::Ok().json(&body["MediaContainer"]["Metadata"]))
 }
 
+#[get("/recently-aired")]
+async fn recently_aired(
+    req: HttpRequest,
+    plex: web::Data<PlexClient>,
+) -> Result<impl Responder> {
+    let user_token = PlexClient::user_token_from_request(&req).unwrap_or_default();
+
+    // 1. Fetch all library sections
+    let sections_body = plex
+        .get_json_as_user("/library/sections", &user_token, &[])
+        .await?;
+
+    // 2. Find all show-type library sections
+    let show_section_keys: Vec<String> = sections_body["MediaContainer"]["Directory"]
+        .as_array()
+        .unwrap_or(&Vec::new())
+        .iter()
+        .filter(|s| s["type"].as_str() == Some("show"))
+        .filter_map(|s| s["key"].as_str().map(|k| k.to_string()))
+        .collect();
+
+    if show_section_keys.is_empty() {
+        return Ok(HttpResponse::Ok().json(serde_json::json!([])));
+    }
+
+    // 3. Query each section for episodes sorted by air date, concurrently
+    let futures: Vec<_> = show_section_keys
+        .iter()
+        .map(|key| {
+            let plex = plex.clone();
+            let user_token = user_token.clone();
+            let path = format!("/library/sections/{}/all", key);
+            async move {
+                plex.get_json_as_user(
+                    &path,
+                    &user_token,
+                    &[
+                        ("type", "4"),
+                        ("sort", "originallyAvailableAt:desc"),
+                        ("X-Plex-Container-Size", "20"),
+                    ],
+                )
+                .await
+            }
+        })
+        .collect();
+
+    let results = futures_util::future::join_all(futures).await;
+
+    // 4. Merge results, sort by originallyAvailableAt descending, take top 20
+    let mut all_episodes: Vec<serde_json::Value> = Vec::new();
+    for result in results {
+        if let Ok(body) = result {
+            if let Some(arr) = body["MediaContainer"]["Metadata"].as_array() {
+                all_episodes.extend(arr.iter().cloned());
+            }
+        }
+    }
+
+    all_episodes.sort_by(|a, b| {
+        let date_a = a["originallyAvailableAt"].as_str().unwrap_or("");
+        let date_b = b["originallyAvailableAt"].as_str().unwrap_or("");
+        date_b.cmp(date_a)
+    });
+
+    all_episodes.truncate(20);
+
+    Ok(HttpResponse::Ok().json(all_episodes))
+}
+
 /// Build "Because You Watched X" recommendations from the user's watch history.
 /// Fetches similar items for up to `count` sources and returns up to `limit` items per row.
 ///
@@ -222,6 +292,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
             .service(continue_watching)
             .service(on_deck)
             .service(recently_added)
+            .service(recently_aired)
             .service(recommendations)
             .service(playlist_metadata)
             .service(playlist_items)

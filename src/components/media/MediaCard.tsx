@@ -13,6 +13,7 @@ interface MediaCardProps
 {
     item: PlexMediaItem;
     showProgress?: boolean;
+    showAirDate?: boolean;
     variant?: "portrait" | "landscape";
     width?: number;
     lazy?: boolean;
@@ -42,7 +43,7 @@ async function resolveQueueItems(item: PlexMediaItem): Promise<PlexMediaItem[]> 
     return [item];
 }
 
-const MediaCardInner = memo(function MediaCardInner({item, showProgress, width, variant = "portrait"}: Omit<MediaCardProps, "lazy">)
+const MediaCardInner = memo(function MediaCardInner({item, showProgress, showAirDate, width, variant = "portrait"}: Omit<MediaCardProps, "lazy">)
 {
     const navigate = useNavigate();
     const location = useLocation();
@@ -179,6 +180,14 @@ const MediaCardInner = memo(function MediaCardInner({item, showProgress, width, 
                             loading="lazy"
                         />
                         {queueMenu}
+                        {showAirDate && item.originallyAvailableAt && (
+                            <div className="absolute top-2 left-2 z-10 flex items-center gap-1 bg-black/70 rounded-md px-2 py-1">
+                                <Icon icon="mdi:calendar" width="14" className="text-white/80"/>
+                                <span className="text-xs text-white/90 font-medium">
+                                    {new Date(item.originallyAvailableAt + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                                </span>
+                            </div>
+                        )}
                         {/* Hover play overlay */}
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
                             <button className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={handlePlay}>

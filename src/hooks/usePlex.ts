@@ -78,6 +78,13 @@ export function useRecentlyAdded() {
     });
 }
 
+export function useRecentlyAired() {
+    return useQuery({
+        queryKey: ["plex", "recentlyAired"],
+        queryFn: plexApi.getRecentlyAired,
+    });
+}
+
 export function useRecommendations(count = 5, limit = 20) {
     return useQuery({
         queryKey: ["plex", "recommendations", count, limit],
