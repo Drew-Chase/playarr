@@ -117,11 +117,15 @@ const MediaCardInner = memo(function MediaCardInner({item, showProgress, showAir
 
     const title = item.type === "episode" && item.grandparentTitle
         ? item.grandparentTitle
-        : item.title;
+        : item.type === "season" && item.parentTitle
+            ? item.parentTitle
+            : item.title;
 
     const subtitle = item.type === "episode"
         ? `S${item.parentIndex?.toString().padStart(2, "0")}E${item.index?.toString().padStart(2, "0")} ${item.title}`
-        : item.year?.toString() || "";
+        : item.type === "season"
+            ? item.title
+            : item.year?.toString() || "";
 
     const queueMenu = (
         <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={(e) => e.stopPropagation()}>
