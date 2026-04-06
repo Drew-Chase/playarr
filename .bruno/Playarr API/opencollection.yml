@@ -18,8 +18,8 @@ request:
   variables:
     - name: baseUrl
       value: http://127.0.0.1:8080/api
+      disabled: true
+    - name: baseUrl
+      value: https://playarr.dclabs.app/api
 bundled: false
-extensions:
-  ignore:
-    - node_modules
-    - .git
+extensions: {}
