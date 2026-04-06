@@ -85,6 +85,13 @@ export function useRecentlyAired() {
     });
 }
 
+export function useRecentlyReleasedMovies() {
+    return useQuery({
+        queryKey: ["plex", "recentlyReleasedMovies"],
+        queryFn: plexApi.getRecentlyReleasedMovies,
+    });
+}
+
 export function useRecommendations(count = 5, limit = 20) {
     return useQuery({
         queryKey: ["plex", "recommendations", count, limit],

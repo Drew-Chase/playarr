@@ -1,3 +1,4 @@
+import {useMemo} from "react";
 import {Chip, Skeleton} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {useQuery} from "@tanstack/react-query";
@@ -6,6 +7,7 @@ import {
     useOnDeck,
     useRecentlyAdded,
     useRecentlyAired,
+    useRecentlyReleasedMovies,
     useRecommendations,
     useLibraries,
     useLibraryGenres,
@@ -14,6 +16,7 @@ import {
     useChildren,
     usePlaylists,
 } from "../hooks/usePlex.ts";
+import {useRadarrMovies} from "../hooks/useDiscover.ts";
 import {useAuth} from "../providers/AuthProvider.tsx";
 import {useNavigate} from "react-router-dom";
 import {api} from "../lib/api.ts";
@@ -176,10 +179,18 @@ export default function Home() {
     const {data: onDeck, isLoading: odLoading} = useOnDeck();
     const {data: recentlyAdded, isLoading: raLoading} = useRecentlyAdded();
     const {data: recentAired, isLoading: recentAiredLoading} = useRecentlyAired();
+    const {data: recentlyReleasedMovies, isLoading: releasedMoviesLoading} = useRecentlyReleasedMovies();
     const {data: recommendations, isLoading: recLoading} = useRecommendations();
     const {data: libraries} = useLibraries();
 
     const {data: playlists, isLoading: playlistsLoading} = usePlaylists();
+
+    const {data: discoverRecent, isLoading: discoverRecentLoading} = useQuery({
+        queryKey: ["discover", "recent"],
+        queryFn: () => api.get<DiscoverResults>("/discover/recent"),
+    });
+
+    const {data: radarrMovies} = useRadarrMovies();
 
     const {data: trending, isLoading: trendingLoading} = useQuery({
         queryKey: ["discover", "trending"],
@@ -218,6 +229,14 @@ export default function Home() {
     // Split recently added into movies vs TV
     const recentMovies = recentlyAdded?.filter((item) => item.type === "movie") || [];
     const recentTV = recentlyAdded?.filter((item) => item.type !== "movie") || [];
+
+    // Filter discover recent movies to exclude those already downloaded via Radarr
+    const discoverRecentFiltered = useMemo(() => {
+        if (!discoverRecent?.movies) return [];
+        if (!radarrMovies) return discoverRecent.movies;
+        const ownedTmdbIds = new Set(radarrMovies.filter(m => m.hasFile).map(m => m.tmdbId));
+        return discoverRecent.movies.filter(m => !ownedTmdbIds.has(m.id));
+    }, [discoverRecent?.movies, radarrMovies]);
 
     // Collect featured items for the hero carousel (up to 5)
     const featured: PlexMediaItem[] = [];
@@ -265,6 +284,29 @@ export default function Home() {
                     </ContentRow>
                 )}
 
+                {/* Recently Released Movies (Plex) */}
+                {releasedMoviesLoading && (
+                    <SkeletonRow title="Recently Released Movies"/>
+                )}
+                {!releasedMoviesLoading && recentlyReleasedMovies && recentlyReleasedMovies.length > 0 && (
+                    <ContentRow title="Recently Released Movies">
+                        {recentlyReleasedMovies.map((item) => (
+                            <MediaCard key={item.ratingKey} item={item} variant="portrait" width={250}/>
+                        ))}
+                    </ContentRow>
+                )}
+
+                {/* Recently Released in Discover */}
+                {discoverRecentLoading && (
+                    <SkeletonDiscoverRow title="Recently Released in Discover"/>
+                )}
+                {!discoverRecentLoading && discoverRecentFiltered.length > 0 && (
+                    <ContentRow title="Recently Released in Discover">
+                        {discoverRecentFiltered.map((item) => (
+                            <DiscoverCard key={item.id} item={item} mediaType="movie"/>
+                        ))}
+                    </ContentRow>
+                )}
 
                 {/* Recently Added TV Shows */}
                 {!raLoading && recentTV.length > 0 && (
