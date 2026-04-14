@@ -30,6 +30,7 @@ export function useMetadata(id: string) {
         queryKey: ["plex", "metadata", id],
         queryFn: () => plexApi.getMetadata(id),
         enabled: !!id,
+        refetchInterval: 120_000,
     });
 }
 
@@ -38,6 +39,7 @@ export function useChildren(id: string) {
         queryKey: ["plex", "children", id],
         queryFn: () => plexApi.getChildren(id),
         enabled: !!id,
+        refetchInterval: 120_000,
     });
 }
 
@@ -46,6 +48,7 @@ export function useAllEpisodes(showId: string) {
         queryKey: ["plex", "allLeaves", showId],
         queryFn: () => plexApi.getAllEpisodes(showId),
         enabled: !!showId,
+        refetchInterval: 120_000,
     });
 }
 
@@ -61,6 +64,7 @@ export function useContinueWatching() {
     return useQuery({
         queryKey: ["plex", "continueWatching"],
         queryFn: plexApi.getContinueWatching,
+        refetchInterval: 120_000,
     });
 }
 
@@ -68,6 +72,7 @@ export function useOnDeck() {
     return useQuery({
         queryKey: ["plex", "onDeck"],
         queryFn: plexApi.getOnDeck,
+        refetchInterval: 120_000,
     });
 }
 
@@ -75,6 +80,7 @@ export function useRecentlyAdded() {
     return useQuery({
         queryKey: ["plex", "recentlyAdded"],
         queryFn: plexApi.getRecentlyAdded,
+        refetchInterval: 120_000,
     });
 }
 
@@ -82,6 +88,7 @@ export function useRecentlyAired() {
     return useQuery({
         queryKey: ["plex", "recentlyAired"],
         queryFn: plexApi.getRecentlyAired,
+        refetchInterval: 120_000,
     });
 }
 
@@ -89,6 +96,7 @@ export function useRecentlyReleasedMovies() {
     return useQuery({
         queryKey: ["plex", "recentlyReleasedMovies"],
         queryFn: plexApi.getRecentlyReleasedMovies,
+        refetchInterval: 120_000,
     });
 }
 
@@ -124,6 +132,7 @@ export function useLibraryCollections(key: string) {
         queryFn: () => plexApi.getLibraryCollections(key),
         enabled: !!key,
         staleTime: 300_000,
+        refetchInterval: 120_000,
     });
 }
 
@@ -132,6 +141,7 @@ export function usePlaylists() {
         queryKey: ["plex", "playlists"],
         queryFn: plexApi.getPlaylists,
         staleTime: 60_000,
+        refetchInterval: 120_000,
     });
 }
 

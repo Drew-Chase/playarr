@@ -2,7 +2,7 @@ import {useState, useRef, useEffect} from "react";
 import {Progress, CircularProgress, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, DropdownSection, Button} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {useNavigate, useLocation} from "react-router-dom";
-import {motion} from "framer-motion";
+import {AnimatePresence, motion} from "framer-motion";
 import {useChildren} from "../../hooks/usePlex.ts";
 import {useSonarrQueue, useSonarrEpisodes, useTmdbSeason} from "../../hooks/useDiscover.ts";
 import {useDownloads} from "../../hooks/useDownloads.ts";
@@ -490,31 +490,49 @@ export default function EpisodeList({seasonId, sonarrSeriesId, showTmdbId, seaso
 
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {entries.map((entry, index) => {
-                if (entry.type === "plex") {
-                    return (
-                        <EpisodeCard
-                            key={`plex-${entry.episode.ratingKey}`}
-                            episode={entry.episode}
-                            index={index}
-                            downloadItem={entry.downloadItem}
-                            sonarrEpisode={entry.sonarrEpisode}
-                            realtimeProgress={entry.realtimeProgress}
-                        />
-                    );
-                } else {
-                    return (
-                        <MissingEpisodeCard
-                            key={`missing-${entry.sonarrEpisode.id}`}
-                            sonarrEpisode={entry.sonarrEpisode}
-                            tmdbEpisode={entry.tmdbEpisode}
-                            index={index}
-                            downloadItem={entry.downloadItem}
-                            realtimeProgress={entry.realtimeProgress}
-                        />
-                    );
-                }
-            })}
+            <AnimatePresence mode="popLayout">
+                {entries.map((entry, index) => {
+                    if (entry.type === "plex") {
+                        return (
+                            <motion.div
+                                key={`plex-${entry.episode.ratingKey}`}
+                                layout
+                                initial={{opacity: 0, scale: 0.95}}
+                                animate={{opacity: 1, scale: 1}}
+                                exit={{opacity: 0, scale: 0.95}}
+                                transition={{duration: 0.3, layout: {duration: 0.3}}}
+                            >
+                                <EpisodeCard
+                                    episode={entry.episode}
+                                    index={index}
+                                    downloadItem={entry.downloadItem}
+                                    sonarrEpisode={entry.sonarrEpisode}
+                                    realtimeProgress={entry.realtimeProgress}
+                                />
+                            </motion.div>
+                        );
+                    } else {
+                        return (
+                            <motion.div
+                                key={`missing-${entry.sonarrEpisode.id}`}
+                                layout
+                                initial={{opacity: 0, scale: 0.95}}
+                                animate={{opacity: 1, scale: 1}}
+                                exit={{opacity: 0, scale: 0.95}}
+                                transition={{duration: 0.3, layout: {duration: 0.3}}}
+                            >
+                                <MissingEpisodeCard
+                                    sonarrEpisode={entry.sonarrEpisode}
+                                    tmdbEpisode={entry.tmdbEpisode}
+                                    index={index}
+                                    downloadItem={entry.downloadItem}
+                                    realtimeProgress={entry.realtimeProgress}
+                                />
+                            </motion.div>
+                        );
+                    }
+                })}
+            </AnimatePresence>
         </div>
     );
 }

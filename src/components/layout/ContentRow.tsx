@@ -1,5 +1,6 @@
-import {ReactNode, useRef} from "react";
+import {Children, ReactNode, useRef} from "react";
 import {Icon} from "@iconify-icon/react";
+import {AnimatePresence, motion} from "framer-motion";
 
 interface ContentRowProps {
     title: string;
@@ -48,7 +49,25 @@ export default function ContentRow({title, children, onSeeAll}: ContentRowProps)
                     className="flex gap-4 overflow-x-auto scrollbar-hide pb-2 scroll-snap-x py-8 pl-4 overflow-y-hidden"
                     style={{scrollbarWidth: "none"}}
                 >
-                    {children}
+                    <AnimatePresence mode="popLayout">
+                        {Children.map(children, (child) => {
+                            if (!child) return null;
+                            const key = (child as any)?.key ?? undefined;
+                            return (
+                                <motion.div
+                                    key={key}
+                                    layout
+                                    initial={{opacity: 0, scale: 0.95}}
+                                    animate={{opacity: 1, scale: 1}}
+                                    exit={{opacity: 0, scale: 0.95}}
+                                    transition={{duration: 0.3, layout: {duration: 0.3}}}
+                                    className="shrink-0"
+                                >
+                                    {child}
+                                </motion.div>
+                            );
+                        })}
+                    </AnimatePresence>
                 </div>
 
                 {/* Right scroll button */}

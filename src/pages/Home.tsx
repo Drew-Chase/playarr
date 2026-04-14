@@ -280,10 +280,10 @@ export default function Home()
                 )}
 
                 {/* Recently Aired Episodes */}
-                {recentAiredLoading && (
+                {recentAiredLoading && !recentAired && (
                     <SkeletonRow title="Recently Aired Episodes" width={480} landscape count={4}/>
                 )}
-                {!recentAiredLoading && recentAired && recentAired.length > 0 && (
+                {recentAired && recentAired.length > 0 && (
                     <ContentRow title="Recently Aired Episodes">
                         {recentAired.map((item) => (
                             <MediaCard key={item.ratingKey} item={item} variant="landscape" width={480} showAirDate/>
@@ -291,7 +291,7 @@ export default function Home()
                     </ContentRow>
                 )}
                 {/* Recently Added TV Shows */}
-                {!raLoading && recentTV.length > 0 && (
+                {recentTV.length > 0 && (
                     <ContentRow title="Recently Added TV Shows">
                         {recentTV.map((item) => (
                             <MediaCard key={item.ratingKey} item={item} variant="portrait" width={250}/>
@@ -300,10 +300,10 @@ export default function Home()
                 )}
 
                 {/* Recently Released Movies (Plex) */}
-                {releasedMoviesLoading && (
+                {releasedMoviesLoading && !recentlyReleasedMovies && (
                     <SkeletonRow title="Recently Released Movies"/>
                 )}
-                {!releasedMoviesLoading && recentlyReleasedMovies && recentlyReleasedMovies.length > 0 && (
+                {recentlyReleasedMovies && recentlyReleasedMovies.length > 0 && (
                     <ContentRow title="Recently Released Movies">
                         {recentlyReleasedMovies.map((item) => (
                             <MediaCard key={item.ratingKey} item={item} variant="portrait" width={250}/>
@@ -313,16 +313,16 @@ export default function Home()
 
 
                 {/* Recently Added Movies */}
-                {!raLoading && recentMovies.length > 0 && (
+                {recentMovies.length > 0 && (
                     <ContentRow title="Recently Added Movies">
                         {recentMovies.map((item) => (
                             <MediaCard key={item.ratingKey} item={item} variant="portrait" width={250}/>
                         ))}
                     </ContentRow>
                 )}
-                {raLoading && <SkeletonRow title="Recently Added Movies"/>}
+                {raLoading && !recentlyAdded && <SkeletonRow title="Recently Added Movies"/>}
 
-                {raLoading && <SkeletonRow title="Recently Added TV Shows"/>}
+                {raLoading && !recentlyAdded && <SkeletonRow title="Recently Added TV Shows"/>}
 
                 {/* Collections per library */}
                 {genreLibraries.map((lib) => (
@@ -330,8 +330,8 @@ export default function Home()
                 ))}
 
                 {/* Playlists */}
-                {playlistsLoading && <SkeletonRow title="Your Playlists"/>}
-                {!playlistsLoading && playlists && playlists.length > 0 && (
+                {playlistsLoading && !playlists && <SkeletonRow title="Your Playlists"/>}
+                {playlists && playlists.length > 0 && (
                     <ContentRow title="Your Playlists">
                         {playlists.map((pl) => (
                             <PlaylistCard key={pl.ratingKey} playlist={pl}/>
@@ -340,7 +340,7 @@ export default function Home()
                 )}
 
                 {/* Recommendations: "Because You Watched X" rows */}
-                {!isGuest && recLoading && (
+                {!isGuest && recLoading && !recommendations && (
                     <>
                         <SkeletonRow title="Recommended For You"/>
                         <SkeletonRow title="Recommended For You"/>
@@ -364,10 +364,10 @@ export default function Home()
                 <h2 className={"text-4xl ml-14 font-black mt-16 mb-8"}>Discover</h2>
 
                 {/* Recently Released in Discover */}
-                {discoverRecentLoading && (
+                {discoverRecentLoading && !discoverRecent && (
                     <SkeletonDiscoverRow title="Recently Released in Discover"/>
                 )}
-                {!discoverRecentLoading && discoverRecentFiltered.length > 0 && (
+                {discoverRecentFiltered.length > 0 && (
                     <ContentRow title="Recently Released in Discover">
                         {discoverRecentFiltered.map((item) => (
                             <DiscoverCard key={item.id} item={item} mediaType="movie"/>
@@ -376,7 +376,7 @@ export default function Home()
                 )}
 
                 {/* Trending Movies */}
-                {trendingLoading && <SkeletonDiscoverRow title="Trending Movies"/>}
+                {trendingLoading && !trending && <SkeletonDiscoverRow title="Trending Movies"/>}
                 {trending?.movies && trending.movies.length > 0 && (
                     <ContentRow title="Trending Movies">
                         {trending.movies.map((item) => (
@@ -386,7 +386,7 @@ export default function Home()
                 )}
 
                 {/* Trending TV Shows */}
-                {trendingLoading && <SkeletonDiscoverRow title="Trending TV Shows"/>}
+                {trendingLoading && !trending && <SkeletonDiscoverRow title="Trending TV Shows"/>}
                 {trending?.tv && trending.tv.length > 0 && (
                     <ContentRow title="Trending TV Shows">
                         {trending.tv.map((item) => (
@@ -396,7 +396,7 @@ export default function Home()
                 )}
 
                 {/* Discover by Genre (TMDB) */}
-                {discoverGenresLoading && (
+                {discoverGenresLoading && !discoverGenres && (
                     <>
                         <SkeletonDiscoverRow title="Action Movies"/>
                         <SkeletonDiscoverRow title="Comedy Movies"/>
@@ -414,7 +414,7 @@ export default function Home()
                 ))}
 
                 {/* Upcoming Movies */}
-                {upcomingLoading && <SkeletonDiscoverRow title="Upcoming Movies"/>}
+                {upcomingLoading && !upcoming && <SkeletonDiscoverRow title="Upcoming Movies"/>}
                 {upcoming?.movies && upcoming.movies.length > 0 && (
                     <ContentRow title="Upcoming Movies">
                         {upcoming.movies.map((item) => (

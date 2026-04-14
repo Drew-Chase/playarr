@@ -1,5 +1,6 @@
 import {useLocation, useNavigate, useParams} from "react-router-dom";
 import {useRef, useState} from "react";
+import {AnimatePresence, motion} from "framer-motion";
 import {BreadcrumbItem, Breadcrumbs, Button, Chip, Dropdown, DropdownItem, DropdownMenu, DropdownSection, DropdownTrigger, Modal, ModalBody, ModalContent, Progress, Spinner, Tooltip} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {useAllEpisodes, useChildren, useMetadata, useShowOnDeck, useTmdbTrailer} from "../hooks/usePlex.ts";
@@ -72,40 +73,47 @@ function SeasonsGrid({showId, sonarrSeriesId, showTmdbId}: { showId: string; son
 
     return (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {seasons.map((season: PlexMediaItem) => {
-                const thumbUrl = season.thumb ? `/api/media/${season.ratingKey}/thumb` : "";
-                const episodeCount = season.leafCount;
-                return (
-                    <div
-                        key={season.ratingKey}
-                        className="cursor-pointer group"
-                        onClick={() => navigate(`/detail/${season.ratingKey}`)}
-                    >
-                        <div className="relative rounded-lg overflow-hidden bg-content2 aspect-[2/3]">
-                            {thumbUrl ? (
-                                <img
-                                    src={thumbUrl}
-                                    alt={season.title}
-                                    className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-200"
-                                    loading="lazy"
-                                />
-                            ) : (
-                                <div className="w-full h-full bg-content3 flex items-center justify-center">
-                                    <Icon icon="mdi:folder" width="48" className="text-default-400"/>
-                                </div>
-                            )}
-                            <div
-                                className="absolute inset-0 rounded-lg ring-0 group-hover:ring-2 ring-primary/50 transition-all"/>
-                        </div>
-                        <div className="mt-2 px-1">
-                            <p className="text-sm font-semibold truncate">{season.title}</p>
-                            {episodeCount != null && (
-                                <p className="text-xs text-default-400">{episodeCount} episode{episodeCount !== 1 ? "s" : ""}</p>
-                            )}
-                        </div>
-                    </div>
-                );
-            })}
+            <AnimatePresence mode="popLayout">
+                {seasons.map((season: PlexMediaItem) => {
+                    const thumbUrl = season.thumb ? `/api/media/${season.ratingKey}/thumb` : "";
+                    const episodeCount = season.leafCount;
+                    return (
+                        <motion.div
+                            key={season.ratingKey}
+                            layout
+                            initial={{opacity: 0, scale: 0.95}}
+                            animate={{opacity: 1, scale: 1}}
+                            exit={{opacity: 0, scale: 0.95}}
+                            transition={{duration: 0.3}}
+                            className="cursor-pointer group"
+                            onClick={() => navigate(`/detail/${season.ratingKey}`)}
+                        >
+                            <div className="relative rounded-lg overflow-hidden bg-content2 aspect-[2/3]">
+                                {thumbUrl ? (
+                                    <img
+                                        src={thumbUrl}
+                                        alt={season.title}
+                                        className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-200"
+                                        loading="lazy"
+                                    />
+                                ) : (
+                                    <div className="w-full h-full bg-content3 flex items-center justify-center">
+                                        <Icon icon="mdi:folder" width="48" className="text-default-400"/>
+                                    </div>
+                                )}
+                                <div
+                                    className="absolute inset-0 rounded-lg ring-0 group-hover:ring-2 ring-primary/50 transition-all"/>
+                            </div>
+                            <div className="mt-2 px-1">
+                                <p className="text-sm font-semibold truncate">{season.title}</p>
+                                {episodeCount != null && (
+                                    <p className="text-xs text-default-400">{episodeCount} episode{episodeCount !== 1 ? "s" : ""}</p>
+                                )}
+                            </div>
+                        </motion.div>
+                    );
+                })}
+            </AnimatePresence>
         </div>
     );
 }
