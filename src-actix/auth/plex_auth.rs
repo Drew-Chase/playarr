@@ -1,7 +1,7 @@
 use actix_web::{get, post, web, HttpRequest, HttpResponse, Responder};
 use actix_web::cookie::{Cookie, SameSite};
 use log::{debug, warn};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use crate::config::{save_config, SharedConfig};
 use crate::config::models::*;
 use crate::http_error::Result;
@@ -13,12 +13,6 @@ fn extract_xml_attr(xml: &str, attr: &str) -> Option<String> {
     let start = xml.find(&pattern)? + pattern.len();
     let end = start + xml[start..].find('"')?;
     Some(xml[start..end].to_string())
-}
-
-#[derive(Serialize, Deserialize)]
-struct PinResponse {
-    id: u64,
-    code: String,
 }
 
 #[post("/pin")]
@@ -84,9 +78,10 @@ async fn poll_pin(
         // For non-admin users, resolve a server-specific access token.
         // A friend's plex.tv token doesn't work directly against the local PMS;
         // they need the accessToken from the plex.tv resources API.
-        let cfg = plex.config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
-        let is_admin = user_id == cfg.plex.admin_user_id;
-        drop(cfg);
+        let is_admin = {
+            let cfg = plex.config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
+            user_id == cfg.plex.admin_user_id
+        };
 
         let server_token = if is_admin {
             auth_token.to_string()
@@ -127,9 +122,10 @@ async fn check_guest_available(
     plex: web::Data<PlexClient>,
     config: web::Data<SharedConfig>,
 ) -> Result<HttpResponse> {
-    let cfg = config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
-    let admin_token = cfg.plex.token.clone();
-    drop(cfg);
+    let admin_token = {
+        let cfg = config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
+        cfg.plex.token.clone()
+    };
 
     if admin_token.is_empty() {
         return Ok(HttpResponse::Ok().json(serde_json::json!({ "available": false })));
@@ -163,9 +159,10 @@ async fn guest_login(
     plex: web::Data<PlexClient>,
     config: web::Data<SharedConfig>,
 ) -> Result<HttpResponse> {
-    let cfg = config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
-    let admin_token = cfg.plex.token.clone();
-    drop(cfg);
+    let admin_token = {
+        let cfg = config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
+        cfg.plex.token.clone()
+    };
 
     if admin_token.is_empty() {
         return Err(crate::http_error::Error::ServiceUnavailable(
@@ -266,22 +263,21 @@ async fn get_user(
             "Not signed in".to_string(),
         ))?;
 
-    let cfg = config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
-    let is_admin = user_id == cfg.plex.admin_user_id;
-    let admin_token = cfg.plex.token.clone();
-    drop(cfg);
+    let (is_admin, admin_token) = {
+        let cfg = config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
+        (user_id == cfg.plex.admin_user_id, cfg.plex.token.clone())
+    };
 
     // Non-admin users might be guest/managed users. Check the home endpoint
     // to definitively identify them, since plex.tv /api/v2/user may return
     // the home owner's info for managed user tokens.
-    if !is_admin {
-        if let Ok(home_resp) = plex
+    if !is_admin
+        && let Ok(home_resp) = plex
             .plex_tv_get("/api/v2/home")
             .header("X-Plex-Token", &admin_token)
             .send()
             .await
-        {
-            if let Ok(home) = home_resp.json::<serde_json::Value>().await {
+            && let Ok(home) = home_resp.json::<serde_json::Value>().await {
                 let guest_enabled = home["guestEnabled"].as_bool().unwrap_or(false)
                     || home["guestEnabled"].as_i64() == Some(1);
                 let guest_user_id = home["guestUserID"].as_i64().unwrap_or(0);
@@ -300,8 +296,6 @@ async fn get_user(
                     })));
                 }
             }
-        }
-    }
 
     // Admin or regular shared user — fetch info from plex.tv
     let resp = plex

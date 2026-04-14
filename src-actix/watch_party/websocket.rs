@@ -273,8 +273,8 @@ async fn handle_ws_messages(
                             }
                         }
                         WsMessage::NextEpisode => {
-                            if rooms.is_host(&room_id, user_id) {
-                                if let Some(next_media) = rooms.next_in_queue(&room_id) {
+                            if rooms.is_host(&room_id, user_id)
+                                && let Some(next_media) = rooms.next_in_queue(&room_id) {
                                     rooms.broadcast(&room_id, &WsMessage::MediaChange {
                                         media_id: next_media.clone(), title: None, duration_ms: 0,
                                     }).await;
@@ -283,7 +283,6 @@ async fn handle_ws_messages(
                                         route: format!("/player/{}", next_media),
                                     }).await;
                                 }
-                            }
                         }
                         WsMessage::QueueAdd { media_id } => {
                             rooms.add_to_queue(&room_id, media_id);

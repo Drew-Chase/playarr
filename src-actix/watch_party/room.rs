@@ -158,11 +158,10 @@ impl RoomManager {
 
     /// Grant a user access (used when they join via invite code).
     pub fn grant_access(&self, room_id: &Uuid, user_id: i64) {
-        if let Some(mut room) = self.rooms.get_mut(room_id) {
-            if !room.allowed_user_ids.contains(&user_id) {
+        if let Some(mut room) = self.rooms.get_mut(room_id)
+            && !room.allowed_user_ids.contains(&user_id) {
                 room.allowed_user_ids.push(user_id);
             }
-        }
     }
 
     pub fn is_host(&self, room_id: &Uuid, user_id: i64) -> bool {
@@ -207,11 +206,10 @@ impl RoomManager {
     }
 
     pub fn add_participant(&self, room_id: &Uuid, participant: Participant) {
-        if let Some(mut room) = self.rooms.get_mut(room_id) {
-            if !room.participants.iter().any(|p| p.user_id == participant.user_id) {
+        if let Some(mut room) = self.rooms.get_mut(room_id)
+            && !room.participants.iter().any(|p| p.user_id == participant.user_id) {
                 room.participants.push(participant);
             }
-        }
     }
 
     pub fn remove_participant(&self, room_id: &Uuid, user_id: i64) {
@@ -250,6 +248,7 @@ impl RoomManager {
         }
     }
 
+    #[allow(dead_code)]
     pub fn set_media(&self, room_id: &Uuid, media_id: String, title: Option<String>, duration_ms: u64) {
         if let Some(mut room) = self.rooms.get_mut(room_id) {
             room.media_id = media_id;
@@ -290,16 +289,15 @@ impl RoomManager {
     }
 
     pub fn remove_from_queue(&self, room_id: &Uuid, index: usize) {
-        if let Some(mut room) = self.rooms.get_mut(room_id) {
-            if index < room.episode_queue.len() {
+        if let Some(mut room) = self.rooms.get_mut(room_id)
+            && index < room.episode_queue.len() {
                 room.episode_queue.remove(index);
             }
-        }
     }
 
     pub fn next_in_queue(&self, room_id: &Uuid) -> Option<String> {
-        if let Some(mut room) = self.rooms.get_mut(room_id) {
-            if !room.episode_queue.is_empty() {
+        if let Some(mut room) = self.rooms.get_mut(room_id)
+            && !room.episode_queue.is_empty() {
                 let next = room.episode_queue.remove(0);
                 room.media_id = next.clone();
                 room.position_ms = 0;
@@ -309,7 +307,6 @@ impl RoomManager {
                 room.last_update_ms = chrono::Utc::now().timestamp_millis() as u64;
                 return Some(next);
             }
-        }
         None
     }
 
@@ -335,7 +332,7 @@ impl RoomManager {
             let ready = room.ready_users.clone();
             drop(room);
             if let Some(conns) = self.connections.get(room_id) {
-                return conns.len() > 0 && conns.keys().all(|uid| ready.contains(uid));
+                return !conns.is_empty() && conns.keys().all(|uid| ready.contains(uid));
             }
         }
         false
@@ -378,7 +375,7 @@ impl RoomManager {
             let ready = room.ready_users.clone();
             drop(room);
             if let Some(conns) = self.connections.get(room_id) {
-                return conns.len() > 0 && conns.keys().all(|uid| ready.contains(uid));
+                return !conns.is_empty() && conns.keys().all(|uid| ready.contains(uid));
             }
         }
         false
@@ -386,6 +383,7 @@ impl RoomManager {
 
     /// Compute the current playback position in seconds for a room.
     /// For Watching rooms, accounts for elapsed time since last update.
+    #[allow(dead_code)]
     pub fn compute_position_secs(&self, room_id: &Uuid) -> Option<f64> {
         let room = self.rooms.get(room_id)?;
         if room.status == RoomStatus::Watching {
@@ -470,11 +468,10 @@ impl RoomManager {
         let session = self.connections
             .get(room_id)
             .and_then(|conns| conns.get(&user_id).cloned());
-        if let Some(mut session) = session {
-            if session.text(json).await.is_err() {
+        if let Some(mut session) = session
+            && session.text(json).await.is_err() {
                 self.remove_connection(room_id, user_id);
             }
-        }
     }
 
     /// Host closes room: broadcast close message, remove all connections, delete room.
@@ -489,11 +486,10 @@ impl RoomManager {
             let _ = session.close(None).await;
         }
 
-        if let Some(room) = self.rooms.get(room_id) {
-            if let Some(code) = &room.invite_code {
+        if let Some(room) = self.rooms.get(room_id)
+            && let Some(code) = &room.invite_code {
                 self.invite_codes.remove(code);
             }
-        }
 
         self.connections.remove(room_id);
         self.synced_users.remove(room_id);

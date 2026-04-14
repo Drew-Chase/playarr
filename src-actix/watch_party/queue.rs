@@ -3,6 +3,7 @@
 use super::room::RoomManager;
 use uuid::Uuid;
 
+#[allow(dead_code)]
 impl RoomManager {
     /// Get the current queue for a room.
     pub fn get_queue(&self, id: &Uuid) -> Vec<String> {
@@ -21,11 +22,10 @@ impl RoomManager {
 
     /// Reorder a queue item from one index to another.
     pub fn reorder_queue(&self, id: &Uuid, from: usize, to: usize) {
-        if let Some(mut room) = self.rooms.get_mut(id) {
-            if from < room.episode_queue.len() && to < room.episode_queue.len() {
+        if let Some(mut room) = self.rooms.get_mut(id)
+            && from < room.episode_queue.len() && to < room.episode_queue.len() {
                 let item = room.episode_queue.remove(from);
                 room.episode_queue.insert(to, item);
             }
-        }
     }
 }

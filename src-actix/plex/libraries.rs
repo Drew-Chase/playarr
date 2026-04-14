@@ -110,7 +110,6 @@ async fn library_by_genre(
         let plex = plex.clone();
         let key = key.clone();
         let fetch_size = fetch_size.clone();
-        let size = size;
         let genre = genre.to_string();
         async move {
             let req = match plex.get(&format!("/library/sections/{}/all", key)) {

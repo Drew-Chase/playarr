@@ -203,7 +203,10 @@ async fn test_connection(
     body: web::Json<TestConnectionBody>,
 ) -> Result<impl Responder> {
     require_admin(&req, &config)?;
-    let cfg = config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
+    let cfg = {
+        let guard = config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
+        guard.clone()
+    };
     let body = body.into_inner();
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
@@ -317,11 +320,14 @@ async fn get_service_urls(
     config: web::Data<SharedConfig>,
     plex: web::Data<PlexClient>,
 ) -> Result<impl Responder> {
-    let cfg = config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
-    let plex_url = cfg.plex.url.trim_end_matches('/').to_string();
-    let sonarr_url = cfg.sonarr.url.trim_end_matches('/').to_string();
-    let radarr_url = cfg.radarr.url.trim_end_matches('/').to_string();
-    drop(cfg);
+    let (plex_url, sonarr_url, radarr_url) = {
+        let cfg = config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
+        (
+            cfg.plex.url.trim_end_matches('/').to_string(),
+            cfg.sonarr.url.trim_end_matches('/').to_string(),
+            cfg.radarr.url.trim_end_matches('/').to_string(),
+        )
+    };
 
     let machine_id = plex.get_server_machine_id().await;
 

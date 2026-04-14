@@ -36,8 +36,8 @@ pub async fn fetch_downloads(url: &str) -> color_eyre::eyre::Result<ClientDownlo
 
     // Parse active (queue)
     let mut queue = Vec::new();
-    if let Ok(resp) = active_resp {
-        if let Ok(torrents) = resp.json::<Vec<serde_json::Value>>().await {
+    if let Ok(resp) = active_resp
+        && let Ok(torrents) = resp.json::<Vec<serde_json::Value>>().await {
             for t in &torrents {
                 let progress = t["progress"].as_f64().unwrap_or(0.0) * 100.0;
                 // Skip completed torrents from the active list
@@ -80,12 +80,11 @@ pub async fn fetch_downloads(url: &str) -> color_eyre::eyre::Result<ClientDownlo
                 });
             }
         }
-    }
 
     // Parse completed (history)
     let mut history = Vec::new();
-    if let Ok(resp) = completed_resp {
-        if let Ok(torrents) = resp.json::<Vec<serde_json::Value>>().await {
+    if let Ok(resp) = completed_resp
+        && let Ok(torrents) = resp.json::<Vec<serde_json::Value>>().await {
             for t in torrents.iter().take(50) {
                 let size = t["size"].as_u64().unwrap_or(0);
                 let completion_on = t["completion_on"].as_i64().and_then(|ts| {
@@ -113,7 +112,6 @@ pub async fn fetch_downloads(url: &str) -> color_eyre::eyre::Result<ClientDownlo
                 });
             }
         }
-    }
 
     let paused = !queue.is_empty() && queue.iter().all(|i| i.status == "paused");
     Ok(ClientDownloads { paused, queue, history })

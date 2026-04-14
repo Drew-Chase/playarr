@@ -44,11 +44,10 @@ impl PlexClient {
     /// Look up a cached server access token, or resolve one from plex.tv.
     async fn get_or_resolve_server_token(&self, user_plex_tv_token: &str) -> Option<String> {
         // Check cache first
-        if let Ok(cache) = self.server_token_cache.read() {
-            if let Some(token) = cache.get(user_plex_tv_token) {
+        if let Ok(cache) = self.server_token_cache.read()
+            && let Some(token) = cache.get(user_plex_tv_token) {
                 return Some(token.clone());
             }
-        }
 
         // Resolve from plex.tv resources API
         let token = self.resolve_server_access_token(user_plex_tv_token).await?;
@@ -124,6 +123,7 @@ impl PlexClient {
 
     /// Build a PUT request with standard Plex headers.
     /// Token is sent as a query parameter for local Plex Media Server compatibility.
+    #[allow(dead_code)]
     pub fn put(&self, path: &str) -> http_error::Result<reqwest::RequestBuilder> {
         let token = self.token();
         if token.is_empty() {
@@ -212,6 +212,7 @@ impl PlexClient {
     }
 
     /// Build a GET request using a per-user token (falls back to server token if empty).
+    #[allow(dead_code)]
     pub fn get_as_user(&self, path: &str, user_token: &str) -> http_error::Result<reqwest::RequestBuilder> {
         let token = if user_token.is_empty() { self.token() } else { user_token.to_string() };
         if token.is_empty() {
@@ -259,8 +260,8 @@ impl PlexClient {
         if resp.status() == reqwest::StatusCode::UNAUTHORIZED {
             // First, try resolving a server-specific access token for this user.
             // The token we have may be a plex.tv token that the local PMS doesn't accept.
-            if let Some(server_token) = self.get_or_resolve_server_token(&token).await {
-                if server_token != token {
+            if let Some(server_token) = self.get_or_resolve_server_token(&token).await
+                && server_token != token {
                     debug!("Resolved server access token, retrying {} as user", path);
                     let req = self.http.get(&url)
                         .query(&[("X-Plex-Token", server_token.as_str())])
@@ -270,7 +271,6 @@ impl PlexClient {
                         .header("Accept", "application/json");
                     return self.send_json(req).await;
                 }
-            }
 
             // Last resort: fall back to admin token (loses per-user personalization)
             let admin_token = self.token();
@@ -333,8 +333,8 @@ impl PlexClient {
 
         if resp.status() == reqwest::StatusCode::UNAUTHORIZED {
             // Try resolving the user's server-specific access token first
-            if let Some(server_token) = self.get_or_resolve_server_token(&token).await {
-                if server_token != token {
+            if let Some(server_token) = self.get_or_resolve_server_token(&token).await
+                && server_token != token {
                     debug!("Resolved server access token, retrying {} as user", path);
                     return self.http.get(&url)
                         .query(&[("X-Plex-Token", server_token.as_str())])
@@ -345,7 +345,6 @@ impl PlexClient {
                         .send().await
                         .map_err(|e| color_eyre::eyre::eyre!("Plex request failed: {}", e).into());
                 }
-            }
 
             // Last resort: admin token
             let admin_token = self.token();
@@ -367,6 +366,7 @@ impl PlexClient {
 
     /// Send a GET-based PMS request as a user, with automatic fallback to admin token on 401.
     /// Uses the configured client_id for X-Plex-Client-Identifier.
+    #[allow(dead_code)]
     pub async fn send_as_user(
         &self,
         path: &str,
@@ -457,11 +457,10 @@ impl PlexClient {
     /// Get the machineIdentifier of the configured PMS, cached after first call.
     pub async fn get_server_machine_id(&self) -> Option<String> {
         // Check cache
-        if let Ok(cache) = self.machine_id_cache.read() {
-            if let Some(ref id) = *cache {
+        if let Ok(cache) = self.machine_id_cache.read()
+            && let Some(ref id) = *cache {
                 return Some(id.clone());
             }
-        }
 
         // Query the PMS root with the admin token
         let token = self.token();

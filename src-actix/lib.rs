@@ -166,6 +166,7 @@ pub async fn run() -> Result<()> {
 
     if DEBUG {
 	    ProxyViteOptions::default().disable_logging().build().map_err(|e| color_eyre::eyre::eyre!("{e}"))?;
+        #[allow(clippy::zombie_processes)]
         start_vite_server().expect("Failed to start vite server");
     }
 

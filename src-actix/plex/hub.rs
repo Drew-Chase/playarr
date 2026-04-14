@@ -1,9 +1,11 @@
-use actix_web::{get, web, HttpRequest, HttpResponse, Responder};
-use chrono::Utc;
-use serde::Deserialize;
-use std::collections::HashSet;
 use crate::http_error::Result;
 use crate::plex::client::PlexClient;
+use actix_web::{get, web, HttpRequest, HttpResponse, Responder};
+use chrono::Utc;
+use log::{debug, info};
+use serde::Deserialize;
+use std::collections::HashSet;
+use tokio::time::Instant;
 
 #[derive(Deserialize)]
 struct RecommendationParams {
@@ -18,7 +20,11 @@ async fn continue_watching(
 ) -> Result<impl Responder> {
     let user_token = PlexClient::user_token_from_request(&req).unwrap_or_default();
     let body = plex
-        .get_json_as_user("/hubs/continueWatching", &user_token, &[("X-Plex-Container-Size", "20")])
+        .get_json_as_user(
+            "/hubs/continueWatching",
+            &user_token,
+            &[("X-Plex-Container-Size", "20")],
+        )
         .await?;
 
     // Extract from Hub container
@@ -31,34 +37,34 @@ async fn continue_watching(
 }
 
 #[get("/on-deck")]
-async fn on_deck(
-    req: HttpRequest,
-    plex: web::Data<PlexClient>,
-) -> Result<impl Responder> {
+async fn on_deck(req: HttpRequest, plex: web::Data<PlexClient>) -> Result<impl Responder> {
     let user_token = PlexClient::user_token_from_request(&req).unwrap_or_default();
     let body = plex
-        .get_json_as_user("/library/onDeck", &user_token, &[("X-Plex-Container-Size", "20")])
+        .get_json_as_user(
+            "/library/onDeck",
+            &user_token,
+            &[("X-Plex-Container-Size", "20")],
+        )
         .await?;
     Ok(HttpResponse::Ok().json(&body["MediaContainer"]["Metadata"]))
 }
 
 #[get("/recently-added")]
-async fn recently_added(
-    req: HttpRequest,
-    plex: web::Data<PlexClient>,
-) -> Result<impl Responder> {
+async fn recently_added(req: HttpRequest, plex: web::Data<PlexClient>) -> Result<impl Responder> {
     let user_token = PlexClient::user_token_from_request(&req).unwrap_or_default();
     let body = plex
-        .get_json_as_user("/library/recentlyAdded", &user_token, &[("X-Plex-Container-Size", "20")])
+        .get_json_as_user(
+            "/library/recentlyAdded",
+            &user_token,
+            &[("X-Plex-Container-Size", "20")],
+        )
         .await?;
     Ok(HttpResponse::Ok().json(&body["MediaContainer"]["Metadata"]))
 }
 
 #[get("/recently-aired")]
-async fn recently_aired(
-    req: HttpRequest,
-    plex: web::Data<PlexClient>,
-) -> Result<impl Responder> {
+async fn recently_aired(req: HttpRequest, plex: web::Data<PlexClient>) -> Result<impl Responder> {
+    let instant = Instant::now();
     let user_token = PlexClient::user_token_from_request(&req).unwrap_or_default();
 
     // 1. Fetch all library sections
@@ -78,6 +84,9 @@ async fn recently_aired(
     if show_section_keys.is_empty() {
         return Ok(HttpResponse::Ok().json(serde_json::json!([])));
     }
+    info!("Getting episodes list took {:?}", instant.elapsed());
+    info!("Found {} show sections", show_section_keys.len());
+    info!("Sections: {}", show_section_keys.join(","));
 
     // 3. Query each section for episodes sorted by air date, concurrently
     //    Filter to last 30 days to avoid scanning entire episode index
@@ -112,10 +121,10 @@ async fn recently_aired(
     // 4. Merge results, sort by originallyAvailableAt descending, take top 20
     let mut all_episodes: Vec<serde_json::Value> = Vec::new();
     for result in results {
-        if let Ok(body) = result {
-            if let Some(arr) = body["MediaContainer"]["Metadata"].as_array() {
-                all_episodes.extend(arr.iter().cloned());
-            }
+        if let Ok(body) = result
+            && let Some(arr) = body["MediaContainer"]["Metadata"].as_array()
+        {
+            all_episodes.extend(arr.iter().cloned());
         }
     }
 
@@ -126,6 +135,17 @@ async fn recently_aired(
     });
 
     all_episodes.truncate(20);
+
+    info!("Found {} episodes", all_episodes.len());
+    debug!("Getting episodes list took {:?}", instant.elapsed());
+    debug!(
+        "Episodes: {}",
+        all_episodes
+            .iter()
+            .map(|e| e["title"].as_str().unwrap_or(""))
+            .collect::<Vec<_>>()
+            .join(",")
+    );
 
     Ok(HttpResponse::Ok().json(all_episodes))
 }
@@ -218,29 +238,46 @@ async fn recommendations(
 
     // Fetch multiple sources of watch history concurrently
     let (cw_result, od_result, rv_result) = futures_util::future::join3(
-        plex.get_json_as_user("/hubs/continueWatching", &user_token, &[("X-Plex-Container-Size", "30")]),
-        plex.get_json_as_user("/library/onDeck", &user_token, &[("X-Plex-Container-Size", "30")]),
-        plex.get_json_as_user("/library/recentlyViewed", &user_token, &[("X-Plex-Container-Size", "50")]),
-    ).await;
+        plex.get_json_as_user(
+            "/hubs/continueWatching",
+            &user_token,
+            &[("X-Plex-Container-Size", "30")],
+        ),
+        plex.get_json_as_user(
+            "/library/onDeck",
+            &user_token,
+            &[("X-Plex-Container-Size", "30")],
+        ),
+        plex.get_json_as_user(
+            "/library/recentlyViewed",
+            &user_token,
+            &[("X-Plex-Container-Size", "50")],
+        ),
+    )
+    .await;
 
     // Collect all items from all sources
     let mut all_items: Vec<serde_json::Value> = Vec::new();
 
     if let Ok(ref body) = cw_result {
         let hubs = &body["MediaContainer"]["Hub"];
-        if let Some(arr) = hubs.as_array().and_then(|a| a.first()).and_then(|hub| hub["Metadata"].as_array()) {
+        if let Some(arr) = hubs
+            .as_array()
+            .and_then(|a| a.first())
+            .and_then(|hub| hub["Metadata"].as_array())
+        {
             all_items.extend(arr.iter().cloned());
         }
     }
-    if let Ok(ref body) = od_result {
-        if let Some(arr) = body["MediaContainer"]["Metadata"].as_array() {
-            all_items.extend(arr.iter().cloned());
-        }
+    if let Ok(ref body) = od_result
+        && let Some(arr) = body["MediaContainer"]["Metadata"].as_array()
+    {
+        all_items.extend(arr.iter().cloned());
     }
-    if let Ok(ref body) = rv_result {
-        if let Some(arr) = body["MediaContainer"]["Metadata"].as_array() {
-            all_items.extend(arr.iter().cloned());
-        }
+    if let Ok(ref body) = rv_result
+        && let Some(arr) = body["MediaContainer"]["Metadata"].as_array()
+    {
+        all_items.extend(arr.iter().cloned());
     }
 
     if all_items.is_empty() {
@@ -252,7 +289,9 @@ async fn recommendations(
     let mut seen = HashSet::new();
 
     for item in &all_items {
-        if all_sources.len() >= max_rows { break; }
+        if all_sources.len() >= max_rows {
+            break;
+        }
         let item_type = item["type"].as_str().unwrap_or("");
         let (id, title) = match item_type {
             "movie" => (
@@ -260,8 +299,14 @@ async fn recommendations(
                 item["title"].as_str().unwrap_or("Unknown").to_string(),
             ),
             "episode" => (
-                item["grandparentRatingKey"].as_str().unwrap_or("").to_string(),
-                item["grandparentTitle"].as_str().unwrap_or("Unknown").to_string(),
+                item["grandparentRatingKey"]
+                    .as_str()
+                    .unwrap_or("")
+                    .to_string(),
+                item["grandparentTitle"]
+                    .as_str()
+                    .unwrap_or("Unknown")
+                    .to_string(),
             ),
             "show" => (
                 item["ratingKey"].as_str().unwrap_or("").to_string(),
@@ -275,32 +320,35 @@ async fn recommendations(
     }
 
     let container_size = items_per_row.to_string();
-    let futures: Vec<_> = all_sources.iter().map(|(id, title)| {
-        let plex = plex.clone();
-        let id = id.clone();
-        let title = title.clone();
-        let container_size = container_size.clone();
-        async move {
-            let req = match plex.get(&format!("/library/metadata/{}/similar", id)) {
-                Ok(r) => r.query(&[("X-Plex-Container-Size", &container_size)]),
-                Err(_) => return None,
-            };
-            let body = match plex.send_json(req).await {
-                Ok(b) => b,
-                Err(_) => return None,
-            };
-            let metadata = &body["MediaContainer"]["Metadata"];
-            if let Some(arr) = metadata.as_array() {
-                if !arr.is_empty() {
+    let futures: Vec<_> = all_sources
+        .iter()
+        .map(|(id, title)| {
+            let plex = plex.clone();
+            let id = id.clone();
+            let title = title.clone();
+            let container_size = container_size.clone();
+            async move {
+                let req = match plex.get(&format!("/library/metadata/{}/similar", id)) {
+                    Ok(r) => r.query(&[("X-Plex-Container-Size", &container_size)]),
+                    Err(_) => return None,
+                };
+                let body = match plex.send_json(req).await {
+                    Ok(b) => b,
+                    Err(_) => return None,
+                };
+                let metadata = &body["MediaContainer"]["Metadata"];
+                if let Some(arr) = metadata.as_array()
+                    && !arr.is_empty()
+                {
                     return Some(serde_json::json!({
                         "title": format!("Because You Watched {}", title),
                         "items": arr
                     }));
                 }
+                None
             }
-            None
-        }
-    }).collect();
+        })
+        .collect();
 
     let results = futures_util::future::join_all(futures).await;
     let recommendations: Vec<_> = results.into_iter().flatten().collect();
@@ -309,16 +357,14 @@ async fn recommendations(
 }
 
 #[get("/playlists")]
-async fn playlists(
-    req: HttpRequest,
-    plex: web::Data<PlexClient>,
-) -> Result<impl Responder> {
+async fn playlists(req: HttpRequest, plex: web::Data<PlexClient>) -> Result<impl Responder> {
     let user_token = PlexClient::user_token_from_request(&req).unwrap_or_default();
     let body = plex
-        .get_json_as_user("/playlists", &user_token, &[
-            ("playlistType", "video"),
-            ("X-Plex-Container-Size", "50"),
-        ])
+        .get_json_as_user(
+            "/playlists",
+            &user_token,
+            &[("playlistType", "video"), ("X-Plex-Container-Size", "50")],
+        )
         .await?;
     let items = &body["MediaContainer"]["Metadata"];
     if items.is_null() {

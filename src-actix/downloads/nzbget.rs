@@ -56,9 +56,9 @@ pub async fn fetch_downloads(url: &str, username: &str, password: &str) -> color
 
     // Parse queue
     let mut queue = Vec::new();
-    if let Ok(resp) = queue_resp {
-        if let Ok(json) = resp.json::<serde_json::Value>().await {
-            if let Some(groups) = json["result"].as_array() {
+    if let Ok(resp) = queue_resp
+        && let Ok(json) = resp.json::<serde_json::Value>().await
+            && let Some(groups) = json["result"].as_array() {
                 for group in groups {
                     let file_size = group["FileSizeMB"].as_f64().unwrap_or(0.0);
                     let remaining = group["RemainingSizeMB"].as_f64().unwrap_or(0.0);
@@ -90,14 +90,12 @@ pub async fn fetch_downloads(url: &str, username: &str, password: &str) -> color
                     });
                 }
             }
-        }
-    }
 
     // Parse history
     let mut history = Vec::new();
-    if let Ok(resp) = history_resp {
-        if let Ok(json) = resp.json::<serde_json::Value>().await {
-            if let Some(items) = json["result"].as_array() {
+    if let Ok(resp) = history_resp
+        && let Ok(json) = resp.json::<serde_json::Value>().await
+            && let Some(items) = json["result"].as_array() {
                 for item in items.iter().take(50) {
                     let file_size = item["FileSizeMB"].as_f64().unwrap_or(0.0);
                     let status = match item["Status"].as_str().unwrap_or("") {
@@ -122,16 +120,13 @@ pub async fn fetch_downloads(url: &str, username: &str, password: &str) -> color
                     });
                 }
             }
-        }
-    }
 
     // Parse status for paused state
     let mut paused = false;
-    if let Ok(resp) = status_resp {
-        if let Ok(json) = resp.json::<serde_json::Value>().await {
+    if let Ok(resp) = status_resp
+        && let Ok(json) = resp.json::<serde_json::Value>().await {
             paused = json["result"]["DownloadPaused"].as_bool().unwrap_or(false);
         }
-    }
 
     Ok(ClientDownloads { paused, queue, history })
 }

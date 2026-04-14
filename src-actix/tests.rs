@@ -10,6 +10,13 @@ use crate::plex::client::PlexClient;
 use crate::sonarr::client::SonarrClient;
 use crate::radarr::client::RadarrClient;
 use crate::watch_party::room::RoomManager;
+use actix_web::cookie::Cookie;
+
+/// Build an admin auth cookie for test requests.
+/// The mock configs use admin_user_id=0, so the cookie encodes user_id 0.
+fn admin_cookie() -> Cookie<'static> {
+    Cookie::new("plex_user_token", "0:test-token:test-token")
+}
 
 fn mock_config(plex_url: &str, plex_token: &str) -> SharedConfig {
     Arc::new(RwLock::new(AppConfig {
@@ -22,7 +29,6 @@ fn mock_config(plex_url: &str, plex_token: &str) -> SharedConfig {
         sonarr: SonarrConfig::default(),
         radarr: RadarrConfig::default(),
         download_clients: vec![],
-        opensubtitles: Default::default(),
     }))
 }
 
@@ -43,7 +49,6 @@ fn full_mock_config(plex_url: &str, sonarr_url: &str, radarr_url: &str) -> Share
             api_key: "radarr-key".to_string(),
         },
         download_clients: vec![],
-        opensubtitles: Default::default(),
     }))
 }
 
@@ -105,7 +110,7 @@ async fn settings_get_returns_redacted_config() {
     let config = mock_config("http://plex.local:32400", "secret-token");
     let app = test_app!(config);
 
-    let req = test::TestRequest::get().uri("/api/settings").to_request();
+    let req = test::TestRequest::get().uri("/api/settings").cookie(admin_cookie()).to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
 
@@ -127,6 +132,7 @@ async fn settings_update_plex_frontend_save_url_only() {
     // Exactly what the frontend sends: only the URL, no token field
     let req = test::TestRequest::put()
         .uri("/api/settings/plex")
+        .cookie(admin_cookie())
         .set_json(json!({ "url": "http://192.168.1.75:32400/" }))
         .to_request();
     let resp = test::call_service(&app, req).await;
@@ -145,6 +151,7 @@ async fn settings_update_plex_with_url_and_token() {
 
     let req = test::TestRequest::put()
         .uri("/api/settings/plex")
+        .cookie(admin_cookie())
         .set_json(json!({ "url": "http://192.168.1.75:32400/", "token": "manually-entered-token" }))
         .to_request();
     let resp = test::call_service(&app, req).await;
@@ -193,6 +200,7 @@ async fn settings_save_preserves_token_for_plex_api_calls() {
     // Step 2: Save settings with URL only (no token) — mimics frontend
     let req = test::TestRequest::put()
         .uri("/api/settings/plex")
+        .cookie(admin_cookie())
         .set_json(json!({ "url": mock_server.uri() }))
         .to_request();
     let resp = test::call_service(&app, req).await;
@@ -255,6 +263,7 @@ async fn pin_auth_then_settings_save_then_plex_api() {
     // Step 4: Frontend saves settings (URL only) — this is the bug scenario
     let req = test::TestRequest::put()
         .uri("/api/settings/plex")
+        .cookie(admin_cookie())
         .set_json(json!({ "url": mock_server.uri() }))
         .to_request();
     let resp = test::call_service(&app, req).await;
@@ -273,6 +282,7 @@ async fn settings_update_sonarr() {
 
     let req = test::TestRequest::put()
         .uri("/api/settings/sonarr")
+        .cookie(admin_cookie())
         .set_json(json!({ "url": "http://sonarr:8989", "api_key": "test-key" }))
         .to_request();
     let resp = test::call_service(&app, req).await;
@@ -290,6 +300,7 @@ async fn settings_update_radarr() {
 
     let req = test::TestRequest::put()
         .uri("/api/settings/radarr")
+        .cookie(admin_cookie())
         .set_json(json!({ "url": "http://radarr:7878", "api_key": "radarr-key" }))
         .to_request();
     let resp = test::call_service(&app, req).await;
@@ -306,6 +317,7 @@ async fn settings_update_download_clients() {
 
     let req = test::TestRequest::put()
         .uri("/api/settings/download-clients")
+        .cookie(admin_cookie())
         .set_json(json!([{
             "name": "SABnzbd", "type": "sabnzbd", "url": "http://sab:8080",
             "api_key": "sab-key", "username": "", "password": "", "enabled": true
@@ -323,7 +335,7 @@ async fn settings_update_download_clients() {
 async fn settings_test_unknown_service_returns_400() {
     let app = test_app!(mock_config("", ""));
 
-    let req = test::TestRequest::post().uri("/api/settings/test/unknown").set_json(json!({})).to_request();
+    let req = test::TestRequest::post().uri("/api/settings/test/unknown").cookie(admin_cookie()).set_json(json!({})).to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 400);
 
@@ -335,7 +347,7 @@ async fn settings_test_unknown_service_returns_400() {
 async fn settings_test_plex_unconfigured_returns_400() {
     let app = test_app!(mock_config("", ""));
 
-    let req = test::TestRequest::post().uri("/api/settings/test/plex").set_json(json!({})).to_request();
+    let req = test::TestRequest::post().uri("/api/settings/test/plex").cookie(admin_cookie()).set_json(json!({})).to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 400);
 
@@ -364,11 +376,17 @@ async fn auth_logout_clears_token() {
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
 
+    // Verify the Set-Cookie header clears the token
+    let cookie_header = resp.response().headers()
+        .get("set-cookie")
+        .expect("Logout should set a cookie header")
+        .to_str()
+        .unwrap()
+        .to_string();
+    assert!(cookie_header.contains("plex_user_token="), "Should clear plex_user_token cookie");
+
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["success"], true);
-
-    let cfg = config.read().unwrap();
-    assert!(cfg.plex.token.is_empty());
 }
 
 // ─── Plex Libraries ─────────────────────────────────────────────────────────
@@ -1029,7 +1047,7 @@ async fn downloads_empty_returns_empty() {
     let body: Value = test::read_body_json(resp).await;
     assert_eq!(body["queue_size"], 0);
     assert_eq!(body["total_speed"], 0);
-    assert_eq!(body["items"].as_array().unwrap().len(), 0);
+    assert_eq!(body["queue"].as_array().unwrap().len(), 0);
 }
 
 #[actix_rt::test]
@@ -1052,19 +1070,17 @@ async fn watch_party_create_room() {
 
     let req = test::TestRequest::post()
         .uri("/api/watch-party/rooms")
-        .set_json(json!({"mediaId": "123", "hostName": "TestUser"}))
+        .cookie(admin_cookie())
+        .set_json(json!({"accessMode": "everyone"}))
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 200);
 
     let body: Value = test::read_body_json(resp).await;
-    assert_eq!(body["host_name"], "TestUser");
-    assert_eq!(body["media_id"], "123");
-    assert_eq!(body["is_paused"], true);
-    assert_eq!(body["position_ms"], 0);
+    // fetch_user_info falls back to "User {id}" when plex.tv is unreachable
+    assert_eq!(body["host_username"], "User 0");
     assert!(body["id"].as_str().is_some());
     assert_eq!(body["participants"].as_array().unwrap().len(), 1);
-    assert_eq!(body["participants"][0], "TestUser");
 }
 
 #[actix_rt::test]
@@ -1074,7 +1090,8 @@ async fn watch_party_get_room() {
     // Create room
     let create_req = test::TestRequest::post()
         .uri("/api/watch-party/rooms")
-        .set_json(json!({"mediaId": "456", "hostName": "Host"}))
+        .cookie(admin_cookie())
+        .set_json(json!({"accessMode": "everyone"}))
         .to_request();
     let create_resp = test::call_service(&app, create_req).await;
     let created: Value = test::read_body_json(create_resp).await;
@@ -1083,13 +1100,13 @@ async fn watch_party_get_room() {
     // Fetch it
     let get_req = test::TestRequest::get()
         .uri(&format!("/api/watch-party/rooms/{}", room_id))
+        .cookie(admin_cookie())
         .to_request();
     let get_resp = test::call_service(&app, get_req).await;
     assert_eq!(get_resp.status(), 200);
 
     let body: Value = test::read_body_json(get_resp).await;
-    assert_eq!(body["media_id"], "456");
-    assert_eq!(body["host_name"], "Host");
+    assert_eq!(body["host_username"], "User 0");
 }
 
 #[actix_rt::test]
@@ -1098,6 +1115,7 @@ async fn watch_party_nonexistent_room_returns_404() {
 
     let req = test::TestRequest::get()
         .uri("/api/watch-party/rooms/00000000-0000-0000-0000-000000000000")
+        .cookie(admin_cookie())
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 404);
@@ -1109,6 +1127,7 @@ async fn watch_party_invalid_id_returns_400() {
 
     let req = test::TestRequest::get()
         .uri("/api/watch-party/rooms/not-a-uuid")
+        .cookie(admin_cookie())
         .to_request();
     let resp = test::call_service(&app, req).await;
     assert_eq!(resp.status(), 400);
@@ -1119,6 +1138,7 @@ async fn watch_party_invalid_id_returns_400() {
 // config path. Run with: cargo test -- --ignored
 
 /// Result of a transcode attempt: the master m3u8, variant m3u8, and sessions JSON.
+#[allow(dead_code)]
 struct TranscodeResult {
     master_m3u8: String,
     variant_m3u8: String,

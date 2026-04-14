@@ -37,8 +37,8 @@ pub async fn fetch_downloads(url: &str, api_key: &str) -> color_eyre::eyre::Resu
     // Parse queue
     let mut queue = Vec::new();
     let mut paused = false;
-    if let Ok(resp) = queue_resp {
-        if let Ok(json) = resp.json::<serde_json::Value>().await {
+    if let Ok(resp) = queue_resp
+        && let Ok(json) = resp.json::<serde_json::Value>().await {
             paused = json["queue"]["paused"].as_bool().unwrap_or(false);
             if let Some(slots) = json["queue"]["slots"].as_array() {
                 let speed_str = json["queue"]["kbpersec"].as_str().unwrap_or("0");
@@ -67,13 +67,12 @@ pub async fn fetch_downloads(url: &str, api_key: &str) -> color_eyre::eyre::Resu
                 }
             }
         }
-    }
 
     // Parse history
     let mut history = Vec::new();
-    if let Ok(resp) = history_resp {
-        if let Ok(json) = resp.json::<serde_json::Value>().await {
-            if let Some(slots) = json["history"]["slots"].as_array() {
+    if let Ok(resp) = history_resp
+        && let Ok(json) = resp.json::<serde_json::Value>().await
+            && let Some(slots) = json["history"]["slots"].as_array() {
                 for slot in slots {
                     let bytes = slot["bytes"].as_u64().unwrap_or(0);
                     let status_raw = slot["status"].as_str().unwrap_or("unknown");
@@ -103,8 +102,6 @@ pub async fn fetch_downloads(url: &str, api_key: &str) -> color_eyre::eyre::Resu
                     });
                 }
             }
-        }
-    }
 
     Ok(ClientDownloads { paused, queue, history })
 }

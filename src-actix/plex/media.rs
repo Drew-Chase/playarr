@@ -67,30 +67,26 @@ async fn get_on_deck(
             .as_array()
             .and_then(|hubs| hubs.first())
             .and_then(|hub| hub["Metadata"].as_array());
-        if let Some(items) = items {
-            if let Some(ep) = items.iter().find(|item| {
+        if let Some(items) = items
+            && let Some(ep) = items.iter().find(|item| {
                 item["grandparentRatingKey"].as_str() == Some(&*id)
                     || item["parentRatingKey"].as_str() == Some(&*id)
             }) {
                 return Ok(HttpResponse::Ok().json(ep));
             }
-        }
     }
 
     // Fall back to on-deck hub (next unwatched episode)
     if let Ok(body) = plex
         .get_json_as_user("/library/onDeck", &user_token, &[("X-Plex-Container-Size", "50")])
         .await
-    {
-        if let Some(items) = body["MediaContainer"]["Metadata"].as_array() {
-            if let Some(ep) = items.iter().find(|item| {
+        && let Some(items) = body["MediaContainer"]["Metadata"].as_array()
+            && let Some(ep) = items.iter().find(|item| {
                 item["grandparentRatingKey"].as_str() == Some(&*id)
                     || item["parentRatingKey"].as_str() == Some(&*id)
             }) {
                 return Ok(HttpResponse::Ok().json(ep));
             }
-        }
-    }
 
     // No on-deck episode found (all watched or none started)
     Ok(HttpResponse::Ok().json(serde_json::json!(null)))
@@ -130,10 +126,10 @@ async fn get_stream_url(
     query: web::Query<StreamQuery>,
 ) -> Result<impl Responder> {
     let id = path.into_inner();
-    let cfg = plex.config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
-    let base_url = cfg.plex.url.trim_end_matches('/').to_string();
-    let token = cfg.plex.token.clone();
-    drop(cfg);
+    let (base_url, token) = {
+        let cfg = plex.config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
+        (cfg.plex.url.trim_end_matches('/').to_string(), cfg.plex.token.clone())
+    };
     // Use per-session client identifier so each browser tab gets its own
     // Plex transcode session, preventing multi-user conflicts.
     let client_id = plex.playback_client_id(&req);
@@ -484,11 +480,10 @@ async fn stream_proxy(
     let mut plex_req = plex.get_image(&plex_path)?;
 
     // Forward Range header for seeking support
-    if let Some(range) = req.headers().get("Range") {
-        if let Ok(range_str) = range.to_str() {
+    if let Some(range) = req.headers().get("Range")
+        && let Ok(range_str) = range.to_str() {
             plex_req = plex_req.header("Range", range_str);
         }
-    }
 
     let resp = plex_req.send().await
         .map_err(|e| color_eyre::eyre::eyre!("Plex stream proxy failed: {}", e))?;
@@ -504,11 +499,10 @@ async fn stream_proxy(
 
     // Forward relevant headers
     for name in ["content-type", "content-length", "content-range", "accept-ranges"] {
-        if let Some(val) = resp.headers().get(name) {
-            if let Ok(val_str) = val.to_str() {
+        if let Some(val) = resp.headers().get(name)
+            && let Ok(val_str) = val.to_str() {
                 builder.insert_header((name, val_str.to_string()));
             }
-        }
     }
 
     let bytes = resp.bytes().await
@@ -526,10 +520,10 @@ async fn transcode_ping(
     path: web::Path<String>,
 ) -> Result<HttpResponse> {
     let session_id = path.into_inner();
-    let cfg = plex.config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
-    let base_url = cfg.plex.url.trim_end_matches('/').to_string();
-    let token = cfg.plex.token.clone();
-    drop(cfg);
+    let (base_url, token) = {
+        let cfg = plex.config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
+        (cfg.plex.url.trim_end_matches('/').to_string(), cfg.plex.token.clone())
+    };
     let client_id = plex.playback_client_id(&req);
 
     let ping_url = format!("{}/video/:/transcode/universal/ping", base_url);
@@ -555,11 +549,10 @@ async fn transcode_proxy(
     path: web::Path<String>,
 ) -> Result<HttpResponse> {
     let plex_path = path.into_inner();
-    let cfg = plex.config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
-    let base_url = cfg.plex.url.trim_end_matches('/').to_string();
-    let token = cfg.plex.token.clone();
-    let client_id = cfg.plex.client_id.clone();
-    drop(cfg);
+    let (base_url, token, client_id) = {
+        let cfg = plex.config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
+        (cfg.plex.url.trim_end_matches('/').to_string(), cfg.plex.token.clone(), cfg.plex.client_id.clone())
+    };
 
     let mut url = format!("{}/video/:/transcode/universal/{}", base_url, plex_path);
 
