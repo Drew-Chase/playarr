@@ -1,26 +1,13 @@
 import {useMemo} from "react";
-import {Chip, Skeleton} from "@heroui/react";
+import {Chip, Divider, Skeleton} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {useQuery} from "@tanstack/react-query";
-import {
-    useContinueWatching,
-    useOnDeck,
-    useRecentlyAdded,
-    useRecentlyAired,
-    useRecentlyReleasedMovies,
-    useRecommendations,
-    useLibraries,
-    useLibraryGenres,
-    useLibraryByGenre,
-    useLibraryCollections,
-    useChildren,
-    usePlaylists,
-} from "../hooks/usePlex.ts";
+import {useChildren, useContinueWatching, useLibraries, useLibraryByGenre, useLibraryCollections, useLibraryGenres, useOnDeck, usePlaylists, useRecentlyAdded, useRecentlyAired, useRecentlyReleasedMovies, useRecommendations} from "../hooks/usePlex.ts";
 import {useRadarrMovies} from "../hooks/useDiscover.ts";
 import {useAuth} from "../providers/AuthProvider.tsx";
 import {useNavigate} from "react-router-dom";
 import {api} from "../lib/api.ts";
-import type {DiscoverResults, PlexMediaItem, PlexLibrary, PlexCollection, PlexPlaylist, TmdbGenreGroup} from "../lib/types.ts";
+import type {DiscoverResults, PlexCollection, PlexLibrary, PlexMediaItem, PlexPlaylist, TmdbGenreGroup} from "../lib/types.ts";
 import {plexImage} from "../lib/utils.ts";
 import ContentRow from "../components/layout/ContentRow.tsx";
 import MediaCard from "../components/media/MediaCard.tsx";
@@ -28,7 +15,8 @@ import HeroCarousel from "../components/media/HeroCarousel.tsx";
 import DiscoverCard from "../components/media/DiscoverCard.tsx";
 
 /** Skeleton placeholder matching portrait MediaCard dimensions */
-function SkeletonCard({width = 250, landscape}: { width?: number; landscape?: boolean }) {
+function SkeletonCard({width = 250, landscape}: { width?: number; landscape?: boolean })
+{
     const h = landscape ? width / (16 / 9) : width * 1.5;
     return (
         <div className="shrink-0" style={{width}}>
@@ -42,7 +30,8 @@ function SkeletonCard({width = 250, landscape}: { width?: number; landscape?: bo
 }
 
 /** Skeleton placeholder matching DiscoverCard dimensions */
-function SkeletonDiscoverCard() {
+function SkeletonDiscoverCard()
+{
     return (
         <div className="shrink-0 w-[185px]">
             <Skeleton className="rounded-lg w-[185px] h-[278px]"/>
@@ -54,7 +43,8 @@ function SkeletonDiscoverCard() {
     );
 }
 
-function SkeletonRow({count = 8, width = 250, landscape, title}: { count?: number; width?: number; landscape?: boolean; title: string }) {
+function SkeletonRow({count = 8, width = 250, landscape, title}: { count?: number; width?: number; landscape?: boolean; title: string })
+{
     return (
         <ContentRow title={title}>
             {Array.from({length: count}, (_, i) => (
@@ -66,7 +56,8 @@ function SkeletonRow({count = 8, width = 250, landscape, title}: { count?: numbe
     );
 }
 
-function SkeletonDiscoverRow({count = 8, title}: { count?: number; title: string }) {
+function SkeletonDiscoverRow({count = 8, title}: { count?: number; title: string })
+{
     return (
         <ContentRow title={title}>
             {Array.from({length: count}, (_, i) => (
@@ -76,7 +67,8 @@ function SkeletonDiscoverRow({count = 8, title}: { count?: number; title: string
     );
 }
 
-function GenreRows({library}: { library: PlexLibrary }) {
+function GenreRows({library}: { library: PlexLibrary })
+{
     const {data: genres, isLoading: genresLoading} = useLibraryGenres(library.key);
     const topGenres = genres?.slice(0, 4) ?? [];
     const genreTitles = topGenres.map(g => g.title);
@@ -84,7 +76,8 @@ function GenreRows({library}: { library: PlexLibrary }) {
 
     const typeSuffix = library.type === "movie" ? "Movies" : "TV Shows";
 
-    if (genresLoading || (genreTitles.length > 0 && itemsLoading)) {
+    if (genresLoading || (genreTitles.length > 0 && itemsLoading))
+    {
         return (
             <>
                 {Array.from({length: 3}, (_, i) => (
@@ -111,7 +104,8 @@ function GenreRows({library}: { library: PlexLibrary }) {
     );
 }
 
-function CollectionRow({collection}: { collection: PlexCollection }) {
+function CollectionRow({collection}: { collection: PlexCollection })
+{
     const {data: items, isLoading} = useChildren(collection.ratingKey);
 
     if (isLoading) return <SkeletonRow title={collection.title}/>;
@@ -126,7 +120,8 @@ function CollectionRow({collection}: { collection: PlexCollection }) {
     );
 }
 
-function CollectionRows({library}: { library: PlexLibrary }) {
+function CollectionRows({library}: { library: PlexLibrary })
+{
     const {data: collections, isLoading} = useLibraryCollections(library.key);
 
     if (isLoading) return <SkeletonRow title={`${library.title} Collections`}/>;
@@ -141,7 +136,8 @@ function CollectionRows({library}: { library: PlexLibrary }) {
     );
 }
 
-function PlaylistCard({playlist}: { playlist: PlexPlaylist }) {
+function PlaylistCard({playlist}: { playlist: PlexPlaylist })
+{
     const navigate = useNavigate();
     const imgSrc = plexImage(playlist.composite || playlist.thumb, 300, 450);
     return (
@@ -173,7 +169,8 @@ function PlaylistCard({playlist}: { playlist: PlexPlaylist }) {
     );
 }
 
-export default function Home() {
+export default function Home()
+{
     const {isGuest} = useAuth();
     const {data: continueWatching, isLoading: cwLoading} = useContinueWatching();
     const {data: onDeck, isLoading: odLoading} = useOnDeck();
@@ -187,7 +184,7 @@ export default function Home() {
 
     const {data: discoverRecent, isLoading: discoverRecentLoading} = useQuery({
         queryKey: ["discover", "recent"],
-        queryFn: () => api.get<DiscoverResults>("/discover/recent"),
+        queryFn: () => api.get<DiscoverResults>("/discover/recent")
     });
 
     const {data: radarrMovies} = useRadarrMovies();
@@ -205,17 +202,22 @@ export default function Home() {
     const {data: discoverGenres, isLoading: discoverGenresLoading} = useQuery({
         queryKey: ["discover", "byGenre"],
         queryFn: () => api.get<TmdbGenreGroup[]>("/discover/by-genre"),
-        staleTime: 60_000,
+        staleTime: 60_000
     });
 
     // Merge continue watching + on deck, deduplicate by ratingKey (skip for guests)
     const watching: PlexMediaItem[] = [];
-    if (!isGuest) {
+    if (!isGuest)
+    {
         const seenKeys = new Set<string>();
-        for (const source of [continueWatching, onDeck]) {
-            if (source) {
-                for (const item of source) {
-                    if (!seenKeys.has(item.ratingKey)) {
+        for (const source of [continueWatching, onDeck])
+        {
+            if (source)
+            {
+                for (const item of source)
+                {
+                    if (!seenKeys.has(item.ratingKey))
+                    {
                         seenKeys.add(item.ratingKey);
                         watching.push(item);
                     }
@@ -231,7 +233,8 @@ export default function Home() {
     const recentTV = recentlyAdded?.filter((item) => item.type !== "movie") || [];
 
     // Filter discover recent movies to exclude those already downloaded via Radarr
-    const discoverRecentFiltered = useMemo(() => {
+    const discoverRecentFiltered = useMemo(() =>
+    {
         if (!discoverRecent?.movies) return [];
         if (!radarrMovies) return discoverRecent.movies;
         const ownedTmdbIds = new Set(radarrMovies.filter(m => m.hasFile).map(m => m.tmdbId));
@@ -241,11 +244,15 @@ export default function Home() {
     // Collect featured items for the hero carousel (up to 5)
     const featured: PlexMediaItem[] = [];
     const sources = isGuest ? [recentlyAdded] : [continueWatching, onDeck, recentlyAdded];
-    for (const source of sources) {
-        if (source) {
-            for (const item of source) {
+    for (const source of sources)
+    {
+        if (source)
+        {
+            for (const item of source)
+            {
                 if (featured.length >= 5) break;
-                if (!featured.find(f => f.ratingKey === item.ratingKey)) {
+                if (!featured.find(f => f.ratingKey === item.ratingKey))
+                {
                     featured.push(item);
                 }
             }
@@ -283,6 +290,14 @@ export default function Home() {
                         ))}
                     </ContentRow>
                 )}
+                {/* Recently Added TV Shows */}
+                {!raLoading && recentTV.length > 0 && (
+                    <ContentRow title="Recently Added TV Shows">
+                        {recentTV.map((item) => (
+                            <MediaCard key={item.ratingKey} item={item} variant="portrait" width={250}/>
+                        ))}
+                    </ContentRow>
+                )}
 
                 {/* Recently Released Movies (Plex) */}
                 {releasedMoviesLoading && (
@@ -296,26 +311,6 @@ export default function Home() {
                     </ContentRow>
                 )}
 
-                {/* Recently Released in Discover */}
-                {discoverRecentLoading && (
-                    <SkeletonDiscoverRow title="Recently Released in Discover"/>
-                )}
-                {!discoverRecentLoading && discoverRecentFiltered.length > 0 && (
-                    <ContentRow title="Recently Released in Discover">
-                        {discoverRecentFiltered.map((item) => (
-                            <DiscoverCard key={item.id} item={item} mediaType="movie"/>
-                        ))}
-                    </ContentRow>
-                )}
-
-                {/* Recently Added TV Shows */}
-                {!raLoading && recentTV.length > 0 && (
-                    <ContentRow title="Recently Added TV Shows">
-                        {recentTV.map((item) => (
-                            <MediaCard key={item.ratingKey} item={item} variant="portrait" width={250}/>
-                        ))}
-                    </ContentRow>
-                )}
 
                 {/* Recently Added Movies */}
                 {!raLoading && recentMovies.length > 0 && (
@@ -365,6 +360,20 @@ export default function Home() {
                 {genreLibraries.map((lib) => (
                     <GenreRows key={lib.key} library={lib}/>
                 ))}
+
+                <h2 className={"text-4xl ml-14 font-black mt-16 mb-8"}>Discover</h2>
+
+                {/* Recently Released in Discover */}
+                {discoverRecentLoading && (
+                    <SkeletonDiscoverRow title="Recently Released in Discover"/>
+                )}
+                {!discoverRecentLoading && discoverRecentFiltered.length > 0 && (
+                    <ContentRow title="Recently Released in Discover">
+                        {discoverRecentFiltered.map((item) => (
+                            <DiscoverCard key={item.id} item={item} mediaType="movie"/>
+                        ))}
+                    </ContentRow>
+                )}
 
                 {/* Trending Movies */}
                 {trendingLoading && <SkeletonDiscoverRow title="Trending Movies"/>}
