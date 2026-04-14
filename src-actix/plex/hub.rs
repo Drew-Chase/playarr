@@ -1,186 +1,15 @@
 use crate::http_error::Result;
 use crate::plex::client::PlexClient;
 use actix_web::{get, web, HttpRequest, HttpResponse, Responder};
-use log::{debug, warn};
+use chrono::Utc;
 use serde::Deserialize;
 use std::collections::HashSet;
-use std::sync::Arc;
-use tokio::sync::RwLock;
 
 #[derive(Deserialize)]
 struct RecommendationParams {
     count: Option<u32>,
     limit: Option<u32>,
 }
-
-/// Background-refreshed cache for slow hub endpoints.
-/// Populated every 120 seconds by a background task so requests are instant.
-pub struct HubCache {
-    recently_aired: RwLock<Vec<serde_json::Value>>,
-    recently_released: RwLock<Vec<serde_json::Value>>,
-}
-
-impl HubCache {
-    pub fn new() -> Self {
-        Self {
-            recently_aired: RwLock::new(Vec::new()),
-            recently_released: RwLock::new(Vec::new()),
-        }
-    }
-
-    /// Refresh the recently-aired episodes cache by querying Plex.
-    async fn refresh_recently_aired(&self, plex: &PlexClient) {
-        let token = plex.token();
-        if token.is_empty() {
-            return;
-        }
-
-        let sections_body = match plex
-            .get_json_as_user("/library/sections", &token, &[])
-            .await
-        {
-            Ok(body) => body,
-            Err(e) => {
-                warn!("HubCache: failed to fetch sections for recently-aired: {}", e);
-                return;
-            }
-        };
-
-        let show_section_keys: Vec<String> = sections_body["MediaContainer"]["Directory"]
-            .as_array()
-            .unwrap_or(&Vec::new())
-            .iter()
-            .filter(|s| s["type"].as_str() == Some("show"))
-            .filter_map(|s| s["key"].as_str().map(|k| k.to_string()))
-            .collect();
-
-        if show_section_keys.is_empty() {
-            *self.recently_aired.write().await = Vec::new();
-            return;
-        }
-
-        let futures: Vec<_> = show_section_keys
-            .iter()
-            .map(|key| {
-                let plex_token = token.clone();
-                let path = format!("/library/sections/{}/all", key);
-                async move {
-                    plex.get_json_as_user(
-                        &path,
-                        &plex_token,
-                        &[
-                            ("type", "4"),
-                            ("sort", "originallyAvailableAt:desc"),
-                            ("X-Plex-Container-Size", "20"),
-                        ],
-                    )
-                    .await
-                }
-            })
-            .collect();
-
-        let results = futures_util::future::join_all(futures).await;
-
-        let mut all_episodes: Vec<serde_json::Value> = Vec::new();
-        for body in results.into_iter().flatten() {
-            if let Some(arr) = body["MediaContainer"]["Metadata"].as_array() {
-                all_episodes.extend(arr.iter().cloned());
-            }
-        }
-
-        all_episodes.sort_by(|a, b| {
-            let date_a = a["originallyAvailableAt"].as_str().unwrap_or("");
-            let date_b = b["originallyAvailableAt"].as_str().unwrap_or("");
-            date_b.cmp(date_a)
-        });
-        all_episodes.truncate(20);
-
-        debug!("HubCache: refreshed recently-aired with {} episodes", all_episodes.len());
-        *self.recently_aired.write().await = all_episodes;
-    }
-
-    /// Refresh the recently-released movies cache by querying Plex.
-    async fn refresh_recently_released(&self, plex: &PlexClient) {
-        let token = plex.token();
-        if token.is_empty() {
-            return;
-        }
-
-        let sections_body = match plex
-            .get_json_as_user("/library/sections", &token, &[])
-            .await
-        {
-            Ok(body) => body,
-            Err(e) => {
-                warn!("HubCache: failed to fetch sections for recently-released: {}", e);
-                return;
-            }
-        };
-
-        let movie_section_keys: Vec<String> = sections_body["MediaContainer"]["Directory"]
-            .as_array()
-            .unwrap_or(&Vec::new())
-            .iter()
-            .filter(|s| s["type"].as_str() == Some("movie"))
-            .filter_map(|s| s["key"].as_str().map(|k| k.to_string()))
-            .collect();
-
-        if movie_section_keys.is_empty() {
-            *self.recently_released.write().await = Vec::new();
-            return;
-        }
-
-        let futures: Vec<_> = movie_section_keys
-            .iter()
-            .map(|key| {
-                let plex_token = token.clone();
-                let path = format!("/library/sections/{}/all", key);
-                async move {
-                    plex.get_json_as_user(
-                        &path,
-                        &plex_token,
-                        &[
-                            ("type", "1"),
-                            ("sort", "originallyAvailableAt:desc"),
-                            ("X-Plex-Container-Size", "20"),
-                        ],
-                    )
-                    .await
-                }
-            })
-            .collect();
-
-        let results = futures_util::future::join_all(futures).await;
-
-        let mut all_movies: Vec<serde_json::Value> = Vec::new();
-        for body in results.into_iter().flatten() {
-            if let Some(arr) = body["MediaContainer"]["Metadata"].as_array() {
-                all_movies.extend(arr.iter().cloned());
-            }
-        }
-
-        all_movies.sort_by(|a, b| {
-            let date_a = a["originallyAvailableAt"].as_str().unwrap_or("");
-            let date_b = b["originallyAvailableAt"].as_str().unwrap_or("");
-            date_b.cmp(date_a)
-        });
-        all_movies.truncate(20);
-
-        debug!("HubCache: refreshed recently-released with {} movies", all_movies.len());
-        *self.recently_released.write().await = all_movies;
-    }
-
-    /// Refresh all cached data.
-    pub async fn refresh_all(&self, plex: &PlexClient) {
-        futures_util::future::join(
-            self.refresh_recently_aired(plex),
-            self.refresh_recently_released(plex),
-        )
-        .await;
-    }
-}
-
-pub type SharedHubCache = Arc<HubCache>;
 
 #[get("/continue-watching")]
 async fn continue_watching(
@@ -232,15 +61,138 @@ async fn recently_added(req: HttpRequest, plex: web::Data<PlexClient>) -> Result
 }
 
 #[get("/recently-aired")]
-async fn recently_aired(cache: web::Data<SharedHubCache>) -> Result<impl Responder> {
-    let episodes = cache.recently_aired.read().await;
-    Ok(HttpResponse::Ok().json(&*episodes))
+async fn recently_aired(req: HttpRequest, plex: web::Data<PlexClient>) -> Result<impl Responder> {
+    let user_token = PlexClient::user_token_from_request(&req).unwrap_or_default();
+
+    let sections_body = plex
+        .get_json_as_user("/library/sections", &user_token, &[])
+        .await?;
+
+    let show_section_keys: Vec<String> = sections_body["MediaContainer"]["Directory"]
+        .as_array()
+        .unwrap_or(&Vec::new())
+        .iter()
+        .filter(|s| s["type"].as_str() == Some("show"))
+        .filter_map(|s| s["key"].as_str().map(|k| k.to_string()))
+        .collect();
+
+    if show_section_keys.is_empty() {
+        return Ok(HttpResponse::Ok().json(serde_json::json!([])));
+    }
+
+    let cutoff = (Utc::now() - chrono::Duration::days(30))
+        .format("%Y-%m-%d")
+        .to_string();
+
+    let futures: Vec<_> = show_section_keys
+        .iter()
+        .map(|key| {
+            let plex = plex.clone();
+            let user_token = user_token.clone();
+            let path = format!("/library/sections/{}/all", key);
+            let cutoff = cutoff.clone();
+            async move {
+                plex.get_json_as_user(
+                    &path,
+                    &user_token,
+                    &[
+                        ("type", "4"),
+                        ("sort", "originallyAvailableAt:desc"),
+                        ("limit", "20"),
+                        ("episode.originallyAvailableAt>>=", &cutoff),
+                    ],
+                )
+                .await
+            }
+        })
+        .collect();
+
+    let results = futures_util::future::join_all(futures).await;
+
+    let mut all_episodes: Vec<serde_json::Value> = Vec::new();
+    for body in results.into_iter().flatten() {
+        if let Some(arr) = body["MediaContainer"]["Metadata"].as_array() {
+            all_episodes.extend(arr.iter().cloned());
+        }
+    }
+
+    all_episodes.sort_by(|a, b| {
+        let date_a = a["originallyAvailableAt"].as_str().unwrap_or("");
+        let date_b = b["originallyAvailableAt"].as_str().unwrap_or("");
+        date_b.cmp(date_a)
+    });
+    all_episodes.truncate(20);
+
+    Ok(HttpResponse::Ok().json(all_episodes))
 }
 
 #[get("/recently-released-movies")]
-async fn recently_released_movies(cache: web::Data<SharedHubCache>) -> Result<impl Responder> {
-    let movies = cache.recently_released.read().await;
-    Ok(HttpResponse::Ok().json(&*movies))
+async fn recently_released_movies(
+    req: HttpRequest,
+    plex: web::Data<PlexClient>,
+) -> Result<impl Responder> {
+    let user_token = PlexClient::user_token_from_request(&req).unwrap_or_default();
+
+    let sections_body = plex
+        .get_json_as_user("/library/sections", &user_token, &[])
+        .await?;
+
+    let movie_section_keys: Vec<String> = sections_body["MediaContainer"]["Directory"]
+        .as_array()
+        .unwrap_or(&Vec::new())
+        .iter()
+        .filter(|s| s["type"].as_str() == Some("movie"))
+        .filter_map(|s| s["key"].as_str().map(|k| k.to_string()))
+        .collect();
+
+    if movie_section_keys.is_empty() {
+        return Ok(HttpResponse::Ok().json(serde_json::json!([])));
+    }
+
+    let cutoff = (Utc::now() - chrono::Duration::days(30))
+        .format("%Y-%m-%d")
+        .to_string();
+
+    let futures: Vec<_> = movie_section_keys
+        .iter()
+        .map(|key| {
+            let plex = plex.clone();
+            let user_token = user_token.clone();
+            let path = format!("/library/sections/{}/all", key);
+            let cutoff = cutoff.clone();
+            async move {
+                plex.get_json_as_user(
+                    &path,
+                    &user_token,
+                    &[
+                        ("type", "1"),
+                        ("sort", "originallyAvailableAt:desc"),
+                        ("limit", "20"),
+                        ("movie.originallyAvailableAt>>=", &cutoff),
+                    ],
+                )
+                .await
+            }
+        })
+        .collect();
+
+    let results = futures_util::future::join_all(futures).await;
+
+    let mut all_movies: Vec<serde_json::Value> = Vec::new();
+    for body in results.into_iter().flatten() {
+        if let Some(arr) = body["MediaContainer"]["Metadata"].as_array() {
+            all_movies.extend(arr.iter().cloned());
+        }
+    }
+
+    all_movies.sort_by(|a, b| {
+        let date_a = a["originallyAvailableAt"].as_str().unwrap_or("");
+        let date_b = b["originallyAvailableAt"].as_str().unwrap_or("");
+        date_b.cmp(date_a)
+    });
+    all_movies.truncate(20);
+
+    Ok(HttpResponse::Ok().json(all_movies))
 }
 
 /// Build "Because You Watched X" recommendations from the user's watch history.

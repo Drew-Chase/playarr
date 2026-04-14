@@ -60,7 +60,6 @@ macro_rules! test_app {
         let sonarr_client = web::Data::new(SonarrClient::new(sc.clone()));
         let radarr_client = web::Data::new(RadarrClient::new(sc.clone()));
         let room_manager = web::Data::new(RoomManager::new());
-        let hub_cache = web::Data::new(std::sync::Arc::new(crate::plex::hub::HubCache::new()));
         let config_data = web::Data::new(sc);
         test::init_service(
             App::new()
@@ -69,7 +68,6 @@ macro_rules! test_app {
                 .app_data(sonarr_client)
                 .app_data(radarr_client)
                 .app_data(room_manager)
-                .app_data(hub_cache)
                 .service(
                     web::scope("/api")
                         .configure(crate::settings::endpoints::configure)
