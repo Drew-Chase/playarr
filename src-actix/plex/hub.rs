@@ -1,4 +1,5 @@
 use actix_web::{get, web, HttpRequest, HttpResponse, Responder};
+use chrono::Utc;
 use serde::Deserialize;
 use std::collections::HashSet;
 use crate::http_error::Result;
@@ -79,12 +80,17 @@ async fn recently_aired(
     }
 
     // 3. Query each section for episodes sorted by air date, concurrently
+    //    Filter to last 30 days to avoid scanning entire episode index
+    let cutoff = (Utc::now() - chrono::Duration::days(30))
+        .format("%Y-%m-%d")
+        .to_string();
     let futures: Vec<_> = show_section_keys
         .iter()
         .map(|key| {
             let plex = plex.clone();
             let user_token = user_token.clone();
             let path = format!("/library/sections/{}/all", key);
+            let cutoff = cutoff.clone();
             async move {
                 plex.get_json_as_user(
                     &path,
@@ -93,6 +99,7 @@ async fn recently_aired(
                         ("type", "4"),
                         ("sort", "originallyAvailableAt:desc"),
                         ("X-Plex-Container-Size", "20"),
+                        ("originallyAvailableAt>>=", &cutoff),
                     ],
                 )
                 .await
@@ -146,12 +153,17 @@ async fn recently_released_movies(
         return Ok(HttpResponse::Ok().json(serde_json::json!([])));
     }
 
+    // Filter to last 30 days to avoid scanning entire movie index
+    let cutoff = (Utc::now() - chrono::Duration::days(30))
+        .format("%Y-%m-%d")
+        .to_string();
     let futures: Vec<_> = movie_section_keys
         .iter()
         .map(|key| {
             let plex = plex.clone();
             let user_token = user_token.clone();
             let path = format!("/library/sections/{}/all", key);
+            let cutoff = cutoff.clone();
             async move {
                 plex.get_json_as_user(
                     &path,
@@ -160,6 +172,7 @@ async fn recently_released_movies(
                         ("type", "1"),
                         ("sort", "originallyAvailableAt:desc"),
                         ("X-Plex-Container-Size", "20"),
+                        ("originallyAvailableAt>>=", &cutoff),
                     ],
                 )
                 .await
