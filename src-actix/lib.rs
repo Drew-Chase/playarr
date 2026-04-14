@@ -51,6 +51,7 @@ pub async fn run() -> Result<()> {
     let sonarr_client = web::Data::new(sonarr::client::SonarrClient::new(shared_config.clone()));
     let radarr_client = web::Data::new(radarr::client::RadarrClient::new(shared_config.clone()));
     let room_manager = web::Data::new(watch_party::room::RoomManager::new());
+    let hub_cache = web::Data::new(std::sync::Arc::new(plex::hub::HubCache::new()));
     let config_data = web::Data::new(shared_config.clone());
     let health_state = web::Data::new(status_endpoints::new_health_state());
 
@@ -70,6 +71,19 @@ pub async fn run() -> Result<()> {
                 radarr,
             )
             .await;
+        });
+    }
+
+    // Spawn hub cache refresh task: populate immediately, then every 120 seconds
+    {
+        let cache = hub_cache.clone();
+        let plex = plex_client.clone();
+        actix_web::rt::spawn(async move {
+            let mut interval = actix_web::rt::time::interval(std::time::Duration::from_secs(120));
+            loop {
+                interval.tick().await;
+                cache.refresh_all(&plex).await;
+            }
         });
     }
 
@@ -111,6 +125,7 @@ pub async fn run() -> Result<()> {
             .app_data(sonarr_client.clone())
             .app_data(radarr_client.clone())
             .app_data(room_manager.clone())
+            .app_data(hub_cache.clone())
             .app_data(health_state.clone())
             .service(
                 web::scope("api")
