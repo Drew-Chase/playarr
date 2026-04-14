@@ -18,12 +18,12 @@ async fn lookup(
         .query(&[("term", query.term.as_str())])
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to lookup series: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to lookup series: {}", e))?;
 
     let body: serde_json::Value = resp
         .json()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to parse lookup: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to parse lookup: {}", e))?;
 
     Ok(HttpResponse::Ok().json(body))
 }
@@ -36,12 +36,12 @@ async fn list_series(
         .get("/series")
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to fetch series: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch series: {}", e))?;
 
     let body: serde_json::Value = resp
         .json()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to parse series: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to parse series: {}", e))?;
 
     Ok(HttpResponse::Ok().json(body))
 }
@@ -56,12 +56,12 @@ async fn get_series(
         .get(&format!("/series/{}", id))
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to fetch series: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch series: {}", e))?;
 
     let body: serde_json::Value = resp
         .json()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to parse series: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to parse series: {}", e))?;
 
     Ok(HttpResponse::Ok().json(body))
 }
@@ -76,13 +76,13 @@ async fn add_series(
         .json(&body.into_inner())
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to add series: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to add series: {}", e))?;
 
     let status = resp.status();
     let body: serde_json::Value = resp
         .json()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to parse add response: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to parse add response: {}", e))?;
 
     if status.is_success() {
         Ok(HttpResponse::Ok().json(body))
@@ -103,13 +103,13 @@ async fn update_series(
         .json(&body.into_inner())
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to update series: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to update series: {}", e))?;
 
     let status = resp.status();
     let body: serde_json::Value = resp
         .json()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to parse update response: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to parse update response: {}", e))?;
 
     if status.is_success() {
         Ok(HttpResponse::Ok().json(body))

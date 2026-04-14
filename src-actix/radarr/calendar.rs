@@ -25,12 +25,12 @@ async fn calendar(
         .query(&[("start", start.as_str()), ("end", end.as_str())])
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to fetch calendar: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch calendar: {}", e))?;
 
     let body: serde_json::Value = resp
         .json()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to parse calendar: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to parse calendar: {}", e))?;
 
     Ok(HttpResponse::Ok().json(body))
 }

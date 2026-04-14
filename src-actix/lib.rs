@@ -1,6 +1,6 @@
 use crate::asset_endpoint::AssetsAppConfig;
 use actix_web::{App, HttpResponse, HttpServer, middleware, web};
-use anyhow::Result;
+use color_eyre::eyre::Result;
 use log::*;
 use serde_json::json;
 use vite_actix::proxy_vite_options::ProxyViteOptions;
@@ -28,6 +28,7 @@ mod status_endpoints;
 pub static DEBUG: bool = cfg!(debug_assertions);
 
 pub async fn run() -> Result<()> {
+    color_eyre::install()?;
     let port: u16 = std::env::var("PLAYARR_PORT")
         .unwrap_or("8080".to_string())
         .parse()
@@ -164,7 +165,7 @@ pub async fn run() -> Result<()> {
     );
 
     if DEBUG {
-	    ProxyViteOptions::default().disable_logging().build()?;
+	    ProxyViteOptions::default().disable_logging().build().map_err(|e| color_eyre::eyre::eyre!("{e}"))?;
         start_vite_server().expect("Failed to start vite server");
     }
 

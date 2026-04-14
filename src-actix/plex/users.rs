@@ -12,7 +12,7 @@ async fn list_plex_users(
     let (user_id, _) = PlexClient::user_from_request(&req)
         .ok_or_else(|| http_error::Error::Unauthorized("Not signed in".to_string()))?;
 
-    let cfg = config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+    let cfg = config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
     if user_id != cfg.plex.admin_user_id {
         return Err(http_error::Error::Forbidden("Admin access required".to_string()));
     }

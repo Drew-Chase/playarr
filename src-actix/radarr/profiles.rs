@@ -10,12 +10,12 @@ async fn quality_profiles(
         .get("/qualityprofile")
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to fetch quality profiles: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch quality profiles: {}", e))?;
 
     let body: serde_json::Value = resp
         .json()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to parse quality profiles: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to parse quality profiles: {}", e))?;
 
     Ok(HttpResponse::Ok().json(body))
 }
@@ -28,12 +28,12 @@ async fn root_folders(
         .get("/rootfolder")
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to fetch root folders: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch root folders: {}", e))?;
 
     let body: serde_json::Value = resp
         .json()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to parse root folders: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to parse root folders: {}", e))?;
 
     Ok(HttpResponse::Ok().json(body))
 }

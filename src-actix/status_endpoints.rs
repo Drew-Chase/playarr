@@ -357,7 +357,7 @@ async fn get_status(
     let start = *START_TIME.get_or_init(|| now);
 
     let setup_complete = {
-        let cfg = config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+        let cfg = config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
         !cfg.plex.url.is_empty() && !cfg.plex.token.is_empty()
     };
 

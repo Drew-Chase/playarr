@@ -11,12 +11,12 @@ async fn queue(
         .query(&[("pageSize", "50"), ("includeSeries", "true"), ("includeEpisode", "true")])
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to fetch queue: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch queue: {}", e))?;
 
     let body: serde_json::Value = resp
         .json()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to parse queue: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to parse queue: {}", e))?;
 
     Ok(HttpResponse::Ok().json(body))
 }

@@ -104,14 +104,14 @@ async fn get_related(
     let id = path.into_inner();
     let req = plex.get(&format!("/library/metadata/{}/similar", id))?;
     let resp = req.send().await
-        .map_err(|e| anyhow::anyhow!("Plex request failed: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Plex request failed: {}", e))?;
 
     if !resp.status().is_success() {
         return Ok(HttpResponse::Ok().json(serde_json::json!([])));
     }
 
     let body: serde_json::Value = resp.json().await
-        .map_err(|e| anyhow::anyhow!("Failed to parse Plex JSON response: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to parse Plex JSON response: {}", e))?;
     Ok(HttpResponse::Ok().json(&body["MediaContainer"]["Metadata"]))
 }
 
@@ -130,7 +130,7 @@ async fn get_stream_url(
     query: web::Query<StreamQuery>,
 ) -> Result<impl Responder> {
     let id = path.into_inner();
-    let cfg = plex.config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+    let cfg = plex.config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
     let base_url = cfg.plex.url.trim_end_matches('/').to_string();
     let token = cfg.plex.token.clone();
     drop(cfg);
@@ -209,12 +209,12 @@ async fn get_stream_url(
             .query(&ds_params)
             .send()
             .await
-            .map_err(|e| anyhow::anyhow!("DirectStream request failed: {}", e))?;
+            .map_err(|e| color_eyre::eyre::eyre!("DirectStream request failed: {}", e))?;
 
         if !resp.status().is_success() {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
-            return Err(anyhow::anyhow!(
+            return Err(color_eyre::eyre::eyre!(
                 "Plex directstream returned {}: {}",
                 status.as_u16(),
                 &body[..body.len().min(200)]
@@ -222,11 +222,11 @@ async fn get_stream_url(
         }
 
         let m3u8_body = resp.text().await
-            .map_err(|e| anyhow::anyhow!("Failed to read m3u8: {}", e))?;
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to read m3u8: {}", e))?;
 
         let session_path = m3u8_body.lines()
             .find(|line| !line.starts_with('#') && !line.is_empty())
-            .ok_or_else(|| anyhow::anyhow!("No session URL in m3u8 response"))?;
+            .ok_or_else(|| color_eyre::eyre::eyre!("No session URL in m3u8 response"))?;
 
         // Proxy through backend so local Plex IP is never exposed to clients
         let stream_url = if session_path.starts_with("http") {
@@ -327,12 +327,12 @@ async fn get_stream_url(
             .query(&transcode_params)
             .send()
             .await
-            .map_err(|e| anyhow::anyhow!("Transcode request failed: {}", e))?;
+            .map_err(|e| color_eyre::eyre::eyre!("Transcode request failed: {}", e))?;
 
         if !resp.status().is_success() {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
-            return Err(anyhow::anyhow!(
+            return Err(color_eyre::eyre::eyre!(
                 "Plex transcode returned {}: {}",
                 status.as_u16(),
                 &body[..body.len().min(200)]
@@ -340,12 +340,12 @@ async fn get_stream_url(
         }
 
         let m3u8_body = resp.text().await
-            .map_err(|e| anyhow::anyhow!("Failed to read m3u8: {}", e))?;
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to read m3u8: {}", e))?;
 
         // Extract session URL from master m3u8 (first non-comment, non-empty line)
         let session_path = m3u8_body.lines()
             .find(|line| !line.starts_with('#') && !line.is_empty())
-            .ok_or_else(|| anyhow::anyhow!("No session URL in m3u8 response"))?;
+            .ok_or_else(|| color_eyre::eyre::eyre!("No session URL in m3u8 response"))?;
 
         // Proxy through backend so local Plex IP is never exposed to clients
         let stream_url = if session_path.starts_with("http") {
@@ -379,19 +379,19 @@ async fn get_bif(
 
     let part_id = body["MediaContainer"]["Metadata"][0]["Media"][0]["Part"][0]["id"]
         .as_i64()
-        .ok_or_else(|| anyhow::anyhow!("No part ID found for media {}", id))?;
+        .ok_or_else(|| color_eyre::eyre::eyre!("No part ID found for media {}", id))?;
 
     let bif_path = format!("/library/parts/{}/indexes/sd", part_id);
     let req = plex.get_image(&bif_path)?;
     let resp = req.send().await
-        .map_err(|e| anyhow::anyhow!("BIF request failed: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("BIF request failed: {}", e))?;
 
     if !resp.status().is_success() {
         return Ok(HttpResponse::NotFound().finish());
     }
 
     let bytes = resp.bytes().await
-        .map_err(|e| anyhow::anyhow!("Failed to read BIF data: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to read BIF data: {}", e))?;
 
     Ok(HttpResponse::Ok()
         .content_type("application/octet-stream")
@@ -444,7 +444,7 @@ async fn get_image(
 async fn proxy_image(plex: &PlexClient, path: &str) -> Result<HttpResponse> {
     let req = plex.get_image(path)?;
     let resp = req.send().await
-        .map_err(|e| anyhow::anyhow!("Plex image request failed: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Plex image request failed: {}", e))?;
 
     if !resp.status().is_success() {
         return Ok(HttpResponse::NotFound().finish());
@@ -458,7 +458,7 @@ async fn proxy_image(plex: &PlexClient, path: &str) -> Result<HttpResponse> {
         .to_string();
 
     let bytes = resp.bytes().await
-        .map_err(|e| anyhow::anyhow!("Failed to read image bytes: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to read image bytes: {}", e))?;
 
     Ok(HttpResponse::Ok()
         .content_type(content_type)
@@ -478,7 +478,7 @@ async fn stream_proxy(
 
     // Only allow proxying library paths
     if !plex_path.starts_with("/library/") {
-        return Err(anyhow::anyhow!("Invalid proxy path").into());
+        return Err(color_eyre::eyre::eyre!("Invalid proxy path").into());
     }
 
     let mut plex_req = plex.get_image(&plex_path)?;
@@ -491,7 +491,7 @@ async fn stream_proxy(
     }
 
     let resp = plex_req.send().await
-        .map_err(|e| anyhow::anyhow!("Plex stream proxy failed: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Plex stream proxy failed: {}", e))?;
 
     let status = resp.status();
     let mut builder = if status == reqwest::StatusCode::PARTIAL_CONTENT {
@@ -499,7 +499,7 @@ async fn stream_proxy(
     } else if status.is_success() {
         HttpResponse::Ok()
     } else {
-        return Err(anyhow::anyhow!("Plex returned {}", status.as_u16()).into());
+        return Err(color_eyre::eyre::eyre!("Plex returned {}", status.as_u16()).into());
     };
 
     // Forward relevant headers
@@ -512,7 +512,7 @@ async fn stream_proxy(
     }
 
     let bytes = resp.bytes().await
-        .map_err(|e| anyhow::anyhow!("Failed to read stream data: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to read stream data: {}", e))?;
 
     Ok(builder.body(bytes))
 }
@@ -526,7 +526,7 @@ async fn transcode_ping(
     path: web::Path<String>,
 ) -> Result<HttpResponse> {
     let session_id = path.into_inner();
-    let cfg = plex.config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+    let cfg = plex.config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
     let base_url = cfg.plex.url.trim_end_matches('/').to_string();
     let token = cfg.plex.token.clone();
     drop(cfg);
@@ -555,7 +555,7 @@ async fn transcode_proxy(
     path: web::Path<String>,
 ) -> Result<HttpResponse> {
     let plex_path = path.into_inner();
-    let cfg = plex.config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+    let cfg = plex.config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
     let base_url = cfg.plex.url.trim_end_matches('/').to_string();
     let token = cfg.plex.token.clone();
     let client_id = cfg.plex.client_id.clone();
@@ -576,11 +576,11 @@ async fn transcode_proxy(
         .header("X-Plex-Product", "Playarr")
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("Transcode proxy failed: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Transcode proxy failed: {}", e))?;
 
     if !resp.status().is_success() {
         let status = resp.status();
-        return Err(anyhow::anyhow!("Plex transcode returned {}", status.as_u16()).into());
+        return Err(color_eyre::eyre::eyre!("Plex transcode returned {}", status.as_u16()).into());
     }
 
     let content_type = resp.headers()
@@ -592,7 +592,7 @@ async fn transcode_proxy(
     if content_type.contains("mpegurl") || plex_path.ends_with(".m3u8") {
         // For m3u8 playlists, rewrite any absolute Plex URLs to use our proxy
         let body = resp.text().await
-            .map_err(|e| anyhow::anyhow!("Failed to read m3u8: {}", e))?;
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to read m3u8: {}", e))?;
 
         let rewritten = body.replace(
             &format!("{}/video/:/transcode/universal/", base_url),
@@ -605,7 +605,7 @@ async fn transcode_proxy(
     } else {
         // For video segments, proxy the bytes directly
         let bytes = resp.bytes().await
-            .map_err(|e| anyhow::anyhow!("Failed to read transcode data: {}", e))?;
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to read transcode data: {}", e))?;
 
         Ok(HttpResponse::Ok()
             .content_type(content_type)

@@ -23,12 +23,12 @@ async fn get_releases(
         .query(&params)
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to fetch releases: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch releases: {}", e))?;
 
     let body: serde_json::Value = resp
         .json()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to parse releases: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to parse releases: {}", e))?;
 
     Ok(HttpResponse::Ok().json(body))
 }
@@ -43,13 +43,13 @@ async fn grab_release(
         .json(&body.into_inner())
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to grab release: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to grab release: {}", e))?;
 
     let status = resp.status();
     let body: serde_json::Value = resp
         .json()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to parse grab response: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to parse grab response: {}", e))?;
 
     if status.is_success() {
         Ok(HttpResponse::Ok().json(body))

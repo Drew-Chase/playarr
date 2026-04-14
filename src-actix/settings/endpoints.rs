@@ -10,7 +10,7 @@ use serde_json::json;
 fn require_admin(req: &HttpRequest, config: &SharedConfig) -> Result<()> {
     let (user_id, _) = PlexClient::user_from_request(req)
         .ok_or_else(|| crate::http_error::Error::Unauthorized("Not signed in".to_string()))?;
-    let cfg = config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+    let cfg = config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
     if user_id != cfg.plex.admin_user_id {
         return Err(crate::http_error::Error::Unauthorized("Admin access required".to_string()));
     }
@@ -23,7 +23,7 @@ async fn get_settings(
     config: web::Data<SharedConfig>,
 ) -> Result<impl Responder> {
     require_admin(&req, &config)?;
-    let cfg = config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+    let cfg = config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
     Ok(HttpResponse::Ok().json(cfg.redacted()))
 }
 
@@ -34,7 +34,7 @@ async fn update_plex(
     body: web::Json<serde_json::Value>,
 ) -> Result<impl Responder> {
     require_admin(&req, &config)?;
-    let mut cfg = config.write().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+    let mut cfg = config.write().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
     let updates = body.into_inner();
     if let Some(url) = updates["url"].as_str() {
         cfg.plex.url = url.to_string();
@@ -53,7 +53,7 @@ async fn update_sonarr(
     body: web::Json<SonarrConfig>,
 ) -> Result<impl Responder> {
     require_admin(&req, &config)?;
-    let mut cfg = config.write().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+    let mut cfg = config.write().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
     cfg.sonarr = body.into_inner();
     save_config(&cfg)?;
     Ok(HttpResponse::Ok().json(cfg.redacted()))
@@ -66,7 +66,7 @@ async fn update_radarr(
     body: web::Json<RadarrConfig>,
 ) -> Result<impl Responder> {
     require_admin(&req, &config)?;
-    let mut cfg = config.write().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+    let mut cfg = config.write().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
     cfg.radarr = body.into_inner();
     save_config(&cfg)?;
     Ok(HttpResponse::Ok().json(cfg.redacted()))
@@ -79,7 +79,7 @@ async fn update_download_clients(
     body: web::Json<Vec<DownloadClientConfig>>,
 ) -> Result<impl Responder> {
     require_admin(&req, &config)?;
-    let mut cfg = config.write().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+    let mut cfg = config.write().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
     cfg.download_clients = body.into_inner();
     save_config(&cfg)?;
     Ok(HttpResponse::Ok().json(cfg.redacted()))
@@ -203,12 +203,12 @@ async fn test_connection(
     body: web::Json<TestConnectionBody>,
 ) -> Result<impl Responder> {
     require_admin(&req, &config)?;
-    let cfg = config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+    let cfg = config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
     let body = body.into_inner();
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()
-        .map_err(|e| anyhow::anyhow!("Failed to create HTTP client: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to create HTTP client: {}", e))?;
 
     let result = match path.service.as_str() {
         "plex" => {
@@ -317,7 +317,7 @@ async fn get_service_urls(
     config: web::Data<SharedConfig>,
     plex: web::Data<PlexClient>,
 ) -> Result<impl Responder> {
-    let cfg = config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+    let cfg = config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
     let plex_url = cfg.plex.url.trim_end_matches('/').to_string();
     let sonarr_url = cfg.sonarr.url.trim_end_matches('/').to_string();
     let radarr_url = cfg.radarr.url.trim_end_matches('/').to_string();

@@ -40,7 +40,7 @@ pub fn load_config() -> AppConfig {
 }
 
 /// Save config to disk. Skipped during tests to avoid corrupting real config.
-pub fn save_config(config: &AppConfig) -> anyhow::Result<()> {
+pub fn save_config(config: &AppConfig) -> color_eyre::eyre::Result<()> {
     if cfg!(test) {
         return Ok(());
     }

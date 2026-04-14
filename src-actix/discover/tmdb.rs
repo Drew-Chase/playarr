@@ -35,10 +35,10 @@ async fn search(query: web::Query<SearchQuery>) -> Result<impl Responder> {
         ])
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("TMDB request failed: {}", e))?
+        .map_err(|e| color_eyre::eyre::eyre!("TMDB request failed: {}", e))?
         .json::<serde_json::Value>()
         .await
-        .map_err(|e| anyhow::anyhow!("TMDB parse failed: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("TMDB parse failed: {}", e))?;
 
     let results = resp["results"].as_array().cloned().unwrap_or_default();
     let movies: Vec<&serde_json::Value> = results
@@ -64,20 +64,20 @@ async fn trending() -> Result<impl Responder> {
         .query(&[("api_key", TMDB_API_KEY)])
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("TMDB request failed: {}", e))?
+        .map_err(|e| color_eyre::eyre::eyre!("TMDB request failed: {}", e))?
         .json::<serde_json::Value>()
         .await
-        .map_err(|e| anyhow::anyhow!("TMDB parse failed: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("TMDB parse failed: {}", e))?;
 
     let tv = client
         .get(format!("{}/trending/tv/week", TMDB_BASE))
         .query(&[("api_key", TMDB_API_KEY)])
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("TMDB request failed: {}", e))?
+        .map_err(|e| color_eyre::eyre::eyre!("TMDB request failed: {}", e))?
         .json::<serde_json::Value>()
         .await
-        .map_err(|e| anyhow::anyhow!("TMDB parse failed: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("TMDB parse failed: {}", e))?;
 
     Ok(HttpResponse::Ok().json(serde_json::json!({
         "movies": movies["results"],
@@ -93,10 +93,10 @@ async fn upcoming() -> Result<impl Responder> {
         .query(&[("api_key", TMDB_API_KEY)])
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("TMDB request failed: {}", e))?
+        .map_err(|e| color_eyre::eyre::eyre!("TMDB request failed: {}", e))?
         .json::<serde_json::Value>()
         .await
-        .map_err(|e| anyhow::anyhow!("TMDB parse failed: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("TMDB parse failed: {}", e))?;
 
     Ok(HttpResponse::Ok().json(serde_json::json!({
         "movies": movies["results"]
@@ -120,10 +120,10 @@ async fn recent() -> Result<impl Responder> {
         ])
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("TMDB request failed: {}", e))?
+        .map_err(|e| color_eyre::eyre::eyre!("TMDB request failed: {}", e))?
         .json::<serde_json::Value>()
         .await
-        .map_err(|e| anyhow::anyhow!("TMDB parse failed: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("TMDB parse failed: {}", e))?;
 
     let tv = client
         .get(format!("{}/discover/tv", TMDB_BASE))
@@ -135,10 +135,10 @@ async fn recent() -> Result<impl Responder> {
         ])
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("TMDB request failed: {}", e))?
+        .map_err(|e| color_eyre::eyre::eyre!("TMDB request failed: {}", e))?
         .json::<serde_json::Value>()
         .await
-        .map_err(|e| anyhow::anyhow!("TMDB parse failed: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("TMDB parse failed: {}", e))?;
 
     Ok(HttpResponse::Ok().json(serde_json::json!({
         "movies": movies["results"],
@@ -180,7 +180,7 @@ async fn logo(
         ])
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("TMDB request failed: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("TMDB request failed: {}", e))?;
 
     if resp.status() == reqwest::StatusCode::NOT_FOUND {
         return Ok(HttpResponse::Ok().json(serde_json::json!({
@@ -191,7 +191,7 @@ async fn logo(
     let body = resp
         .json::<serde_json::Value>()
         .await
-        .map_err(|e| anyhow::anyhow!("TMDB parse failed: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("TMDB parse failed: {}", e))?;
 
     // Prefer a logo matching the exact requested language,
     // then fall back to language-neutral (null) logos
@@ -235,7 +235,7 @@ async fn videos(
         .query(&[("api_key", TMDB_API_KEY)])
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("TMDB request failed: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("TMDB request failed: {}", e))?;
 
     if resp.status() == reqwest::StatusCode::NOT_FOUND {
         return Ok(HttpResponse::Ok().json(serde_json::json!({ "results": [] })));
@@ -244,7 +244,7 @@ async fn videos(
     let body = resp
         .json::<serde_json::Value>()
         .await
-        .map_err(|e| anyhow::anyhow!("TMDB parse failed: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("TMDB parse failed: {}", e))?;
 
     let results: Vec<&serde_json::Value> = body["results"]
         .as_array()
@@ -275,7 +275,7 @@ async fn movie_detail(
         ])
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("TMDB request failed: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("TMDB request failed: {}", e))?;
 
     if resp.status() == reqwest::StatusCode::NOT_FOUND {
         return Err(crate::http_error::Error::NotFound("Movie not found".to_string()));
@@ -284,7 +284,7 @@ async fn movie_detail(
     let body: serde_json::Value = resp
         .json()
         .await
-        .map_err(|e| anyhow::anyhow!("TMDB parse failed: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("TMDB parse failed: {}", e))?;
 
     Ok(HttpResponse::Ok().json(body))
 }
@@ -303,7 +303,7 @@ async fn tv_detail(
         ])
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("TMDB request failed: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("TMDB request failed: {}", e))?;
 
     if resp.status() == reqwest::StatusCode::NOT_FOUND {
         return Err(crate::http_error::Error::NotFound("TV show not found".to_string()));
@@ -312,7 +312,7 @@ async fn tv_detail(
     let body: serde_json::Value = resp
         .json()
         .await
-        .map_err(|e| anyhow::anyhow!("TMDB parse failed: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("TMDB parse failed: {}", e))?;
 
     Ok(HttpResponse::Ok().json(body))
 }
@@ -328,7 +328,7 @@ async fn tv_season(
         .query(&[("api_key", TMDB_API_KEY)])
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("TMDB request failed: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("TMDB request failed: {}", e))?;
 
     if resp.status() == reqwest::StatusCode::NOT_FOUND {
         return Err(crate::http_error::Error::NotFound("Season not found".to_string()));
@@ -337,7 +337,7 @@ async fn tv_season(
     let body: serde_json::Value = resp
         .json()
         .await
-        .map_err(|e| anyhow::anyhow!("TMDB parse failed: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("TMDB parse failed: {}", e))?;
 
     Ok(HttpResponse::Ok().json(body))
 }
@@ -359,16 +359,16 @@ async fn youtube_stream(
     };
 
     let video = rusty_ytdl::Video::new_with_options(&yt_url, options)
-        .map_err(|e| anyhow::anyhow!("YouTube parse error: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("YouTube parse error: {}", e))?;
 
     // Get video info for content type
     let info = video.get_info().await
-        .map_err(|e| anyhow::anyhow!("YouTube info error: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("YouTube info error: {}", e))?;
 
     let format = info.formats.iter()
         .filter(|f| f.has_video && f.has_audio)
         .max_by_key(|f| f.bitrate)
-        .ok_or_else(|| anyhow::anyhow!("No video+audio format found"))?;
+        .ok_or_else(|| color_eyre::eyre::eyre!("No video+audio format found"))?;
 
     let content_type = format!("{}/{}", format.mime_type.mime.type_(), format.mime_type.mime.subtype());
     let content_length = format.content_length.as_ref()
@@ -376,7 +376,7 @@ async fn youtube_stream(
 
     // Use rusty_ytdl's stream which handles YouTube auth internally
     let stream = video.stream().await
-        .map_err(|e| anyhow::anyhow!("YouTube stream error: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("YouTube stream error: {}", e))?;
 
     let byte_stream = futures_util::stream::unfold(stream, |s| async move {
         match s.chunk().await {

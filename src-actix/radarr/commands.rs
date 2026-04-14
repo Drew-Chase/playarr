@@ -12,13 +12,13 @@ async fn run_command(
         .json(&body.into_inner())
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to run command: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to run command: {}", e))?;
 
     let status = resp.status();
     let body: serde_json::Value = resp
         .json()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to parse command response: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to parse command response: {}", e))?;
 
     if status.is_success() {
         Ok(HttpResponse::Ok().json(body))

@@ -19,12 +19,12 @@ async fn list_episodes(
         .query(&[("seriesId", query.series_id.to_string())])
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to fetch episodes: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch episodes: {}", e))?;
 
     let body: serde_json::Value = resp
         .json()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to parse episodes: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to parse episodes: {}", e))?;
 
     Ok(HttpResponse::Ok().json(body))
 }
@@ -39,13 +39,13 @@ async fn monitor_episodes(
         .json(&body.into_inner())
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to update episode monitoring: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to update episode monitoring: {}", e))?;
 
     let status = resp.status();
     let body: serde_json::Value = resp
         .json()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to parse monitor response: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to parse monitor response: {}", e))?;
 
     if status.is_success() {
         Ok(HttpResponse::Ok().json(body))

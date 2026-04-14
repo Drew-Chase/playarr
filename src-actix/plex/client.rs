@@ -63,7 +63,7 @@ impl PlexClient {
 
     /// Get the base URL from config, trimming trailing slashes.
     fn base_url(&self) -> http_error::Result<String> {
-        let cfg = self.config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+        let cfg = self.config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
         let url = cfg.plex.url.trim_end_matches('/').to_string();
         if url.is_empty() {
             return Err(http_error::Error::ServiceUnavailable(
@@ -144,7 +144,7 @@ impl PlexClient {
     /// Handles non-2xx status codes with clear error messages.
     pub async fn send_json(&self, req: reqwest::RequestBuilder) -> http_error::Result<serde_json::Value> {
         let resp = req.send().await
-            .map_err(|e| anyhow::anyhow!("Plex request failed: {}", e))?;
+            .map_err(|e| color_eyre::eyre::eyre!("Plex request failed: {}", e))?;
 
         let status = resp.status();
         if status == reqwest::StatusCode::UNAUTHORIZED {
@@ -155,7 +155,7 @@ impl PlexClient {
 
         if !status.is_success() {
             let body = resp.text().await.unwrap_or_default();
-            return Err(anyhow::anyhow!(
+            return Err(color_eyre::eyre::eyre!(
                 "Plex returned HTTP {}: {}",
                 status.as_u16(),
                 &body[..body.len().min(200)]
@@ -163,7 +163,7 @@ impl PlexClient {
         }
 
         let body: serde_json::Value = resp.json().await
-            .map_err(|e| anyhow::anyhow!("Failed to parse Plex JSON response: {}", e))?;
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to parse Plex JSON response: {}", e))?;
         Ok(body)
     }
 
@@ -254,7 +254,7 @@ impl PlexClient {
             .header("X-Plex-Client-Identifier", &client_id)
             .header("Accept", "application/json")
             .send().await
-            .map_err(|e| anyhow::anyhow!("Plex request failed: {}", e))?;
+            .map_err(|e| color_eyre::eyre::eyre!("Plex request failed: {}", e))?;
 
         if resp.status() == reqwest::StatusCode::UNAUTHORIZED {
             // First, try resolving a server-specific access token for this user.
@@ -292,7 +292,7 @@ impl PlexClient {
         if !resp.status().is_success() {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
-            return Err(anyhow::anyhow!(
+            return Err(color_eyre::eyre::eyre!(
                 "Plex returned HTTP {}: {}",
                 status.as_u16(),
                 &body[..body.len().min(200)]
@@ -300,7 +300,7 @@ impl PlexClient {
         }
 
         resp.json().await
-            .map_err(|e| anyhow::anyhow!("Failed to parse Plex JSON response: {}", e).into())
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to parse Plex JSON response: {}", e).into())
     }
 
     /// Internal: send a GET request to Plex with a specific client identifier,
@@ -329,7 +329,7 @@ impl PlexClient {
             .header("X-Plex-Client-Identifier", client_id)
             .header("Accept", "application/json")
             .send().await
-            .map_err(|e| anyhow::anyhow!("Plex request failed: {}", e))?;
+            .map_err(|e| color_eyre::eyre::eyre!("Plex request failed: {}", e))?;
 
         if resp.status() == reqwest::StatusCode::UNAUTHORIZED {
             // Try resolving the user's server-specific access token first
@@ -343,7 +343,7 @@ impl PlexClient {
                         .header("X-Plex-Client-Identifier", client_id)
                         .header("Accept", "application/json")
                         .send().await
-                        .map_err(|e| anyhow::anyhow!("Plex request failed: {}", e).into());
+                        .map_err(|e| color_eyre::eyre::eyre!("Plex request failed: {}", e).into());
                 }
             }
 
@@ -358,7 +358,7 @@ impl PlexClient {
                     .header("X-Plex-Client-Identifier", client_id)
                     .header("Accept", "application/json")
                     .send().await
-                    .map_err(|e| anyhow::anyhow!("Plex request failed: {}", e).into());
+                    .map_err(|e| color_eyre::eyre::eyre!("Plex request failed: {}", e).into());
             }
         }
 
@@ -433,7 +433,7 @@ impl PlexClient {
             .header("X-Plex-Token", user_token)
             .send()
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to fetch user info: {}", e))?;
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch user info: {}", e))?;
 
         if !resp.status().is_success() {
             return Err(http_error::Error::Unauthorized(
@@ -442,7 +442,7 @@ impl PlexClient {
         }
 
         let body: serde_json::Value = resp.json().await
-            .map_err(|e| anyhow::anyhow!("Failed to parse user info: {}", e))?;
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to parse user info: {}", e))?;
 
         Ok(PlexUserInfo {
             user_id: body["id"].as_i64().unwrap_or(0),
@@ -545,14 +545,14 @@ impl PlexClient {
             .header("X-Plex-Token", &token)
             .send()
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to fetch Plex friends: {}", e))?;
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch Plex friends: {}", e))?;
 
         if !resp.status().is_success() {
-            return Err(anyhow::anyhow!("Plex friends API returned {}", resp.status()).into());
+            return Err(color_eyre::eyre::eyre!("Plex friends API returned {}", resp.status()).into());
         }
 
         let body: Vec<serde_json::Value> = resp.json().await
-            .map_err(|e| anyhow::anyhow!("Failed to parse friends response: {}", e))?;
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to parse friends response: {}", e))?;
 
         Ok(body)
     }

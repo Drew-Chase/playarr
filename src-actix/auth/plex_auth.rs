@@ -30,12 +30,12 @@ async fn request_pin(
         .form(&[("strong", "false")])
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to request PIN: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to request PIN: {}", e))?;
 
     let body: serde_json::Value = resp
         .json()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to parse PIN response: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to parse PIN response: {}", e))?;
 
     debug!("PIN created: id={}, code={}", body["id"], body["code"]);
 
@@ -55,12 +55,12 @@ async fn poll_pin(
         .plex_tv_get(&format!("/api/v2/pins/{}", pin_id))
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to poll PIN: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to poll PIN: {}", e))?;
 
     let body: serde_json::Value = resp
         .json()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to parse PIN poll response: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to parse PIN poll response: {}", e))?;
 
     let auth_token = body["authToken"].as_str().unwrap_or("");
     debug!("PIN {} poll: claimed={}", pin_id, !auth_token.is_empty());
@@ -72,19 +72,19 @@ async fn poll_pin(
             .header("X-Plex-Token", auth_token)
             .send()
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to get user info: {}", e))?;
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to get user info: {}", e))?;
 
         let user: serde_json::Value = user_resp
             .json()
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to parse user response: {}", e))?;
+            .map_err(|e| color_eyre::eyre::eyre!("Failed to parse user response: {}", e))?;
 
         let user_id = user["id"].as_i64().unwrap_or(0);
 
         // For non-admin users, resolve a server-specific access token.
         // A friend's plex.tv token doesn't work directly against the local PMS;
         // they need the accessToken from the plex.tv resources API.
-        let cfg = plex.config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+        let cfg = plex.config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
         let is_admin = user_id == cfg.plex.admin_user_id;
         drop(cfg);
 
@@ -127,7 +127,7 @@ async fn check_guest_available(
     plex: web::Data<PlexClient>,
     config: web::Data<SharedConfig>,
 ) -> Result<HttpResponse> {
-    let cfg = config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+    let cfg = config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
     let admin_token = cfg.plex.token.clone();
     drop(cfg);
 
@@ -144,7 +144,7 @@ async fn check_guest_available(
     match resp {
         Ok(r) if r.status().is_success() => {
             let body: serde_json::Value = r.json().await
-                .map_err(|e| anyhow::anyhow!("Failed to parse home response: {}", e))?;
+                .map_err(|e| color_eyre::eyre::eyre!("Failed to parse home response: {}", e))?;
 
             let guest_enabled = body["guestEnabled"].as_bool().unwrap_or(false)
                 || body["guestEnabled"].as_i64() == Some(1);
@@ -163,7 +163,7 @@ async fn guest_login(
     plex: web::Data<PlexClient>,
     config: web::Data<SharedConfig>,
 ) -> Result<HttpResponse> {
-    let cfg = config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+    let cfg = config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
     let admin_token = cfg.plex.token.clone();
     drop(cfg);
 
@@ -179,10 +179,10 @@ async fn guest_login(
         .header("X-Plex-Token", &admin_token)
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to get home info: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to get home info: {}", e))?;
 
     let home: serde_json::Value = home_resp.json().await
-        .map_err(|e| anyhow::anyhow!("Failed to parse home response: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to parse home response: {}", e))?;
 
     let guest_enabled = home["guestEnabled"].as_bool().unwrap_or(false)
         || home["guestEnabled"].as_i64() == Some(1);
@@ -200,11 +200,11 @@ async fn guest_login(
         .header("X-Plex-Token", &admin_token)
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to switch to guest user: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to switch to guest user: {}", e))?;
 
     if !switch_resp.status().is_success() {
         let status = switch_resp.status();
-        return Err(anyhow::anyhow!(
+        return Err(color_eyre::eyre::eyre!(
             "Plex returned HTTP {} when switching to guest user",
             status.as_u16()
         ).into());
@@ -212,7 +212,7 @@ async fn guest_login(
 
     // The v1 switch endpoint returns XML, so read as text and extract the token
     let switch_text = switch_resp.text().await
-        .map_err(|e| anyhow::anyhow!("Failed to read switch response: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to read switch response: {}", e))?;
 
     debug!("Guest switch response: {}", &switch_text[..switch_text.len().min(500)]);
 
@@ -226,7 +226,7 @@ async fn guest_login(
         extract_xml_attr(&switch_text, "authenticationToken")
             .or_else(|| extract_xml_attr(&switch_text, "authToken"))
     }
-    .ok_or_else(|| anyhow::anyhow!("No auth token in switch response"))?;
+    .ok_or_else(|| color_eyre::eyre::eyre!("No auth token in switch response"))?;
 
     // Resolve server access token for guest user
     let server_token = match plex.resolve_server_access_token(&guest_token).await {
@@ -266,7 +266,7 @@ async fn get_user(
             "Not signed in".to_string(),
         ))?;
 
-    let cfg = config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+    let cfg = config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
     let is_admin = user_id == cfg.plex.admin_user_id;
     let admin_token = cfg.plex.token.clone();
     drop(cfg);
@@ -309,7 +309,7 @@ async fn get_user(
         .header("X-Plex-Token", &token)
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to get user info: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to get user info: {}", e))?;
 
     let status = resp.status();
     if status == reqwest::StatusCode::UNAUTHORIZED {
@@ -321,7 +321,7 @@ async fn get_user(
     let mut body: serde_json::Value = resp
         .json()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to parse user response: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to parse user response: {}", e))?;
 
     body["isAdmin"] = serde_json::json!(is_admin);
     body["isGuest"] = serde_json::json!(false);
@@ -369,7 +369,7 @@ async fn initial_setup(
 
     // Prevent re-setup if already configured
     {
-        let cfg = config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+        let cfg = config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
         if !cfg.plex.url.is_empty() && !cfg.plex.token.is_empty() {
             return Err(crate::http_error::Error::BadRequest(
                 "Server is already configured".to_string(),
@@ -378,7 +378,7 @@ async fn initial_setup(
     }
 
     let body = body.into_inner();
-    let mut cfg = config.write().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+    let mut cfg = config.write().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
     cfg.plex.url = body.plex_url.trim_end_matches('/').to_string();
     cfg.plex.token = token;
     cfg.plex.admin_user_id = user_id;
@@ -425,7 +425,7 @@ async fn setup_test_connection(
 ) -> Result<HttpResponse> {
     // Only allow during setup phase
     {
-        let cfg = config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+        let cfg = config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
         if !cfg.plex.url.is_empty() && !cfg.plex.token.is_empty() {
             return Err(crate::http_error::Error::BadRequest(
                 "Setup is already complete. Use /api/settings/test instead.".to_string(),
@@ -437,7 +437,7 @@ async fn setup_test_connection(
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()
-        .map_err(|e| anyhow::anyhow!("Failed to create HTTP client: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to create HTTP client: {}", e))?;
 
     let url = body.url.unwrap_or_default();
     if url.is_empty() {

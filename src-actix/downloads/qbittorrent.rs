@@ -1,6 +1,6 @@
 use super::{ClientDownloads, DownloadHistoryItem, DownloadItem};
 
-pub async fn pause_queue(url: &str) -> anyhow::Result<()> {
+pub async fn pause_queue(url: &str) -> color_eyre::eyre::Result<()> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()?;
@@ -9,7 +9,7 @@ pub async fn pause_queue(url: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub async fn resume_queue(url: &str) -> anyhow::Result<()> {
+pub async fn resume_queue(url: &str) -> color_eyre::eyre::Result<()> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()?;
@@ -18,7 +18,7 @@ pub async fn resume_queue(url: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub async fn fetch_downloads(url: &str) -> anyhow::Result<ClientDownloads> {
+pub async fn fetch_downloads(url: &str) -> color_eyre::eyre::Result<ClientDownloads> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()?;

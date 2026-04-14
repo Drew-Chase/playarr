@@ -18,12 +18,12 @@ async fn lookup(
         .query(&[("term", query.term.as_str())])
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to lookup movie: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to lookup movie: {}", e))?;
 
     let body: serde_json::Value = resp
         .json()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to parse lookup: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to parse lookup: {}", e))?;
 
     Ok(HttpResponse::Ok().json(body))
 }
@@ -36,12 +36,12 @@ async fn list_movies(
         .get("/movie")
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to fetch movies: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch movies: {}", e))?;
 
     let body: serde_json::Value = resp
         .json()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to parse movies: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to parse movies: {}", e))?;
 
     Ok(HttpResponse::Ok().json(body))
 }
@@ -56,12 +56,12 @@ async fn get_movie(
         .get(&format!("/movie/{}", id))
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to fetch movie: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to fetch movie: {}", e))?;
 
     let body: serde_json::Value = resp
         .json()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to parse movie: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to parse movie: {}", e))?;
 
     Ok(HttpResponse::Ok().json(body))
 }
@@ -76,13 +76,13 @@ async fn add_movie(
         .json(&body.into_inner())
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to add movie: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to add movie: {}", e))?;
 
     let status = resp.status();
     let body: serde_json::Value = resp
         .json()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to parse add response: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to parse add response: {}", e))?;
 
     if status.is_success() {
         Ok(HttpResponse::Ok().json(body))
@@ -103,13 +103,13 @@ async fn update_movie(
         .json(&body.into_inner())
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to update movie: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to update movie: {}", e))?;
 
     let status = resp.status();
     let body: serde_json::Value = resp
         .json()
         .await
-        .map_err(|e| anyhow::anyhow!("Failed to parse update response: {}", e))?;
+        .map_err(|e| color_eyre::eyre::eyre!("Failed to parse update response: {}", e))?;
 
     if status.is_success() {
         Ok(HttpResponse::Ok().json(body))

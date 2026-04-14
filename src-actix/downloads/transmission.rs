@@ -1,6 +1,6 @@
 use super::{ClientDownloads, DownloadHistoryItem, DownloadItem};
 
-async fn send_rpc(url: &str, username: &str, password: &str, body: &serde_json::Value) -> anyhow::Result<()> {
+async fn send_rpc(url: &str, username: &str, password: &str, body: &serde_json::Value) -> color_eyre::eyre::Result<()> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()?;
@@ -29,17 +29,17 @@ async fn send_rpc(url: &str, username: &str, password: &str, body: &serde_json::
     Ok(())
 }
 
-pub async fn pause_queue(url: &str, username: &str, password: &str) -> anyhow::Result<()> {
+pub async fn pause_queue(url: &str, username: &str, password: &str) -> color_eyre::eyre::Result<()> {
     let body = serde_json::json!({"method": "torrent-stop", "arguments": {}});
     send_rpc(url, username, password, &body).await
 }
 
-pub async fn resume_queue(url: &str, username: &str, password: &str) -> anyhow::Result<()> {
+pub async fn resume_queue(url: &str, username: &str, password: &str) -> color_eyre::eyre::Result<()> {
     let body = serde_json::json!({"method": "torrent-start", "arguments": {}});
     send_rpc(url, username, password, &body).await
 }
 
-pub async fn fetch_downloads(url: &str, username: &str, password: &str) -> anyhow::Result<ClientDownloads> {
+pub async fn fetch_downloads(url: &str, username: &str, password: &str) -> color_eyre::eyre::Result<ClientDownloads> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()?;
@@ -86,7 +86,7 @@ pub async fn fetch_downloads(url: &str, username: &str, password: &str) -> anyho
     parse_transmission_response(&json)
 }
 
-fn parse_transmission_response(resp: &serde_json::Value) -> anyhow::Result<ClientDownloads> {
+fn parse_transmission_response(resp: &serde_json::Value) -> color_eyre::eyre::Result<ClientDownloads> {
     let mut queue = Vec::new();
     let mut history = Vec::new();
 

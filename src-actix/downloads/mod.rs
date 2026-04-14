@@ -56,7 +56,7 @@ struct PauseResumeRequest {
 async fn get_downloads(
     config: web::Data<SharedConfig>,
 ) -> Result<impl Responder> {
-    let cfg = config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+    let cfg = config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
     let mut all_queue: Vec<DownloadItem> = Vec::new();
     let mut all_history: Vec<DownloadHistoryItem> = Vec::new();
     let mut any_client = false;
@@ -122,7 +122,7 @@ async fn pause_resume_downloads(
     config: web::Data<SharedConfig>,
     body: web::Json<PauseResumeRequest>,
 ) -> Result<impl Responder> {
-    let cfg = config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+    let cfg = config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
 
     for client_cfg in &cfg.download_clients {
         if !client_cfg.enabled {
@@ -169,7 +169,7 @@ async fn pause_resume_downloads(
 async fn get_status(
     config: web::Data<SharedConfig>,
 ) -> Result<impl Responder> {
-    let cfg = config.read().map_err(|e| anyhow::anyhow!("Lock error: {}", e))?;
+    let cfg = config.read().map_err(|e| color_eyre::eyre::eyre!("Lock error: {}", e))?;
     let active_count: usize = cfg.download_clients.iter().filter(|c| c.enabled).count();
     Ok(HttpResponse::Ok().json(serde_json::json!({
         "configured_clients": active_count

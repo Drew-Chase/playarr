@@ -9,7 +9,7 @@ fn build_api_url(url: &str, username: &str, password: &str) -> String {
     }
 }
 
-pub async fn pause_queue(url: &str, username: &str, password: &str) -> anyhow::Result<()> {
+pub async fn pause_queue(url: &str, username: &str, password: &str) -> color_eyre::eyre::Result<()> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()?;
@@ -20,7 +20,7 @@ pub async fn pause_queue(url: &str, username: &str, password: &str) -> anyhow::R
     Ok(())
 }
 
-pub async fn resume_queue(url: &str, username: &str, password: &str) -> anyhow::Result<()> {
+pub async fn resume_queue(url: &str, username: &str, password: &str) -> color_eyre::eyre::Result<()> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()?;
@@ -31,7 +31,7 @@ pub async fn resume_queue(url: &str, username: &str, password: &str) -> anyhow::
     Ok(())
 }
 
-pub async fn fetch_downloads(url: &str, username: &str, password: &str) -> anyhow::Result<ClientDownloads> {
+pub async fn fetch_downloads(url: &str, username: &str, password: &str) -> color_eyre::eyre::Result<ClientDownloads> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()?;

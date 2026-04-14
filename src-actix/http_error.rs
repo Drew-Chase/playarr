@@ -4,7 +4,7 @@ use actix_web::{HttpResponse, ResponseError};
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("an unspecified internal error occurred: {0}")]
-    InternalError(#[from] anyhow::Error),
+    InternalError(#[from] color_eyre::eyre::Report),
 
     #[error("bad request: {0}")]
     BadRequest(String),
