@@ -1,4 +1,4 @@
-import {useMemo} from "react";
+import {useEffect, useMemo, useState} from "react";
 import {Chip, Skeleton} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {useQuery} from "@tanstack/react-query";
@@ -13,6 +13,7 @@ import ContentRow from "../components/layout/ContentRow.tsx";
 import MediaCard from "../components/media/MediaCard.tsx";
 import HeroCarousel from "../components/media/HeroCarousel.tsx";
 import DiscoverCard from "../components/media/DiscoverCard.tsx";
+import ViewToggle, {type ViewMode} from "../components/layout/ViewToggle.tsx";
 
 /** Skeleton placeholder matching portrait MediaCard dimensions */
 function SkeletonCard({width = 250, landscape}: { width?: number; landscape?: boolean })
@@ -172,6 +173,16 @@ function PlaylistCard({playlist}: { playlist: PlexPlaylist })
 export default function Home()
 {
     const {isGuest} = useAuth();
+    const [cwView, setCwView] = useState<ViewMode>(() =>
+        (localStorage.getItem("playarr-view-continue-watching") as ViewMode) || "landscape"
+    );
+    useEffect(() => { localStorage.setItem("playarr-view-continue-watching", cwView); }, [cwView]);
+
+    const [airedView, setAiredView] = useState<ViewMode>(() =>
+        (localStorage.getItem("playarr-view-recently-aired") as ViewMode) || "landscape"
+    );
+    useEffect(() => { localStorage.setItem("playarr-view-recently-aired", airedView); }, [airedView]);
+
     const {data: continueWatching, isLoading: cwLoading} = useContinueWatching();
     const {data: onDeck, isLoading: odLoading} = useOnDeck();
     const {data: recentlyAdded, isLoading: raLoading} = useRecentlyAdded();
@@ -269,24 +280,52 @@ export default function Home()
             <div className="-mt-32 relative z-10">
                 {/* Continue Watching */}
                 {!isGuest && !cwReady && (
-                    <SkeletonRow title="Continue Watching" width={480} landscape count={4}/>
+                    <SkeletonRow
+                        title="Continue Watching"
+                        width={cwView === "landscape" ? 480 : 250}
+                        landscape={cwView === "landscape"}
+                        count={cwView === "landscape" ? 4 : 6}
+                    />
                 )}
                 {watching.length > 0 && (
-                    <ContentRow title="Continue Watching">
+                    <ContentRow
+                        title="Continue Watching"
+                        headerAction={<ViewToggle mode={cwView} onChange={setCwView}/>}
+                    >
                         {watching.map((item) => (
-                            <MediaCard key={item.ratingKey} item={item} showProgress variant="landscape" width={480}/>
+                            <MediaCard
+                                key={item.ratingKey}
+                                item={item}
+                                showProgress
+                                variant={cwView}
+                                width={cwView === "landscape" ? 480 : 250}
+                            />
                         ))}
                     </ContentRow>
                 )}
 
                 {/* Recently Aired Episodes */}
                 {recentAiredLoading && !recentAired && (
-                    <SkeletonRow title="Recently Aired Episodes" width={480} landscape count={4}/>
+                    <SkeletonRow
+                        title="Recently Aired Episodes"
+                        width={airedView === "landscape" ? 480 : 250}
+                        landscape={airedView === "landscape"}
+                        count={airedView === "landscape" ? 4 : 6}
+                    />
                 )}
                 {recentAired && recentAired.length > 0 && (
-                    <ContentRow title="Recently Aired Episodes">
+                    <ContentRow
+                        title="Recently Aired Episodes"
+                        headerAction={<ViewToggle mode={airedView} onChange={setAiredView}/>}
+                    >
                         {recentAired.map((item) => (
-                            <MediaCard key={item.ratingKey} item={item} variant="landscape" width={480} showAirDate/>
+                            <MediaCard
+                                key={item.ratingKey}
+                                item={item}
+                                variant={airedView}
+                                width={airedView === "landscape" ? 480 : 250}
+                                showAirDate={airedView === "landscape"}
+                            />
                         ))}
                     </ContentRow>
                 )}

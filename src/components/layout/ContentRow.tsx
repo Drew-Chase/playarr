@@ -6,9 +6,10 @@ interface ContentRowProps {
     title: string;
     children: ReactNode;
     onSeeAll?: () => void;
+    headerAction?: ReactNode;
 }
 
-export default function ContentRow({title, children, onSeeAll}: ContentRowProps) {
+export default function ContentRow({title, children, onSeeAll, headerAction}: ContentRowProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
 
     const scroll = (direction: "left" | "right") => {
@@ -34,6 +35,11 @@ export default function ContentRow({title, children, onSeeAll}: ContentRowProps)
                         </button>
                     )}
                 </div>
+                {headerAction && (
+                    <div className="flex items-center">
+                        {headerAction}
+                    </div>
+                )}
             </div>
             <div className="relative">
                 {/* Left scroll button */}

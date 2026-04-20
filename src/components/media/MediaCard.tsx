@@ -225,7 +225,10 @@ const MediaCardInner = memo(function MediaCardInner({item, showProgress, showAir
     }
 
     // Portrait variant (default)
-    const thumbUrl = item.thumb ? `/api/media/${item.ratingKey}/thumb` : "";
+    const portraitKey = item.type === "episode" && item.grandparentRatingKey
+        ? item.grandparentRatingKey
+        : item.ratingKey;
+    const thumbUrl = item.thumb ? `/api/media/${portraitKey}/thumb` : "";
 
     return (
         <>
@@ -272,7 +275,16 @@ const MediaCardInner = memo(function MediaCardInner({item, showProgress, showAir
                 </div>
                 <div className="mt-2 px-1" style={{maxWidth: width ?? "unset"}}>
                     <p className="text-sm font-semibold truncate">{title}</p>
-                    <p className="text-xs text-default-400 truncate">{subtitle}</p>
+                    {item.type === "episode" ? (
+                        <>
+                            <p className="text-xs text-default-400 truncate">{item.title}</p>
+                            <p className="text-xs text-default-500 truncate">
+                                S{item.parentIndex} · E{item.index}
+                            </p>
+                        </>
+                    ) : (
+                        <p className="text-xs text-default-400 truncate">{subtitle}</p>
+                    )}
                 </div>
             </div>
             {resumeModal}
