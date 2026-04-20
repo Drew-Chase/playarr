@@ -16,7 +16,7 @@ export default function ViewToggle({mode, onChange}: ViewToggleProps)
             aria-label="View mode"
             size="sm"
             color="primary"
-            variant="solid"
+            variant="light"
             selectedKey={mode}
             onSelectionChange={(key) => onChange(key as ViewMode)}
         >
