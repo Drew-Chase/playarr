@@ -100,6 +100,14 @@ export function SkipNextIcon({ size = 22, color = 'currentColor' }: IconProps) {
   );
 }
 
+export function SkipPrevIcon({ size = 22, color = 'currentColor' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 22 22" fill={color}>
+      <Path d="M18 17V5l-9 6 9 6zM5 17h2V5H5z" />
+    </Svg>
+  );
+}
+
 interface ChevronProps extends IconProps {
   direction?: 'right' | 'down' | 'left' | 'up';
 }
