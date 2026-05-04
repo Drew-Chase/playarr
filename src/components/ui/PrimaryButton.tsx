@@ -1,8 +1,9 @@
-import React from 'react';
-import { Pressable, Text, View, StyleSheet } from 'react-native';
+import React, { useRef } from 'react';
+import { Pressable, Text, View, StyleSheet, findNodeHandle } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { colors, radius, components, focus as focusTokens } from '@/theme/tokens';
 import { PlayIcon } from '@/components/icons';
+import { rememberFocus } from '@/lib/focusMemory';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const FOCUS_EASING = Easing.bezier(0.2, 0.7, 0.2, 1);
@@ -16,6 +17,7 @@ interface PrimaryButtonProps {
 
 export function PrimaryButton({ children, icon = 'play', onPress, onFocusChange }: PrimaryButtonProps) {
   const scale = useSharedValue(1);
+  const ref = useRef<React.ElementRef<typeof Pressable>>(null);
 
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -23,9 +25,11 @@ export function PrimaryButton({ children, icon = 'play', onPress, onFocusChange 
 
   return (
     <AnimatedPressable
+      ref={ref}
       style={[styles.button, animStyle]}
       onPress={onPress}
       onFocus={() => {
+        rememberFocus(findNodeHandle(ref.current));
         scale.value = withTiming(focusTokens.scale, { duration: focusTokens.duration, easing: FOCUS_EASING });
         onFocusChange?.(true);
       }}

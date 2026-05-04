@@ -1,7 +1,8 @@
-import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import React, { useRef } from 'react';
+import { View, Text, Pressable, StyleSheet, findNodeHandle } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { colors, spacing, components, focus as focusTokens } from '@/theme/tokens';
+import { rememberFocus } from '@/lib/focusMemory';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const FOCUS_EASING = Easing.bezier(0.2, 0.7, 0.2, 1);
@@ -13,6 +14,7 @@ interface CastCardProps {
 
 export function CastCard({ name, role }: CastCardProps) {
   const scale = useSharedValue(1);
+  const ref = useRef<React.ElementRef<typeof Pressable>>(null);
 
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -23,8 +25,10 @@ export function CastCard({ name, role }: CastCardProps) {
 
   return (
     <AnimatedPressable
+      ref={ref}
       style={[styles.container, animStyle]}
       onFocus={() => {
+        rememberFocus(findNodeHandle(ref.current));
         scale.value = withTiming(focusTokens.scale, { duration: focusTokens.duration, easing: FOCUS_EASING });
       }}
       onBlur={() => {

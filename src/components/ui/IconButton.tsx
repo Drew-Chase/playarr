@@ -1,7 +1,8 @@
-import React from 'react';
-import { Pressable, View, StyleSheet } from 'react-native';
+import React, { useRef } from 'react';
+import { Pressable, View, StyleSheet, findNodeHandle } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { colors, radius, components, focus as focusTokens } from '@/theme/tokens';
+import { rememberFocus } from '@/lib/focusMemory';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const FOCUS_EASING = Easing.bezier(0.2, 0.7, 0.2, 1);
@@ -14,6 +15,7 @@ interface IconButtonProps {
 
 export function IconButton({ children, onPress, size = components.button.iconSize }: IconButtonProps) {
   const scale = useSharedValue(1);
+  const ref = useRef<React.ElementRef<typeof Pressable>>(null);
 
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -21,9 +23,11 @@ export function IconButton({ children, onPress, size = components.button.iconSiz
 
   return (
     <AnimatedPressable
+      ref={ref}
       style={[styles.button, { width: size, height: size }, animStyle]}
       onPress={onPress}
       onFocus={() => {
+        rememberFocus(findNodeHandle(ref.current));
         scale.value = withTiming(focusTokens.scale, { duration: focusTokens.duration, easing: FOCUS_EASING });
       }}
       onBlur={() => {

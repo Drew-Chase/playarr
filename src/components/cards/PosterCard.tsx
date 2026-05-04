@@ -1,9 +1,10 @@
-import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import React, { useRef } from 'react';
+import { View, Text, Pressable, StyleSheet, findNodeHandle } from 'react-native';
 import { Image } from 'expo-image';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { colors, radius, spacing, typography, components, focus as focusTokens } from '@/theme/tokens';
 import { CheckIcon } from '@/components/icons';
+import { rememberFocus } from '@/lib/focusMemory';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const FOCUS_EASING = Easing.bezier(0.2, 0.7, 0.2, 1);
@@ -31,6 +32,7 @@ export function PosterCard({
 }: PosterCardProps) {
   const height = Math.round(width * 1.5);
   const scale = useSharedValue(1);
+  const ref = useRef<React.ElementRef<typeof Pressable>>(null);
 
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -41,9 +43,11 @@ export function PosterCard({
 
   return (
     <AnimatedPressable
+      ref={ref}
       style={[{ width }, animStyle]}
       onPress={onPress}
       onFocus={() => {
+        rememberFocus(findNodeHandle(ref.current));
         scale.value = withTiming(focusTokens.scale, { duration: focusTokens.duration, easing: FOCUS_EASING });
       }}
       onBlur={() => {
