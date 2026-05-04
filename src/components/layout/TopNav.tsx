@@ -4,6 +4,7 @@ import Animated, {interpolateColor, useAnimatedStyle, useSharedValue, withTiming
 import {LinearGradient} from "expo-linear-gradient";
 import {colors, spacing, components} from "@/theme/tokens";
 import {SearchIcon, DownloadIcon, PlayIcon} from "@/components/icons";
+import {getRememberedFocus} from "@/lib/focusMemory";
 
 interface TopNavProps
 {
@@ -35,6 +36,12 @@ export function TopNav({active = "Home"}: TopNavProps)
     // (e.g., on back press). Used as the React key for the active item, so it
     // remounts and `hasTVPreferredFocus` takes effect again.
     const [refocusTick, setRefocusTick] = useState(0);
+
+    // Captured at back-press time. Tells the nav items where DOWN should
+    // restore focus to (the element that was focused before the user
+    // pressed back to reach the nav). Cleared once focus actually leaves
+    // the nav so subsequent natural DOWN presses don't keep restoring.
+    const [restoreDownHandle, setRestoreDownHandle] = useState<number | null>(null);
 
     // Cached layout per nav item so the sliding indicator knows where to
     // animate to when focus moves between items.
@@ -91,6 +98,9 @@ export function TopNav({active = "Home"}: TopNavProps)
             {
                 indicatorOpacity.value = withTiming(0, {duration: FOCUS_ANIM_MS});
                 blurTimeoutRef.current = null;
+                // Focus has truly left the nav — drop the back-press
+                // restore target so future DOWN presses use spatial nav.
+                setRestoreDownHandle(null);
             }, 0);
         }
     }, [indicatorOpacity]);
@@ -107,6 +117,8 @@ export function TopNav({active = "Home"}: TopNavProps)
         {
             if (focusedCount.current === 0)
             {
+                // Snapshot the currently focused element so DOWN can return to it.
+                setRestoreDownHandle(getRememberedFocus());
                 setRefocusTick((t) => t + 1);
                 return true; // consume — prevent default back navigation
             }
@@ -158,6 +170,7 @@ export function TopNav({active = "Home"}: TopNavProps)
                                 onBlur={handleItemBlur}
                                 onLayout={handleItemLayout}
                                 trapLeft={idx === 0}
+                                nextFocusDownHandle={restoreDownHandle}
                             />
                         );
                     })}
@@ -190,6 +203,7 @@ interface NavItemProps
     onLayout: (item: string, e: LayoutChangeEvent) => void;
     trapLeft?: boolean;
     trapRight?: boolean;
+    nextFocusDownHandle?: number | null;
 }
 
 function NavItem(props: NavItemProps)
@@ -201,7 +215,8 @@ function NavItem(props: NavItemProps)
         onFocus, onBlur,
         onLayout,
         trapLeft,
-        trapRight
+        trapRight,
+        nextFocusDownHandle
     } = props;
     const [focused, setFocused] = useState(false);
     const progress = useSharedValue(isActive ? 1 : 0);
@@ -228,6 +243,7 @@ function NavItem(props: NavItemProps)
             hasTVPreferredFocus={hasTVPreferredFocus}
             nextFocusLeft={trapLeft && selfHandle !== null ? selfHandle : undefined}
             nextFocusRight={trapRight && selfHandle !== null ? selfHandle : undefined}
+            nextFocusDown={nextFocusDownHandle ?? undefined}
             onFocus={() =>
             {
                 setFocused(true);
@@ -340,7 +356,7 @@ const styles = StyleSheet.create({
         position: "absolute",
         top: 0,
         left: 0,
-        backgroundColor: colors.accentGlow,
+        backgroundColor: colors.indicatorColor,
         borderRadius: 5
     },
     navItem: {
