@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, typography, components, heroGradient } from '@/theme/tokens';
 import { MetaStrip } from '@/components/ui/MetaStrip';
@@ -19,6 +20,8 @@ interface HeroProps {
   ctaLabel: string;
   variant?: HeroVariant;
   backdropColor?: string;
+  backdropUrl?: string;
+  posterUrl?: string;
   onPressCta?: () => void;
 }
 
@@ -33,12 +36,23 @@ export function Hero({
   ctaLabel,
   variant = 'classic',
   backdropColor = colors.surface,
+  backdropUrl,
+  posterUrl,
   onPressCta,
 }: HeroProps) {
   return (
     <View style={styles.container}>
-      {/* Backdrop placeholder */}
-      <View style={[styles.backdrop, { backgroundColor: backdropColor }]} />
+      {/* Backdrop */}
+      {backdropUrl ? (
+        <Image
+          source={{ uri: backdropUrl }}
+          style={styles.backdrop}
+          contentFit="cover"
+          transition={200}
+        />
+      ) : (
+        <View style={[styles.backdrop, { backgroundColor: backdropColor }]} />
+      )}
 
       {/* Gradient overlays */}
       <LinearGradient
@@ -71,8 +85,16 @@ export function Hero({
         </View>
       ) : (
         <View style={styles.cinematicContent}>
-          {/* Poster placeholder */}
-          <View style={styles.cinematicPoster} />
+          {posterUrl ? (
+            <Image
+              source={{ uri: posterUrl }}
+              style={styles.cinematicPoster}
+              contentFit="cover"
+              transition={200}
+            />
+          ) : (
+            <View style={styles.cinematicPoster} />
+          )}
           <View style={styles.cinematicText}>
             <Text style={styles.featured}>FEATURED</Text>
             <Text style={styles.title}>{title}</Text>

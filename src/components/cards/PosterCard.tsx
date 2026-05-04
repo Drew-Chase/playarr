@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { colors, radius, spacing, typography, components, focus as focusTokens } from '@/theme/tokens';
 import { CheckIcon } from '@/components/icons';
@@ -14,6 +15,7 @@ interface PosterCardProps {
   width?: number;
   showLabel?: boolean;
   posterColor?: string;
+  imageUrl?: string;
   onPress?: () => void;
 }
 
@@ -24,6 +26,7 @@ export function PosterCard({
   width = components.poster.width,
   showLabel = true,
   posterColor,
+  imageUrl,
   onPress,
 }: PosterCardProps) {
   const height = Math.round(width * 1.5);
@@ -56,10 +59,18 @@ export function PosterCard({
               focused && styles.posterFocused,
             ]}
           >
-            {/* Poster art placeholder */}
-            <View style={styles.posterArt}>
-              <Text style={styles.posterTitle}>{title.toUpperCase()}</Text>
-            </View>
+            {imageUrl ? (
+              <Image
+                source={{ uri: imageUrl }}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+                transition={150}
+              />
+            ) : (
+              <View style={styles.posterArt}>
+                <Text style={styles.posterTitle}>{title.toUpperCase()}</Text>
+              </View>
+            )}
             {watched && (
               <View style={styles.watchedDot}>
                 <CheckIcon size={12} />

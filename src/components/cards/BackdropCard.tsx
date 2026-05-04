@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { Image } from 'expo-image';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { colors, radius, spacing, typography, components, focus as focusTokens } from '@/theme/tokens';
 import { CheckIcon } from '@/components/icons';
@@ -16,6 +17,7 @@ interface BackdropCardProps {
   watched?: boolean;
   width?: number;
   hideLabel?: boolean;
+  imageUrl?: string;
   onPress?: () => void;
 }
 
@@ -28,6 +30,7 @@ export function BackdropCard({
   watched = false,
   width = components.backdrop.width,
   hideLabel = false,
+  imageUrl,
   onPress,
 }: BackdropCardProps) {
   const height = Math.round(width * 9 / 16);
@@ -59,6 +62,14 @@ export function BackdropCard({
               focused && styles.backdropFocused,
             ]}
           >
+            {imageUrl && (
+              <Image
+                source={{ uri: imageUrl }}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+                transition={150}
+              />
+            )}
             {episode && (
               <View style={styles.badgeEp}>
                 <Text style={styles.badgeText}>{episode}</Text>
