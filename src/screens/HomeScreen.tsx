@@ -14,6 +14,7 @@ import {
   suggested,
   collections,
 } from '@/fixtures/home';
+import { TEST_BANNER, TEST_EPISODE, TEST_PORTRAIT } from '@/lib/test-images';
 import type { HeroVariant } from '@/types/media';
 
 interface HomeScreenProps {
@@ -35,8 +36,10 @@ export function HomeScreen({ heroVariant = 'classic' }: HomeScreenProps) {
           resolution={featured.resolution}
           audio={featured.audio}
           synopsis={featured.synopsis}
-          ctaLabel="Resume S2 \u00b7 E04"
+          ctaLabel={'Resume S2 \u00b7 E04'}
           variant={heroVariant}
+          backdropUrl={TEST_BANNER}
+          posterUrl={TEST_PORTRAIT}
         />
 
         <View style={styles.rails}>
@@ -52,12 +55,13 @@ export function HomeScreen({ heroVariant = 'classic' }: HomeScreenProps) {
                 runtime={item.runtime}
                 episode={item.episode}
                 width={336}
+                imageUrl={TEST_EPISODE}
               />
             )}
           />
 
           <Rail
-            heading="Recently Added \u2014 Movies"
+            heading={'Recently Added \u2014 Movies'}
             data={recentMovies}
             estimatedItemSize={244}
             renderItem={(item) => (
@@ -66,12 +70,13 @@ export function HomeScreen({ heroVariant = 'classic' }: HomeScreenProps) {
                 year={item.year}
                 watched={item.watched}
                 width={220}
+                imageUrl={TEST_PORTRAIT}
               />
             )}
           />
 
           <Rail
-            heading="Recently Added \u2014 Shows"
+            heading={'Recently Added \u2014 Shows'}
             data={recentShows}
             estimatedItemSize={244}
             renderItem={(item) => (
@@ -80,6 +85,7 @@ export function HomeScreen({ heroVariant = 'classic' }: HomeScreenProps) {
                 year={item.year}
                 watched={item.watched}
                 width={220}
+                imageUrl={TEST_PORTRAIT}
               />
             )}
           />
@@ -94,6 +100,7 @@ export function HomeScreen({ heroVariant = 'classic' }: HomeScreenProps) {
                 year={item.year}
                 watched={item.watched}
                 width={220}
+                imageUrl={TEST_PORTRAIT}
               />
             )}
           />
@@ -107,6 +114,7 @@ export function HomeScreen({ heroVariant = 'classic' }: HomeScreenProps) {
                 title={item.title}
                 sub={item.sub}
                 width={336}
+                imageUrl={TEST_BANNER}
               />
             )}
           />
