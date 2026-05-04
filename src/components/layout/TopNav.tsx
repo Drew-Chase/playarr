@@ -32,7 +32,7 @@ export function TopNav({active = "Home"}: TopNavProps)
     const focusedCount = useRef(0);
 
     // Bumped each time we want to programmatically refocus the active nav item
-    // (e.g. on back press). Used as the React key for the active item so it
+    // (e.g., on back press). Used as the React key for the active item, so it
     // remounts and `hasTVPreferredFocus` takes effect again.
     const [refocusTick, setRefocusTick] = useState(0);
 
@@ -132,7 +132,11 @@ export function TopNav({active = "Home"}: TopNavProps)
 
     return (
         <View style={styles.container} pointerEvents="box-none">
-            <LinearGradient colors={["rgba(0,0,0,0.85)", "rgba(0,0,0,0)"]} locations={[0, 1]} style={styles.gradient} pointerEvents="none"/>
+            <LinearGradient
+                colors={["rgba(0,0,0,0.85)", "rgba(0,0,0,0)"]}
+                locations={[0, 1]}
+                style={styles.gradient} pointerEvents="none"
+            />
             <View style={styles.row}>
                 <View style={styles.left}>
                     <BrandMark/>
@@ -160,9 +164,16 @@ export function TopNav({active = "Home"}: TopNavProps)
                 </View>
 
                 <View style={styles.right}>
-                    <IconButton render={(focused) => <SearchIcon size={22} color={focused ? colors.text : colors.textDim}/>}/>
-                    <IconButton render={(focused) => <DownloadIcon size={22} color={focused ? colors.text : colors.textDim}/>}/>
-                    <IconButton trapRight render={(focused) => <View style={[styles.avatar, focused && styles.avatarFocused]}/>}/>
+                    <IconButton
+                        render={(focused) =>
+                            <SearchIcon size={22} color={focused ? colors.text : colors.textDim}/>}/>
+                    <IconButton
+                        render={(focused) =>
+                            <DownloadIcon size={22} color={focused ? colors.text : colors.textDim}/>}/>
+                    <IconButton
+                        trapRight
+                        render={(focused) =>
+                            <View style={[styles.avatar, focused && styles.avatarFocused]}/>}/>
                 </View>
             </View>
         </View>
@@ -181,8 +192,17 @@ interface NavItemProps
     trapRight?: boolean;
 }
 
-function NavItem({item, isActive, hasTVPreferredFocus, onFocus, onBlur, onLayout, trapLeft, trapRight}: NavItemProps)
+function NavItem(props: NavItemProps)
 {
+    const {
+        item,
+        isActive,
+        hasTVPreferredFocus,
+        onFocus, onBlur,
+        onLayout,
+        trapLeft,
+        trapRight
+    } = props;
     const [focused, setFocused] = useState(false);
     const progress = useSharedValue(isActive ? 1 : 0);
     const pressableRef = useRef<View>(null);
@@ -253,7 +273,7 @@ function IconButton({render, trapLeft, trapRight}: IconButtonProps)
             nextFocusRight={trapRight && selfHandle !== null ? selfHandle : undefined}
             style={styles.iconButton}
         >
-            {({focused}: {focused?: boolean}) => render(!!focused)}
+            {({focused}: { focused?: boolean }) => render(!!focused)}
         </Pressable>
     );
 }
@@ -263,7 +283,10 @@ function BrandMark()
     return (
         <View style={styles.brand}>
             <View style={styles.brandCircle}>
-                <PlayIcon size={Math.round(components.brandMark.size * components.brandMark.iconScale)} color={colors.accentOnDark}/>
+                <PlayIcon
+                    size={Math.round(components.brandMark.size * components.brandMark.iconScale)}
+                    color={colors.accentOnDark}
+                />
             </View>
             <Text style={styles.brandText}>Playarr</Text>
         </View>
