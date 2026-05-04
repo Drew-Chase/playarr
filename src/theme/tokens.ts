@@ -9,6 +9,7 @@ export const colors = {
   accent: '#22C55E',
   accentPress: '#1AAE52',
   accentGlow: 'rgba(34, 197, 94, 0.28)',
+  indicatorColor: 'hsla(0, 0%, 5%, 0.75)', // hsla(142, 71%, 45%, 1)
   accentOnDark: '#06130A',
   warning: '#E8A65A',
   danger: '#E85A5A',
