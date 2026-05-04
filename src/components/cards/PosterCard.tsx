@@ -18,6 +18,7 @@ interface PosterCardProps {
   posterColor?: string;
   imageUrl?: string;
   onPress?: () => void;
+  onFocus?: () => void;
 }
 
 export function PosterCard({
@@ -29,6 +30,7 @@ export function PosterCard({
   posterColor,
   imageUrl,
   onPress,
+  onFocus,
 }: PosterCardProps) {
   const height = Math.round(width * 1.5);
   const scale = useSharedValue(1);
@@ -49,6 +51,7 @@ export function PosterCard({
       onFocus={() => {
         rememberFocus(findNodeHandle(ref.current));
         scale.value = withTiming(focusTokens.scale, { duration: focusTokens.duration, easing: FOCUS_EASING });
+        onFocus?.();
       }}
       onBlur={() => {
         scale.value = withTiming(1, { duration: focusTokens.duration, easing: FOCUS_EASING });

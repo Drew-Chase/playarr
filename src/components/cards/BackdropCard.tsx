@@ -20,6 +20,7 @@ interface BackdropCardProps {
   hideLabel?: boolean;
   imageUrl?: string;
   onPress?: () => void;
+  onFocus?: () => void;
 }
 
 export function BackdropCard({
@@ -33,6 +34,7 @@ export function BackdropCard({
   hideLabel = false,
   imageUrl,
   onPress,
+  onFocus,
 }: BackdropCardProps) {
   const height = Math.round(width * 9 / 16);
   const scale = useSharedValue(1);
@@ -52,6 +54,7 @@ export function BackdropCard({
       onFocus={() => {
         rememberFocus(findNodeHandle(ref.current));
         scale.value = withTiming(focusTokens.scale, { duration: focusTokens.duration, easing: FOCUS_EASING });
+        onFocus?.();
       }}
       onBlur={() => {
         scale.value = withTiming(1, { duration: focusTokens.duration, easing: FOCUS_EASING });
