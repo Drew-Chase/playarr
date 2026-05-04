@@ -1,5 +1,6 @@
 import React, {useCallback, useEffect, useRef, useState} from "react";
-import {View, Text, Pressable, BackHandler, StyleSheet} from "react-native";
+import {View, Text, Pressable, BackHandler, StyleSheet, LayoutChangeEvent, findNodeHandle} from "react-native";
+import Animated, {interpolateColor, useAnimatedStyle, useSharedValue, withTiming} from "react-native-reanimated";
 import {LinearGradient} from "expo-linear-gradient";
 import {colors, spacing, components} from "@/theme/tokens";
 import {SearchIcon, DownloadIcon, PlayIcon} from "@/components/icons";
@@ -11,6 +12,17 @@ interface TopNavProps
 
 const NAV_ITEMS = ["Home", "Movies", "TV Shows", "Calendar"];
 const GRADIENT_HEIGHT = components.topNav.height + 64;
+const FOCUS_ANIM_MS = 180;
+const FOCUS_PAD_X = spacing.md;
+const FOCUS_PAD_Y = 0;
+
+interface ItemLayout
+{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+}
 
 export function TopNav({active = "Home"}: TopNavProps)
 {
@@ -24,14 +36,69 @@ export function TopNav({active = "Home"}: TopNavProps)
     // remounts and `hasTVPreferredFocus` takes effect again.
     const [refocusTick, setRefocusTick] = useState(0);
 
-    const onItemFocus = useCallback(() =>
+    // Cached layout per nav item so the sliding indicator knows where to
+    // animate to when focus moves between items.
+    const layoutsRef = useRef<Record<string, ItemLayout>>({});
+
+    // Holds a deferred fade-out so a blur immediately followed by a focus
+    // (i.e. moving between items) doesn't cause a flicker.
+    const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const indicatorX = useSharedValue(0);
+    const indicatorY = useSharedValue(0);
+    const indicatorW = useSharedValue(0);
+    const indicatorH = useSharedValue(0);
+    const indicatorOpacity = useSharedValue(0);
+
+    const handleItemFocus = useCallback((item: string) =>
     {
         focusedCount.current += 1;
-    }, []);
+        if (blurTimeoutRef.current)
+        {
+            clearTimeout(blurTimeoutRef.current);
+            blurTimeoutRef.current = null;
+        }
+        const layout = layoutsRef.current[item];
+        if (!layout) return;
+        const targetX = layout.x - FOCUS_PAD_X;
+        const targetY = layout.y - FOCUS_PAD_Y;
+        const targetW = layout.width + FOCUS_PAD_X * 2;
+        const targetH = layout.height + FOCUS_PAD_Y * 2;
+        if (indicatorOpacity.value === 0)
+        {
+            // First appearance — snap to position so it doesn't fly in from origin.
+            indicatorX.value = targetX;
+            indicatorY.value = targetY;
+            indicatorW.value = targetW;
+            indicatorH.value = targetH;
+        } else
+        {
+            indicatorX.value = withTiming(targetX, {duration: FOCUS_ANIM_MS});
+            indicatorY.value = withTiming(targetY, {duration: FOCUS_ANIM_MS});
+            indicatorW.value = withTiming(targetW, {duration: FOCUS_ANIM_MS});
+            indicatorH.value = withTiming(targetH, {duration: FOCUS_ANIM_MS});
+        }
+        indicatorOpacity.value = withTiming(1, {duration: FOCUS_ANIM_MS});
+    }, [indicatorH, indicatorOpacity, indicatorW, indicatorX, indicatorY]);
 
-    const onItemBlur = useCallback(() =>
+    const handleItemBlur = useCallback(() =>
     {
         focusedCount.current = Math.max(0, focusedCount.current - 1);
+        if (focusedCount.current === 0)
+        {
+            // Defer so an immediate focus on a sibling cancels the fade-out.
+            blurTimeoutRef.current = setTimeout(() =>
+            {
+                indicatorOpacity.value = withTiming(0, {duration: FOCUS_ANIM_MS});
+                blurTimeoutRef.current = null;
+            }, 0);
+        }
+    }, [indicatorOpacity]);
+
+    const handleItemLayout = useCallback((item: string, e: LayoutChangeEvent) =>
+    {
+        const {x, y, width, height} = e.nativeEvent.layout;
+        layoutsRef.current[item] = {x, y, width, height};
     }, []);
 
     useEffect(() =>
@@ -48,6 +115,21 @@ export function TopNav({active = "Home"}: TopNavProps)
         return () => sub.remove();
     }, []);
 
+    useEffect(() =>
+    {
+        return () =>
+        {
+            if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
+        };
+    }, []);
+
+    const indicatorStyle = useAnimatedStyle(() => ({
+        transform: [{translateX: indicatorX.value}, {translateY: indicatorY.value}],
+        width: indicatorW.value,
+        height: indicatorH.value,
+        opacity: indicatorOpacity.value
+    }));
+
     return (
         <View style={styles.container} pointerEvents="box-none">
             <LinearGradient colors={["rgba(0,0,0,0.85)", "rgba(0,0,0,0)"]} locations={[0, 1]} style={styles.gradient} pointerEvents="none"/>
@@ -57,30 +139,122 @@ export function TopNav({active = "Home"}: TopNavProps)
                 </View>
 
                 <View style={styles.center}>
-                    {NAV_ITEMS.map((item) =>
+                    <Animated.View style={[styles.focusIndicator, indicatorStyle]} pointerEvents="none"/>
+                    {NAV_ITEMS.map((item, idx) =>
                     {
                         const isActive = item === active;
                         const shouldForceFocus = refocusTick > 0 && isActive;
                         return (
-                            <Pressable key={shouldForceFocus ? `${item}-${refocusTick}` : item} hasTVPreferredFocus={shouldForceFocus} onFocus={onItemFocus} onBlur={onItemBlur} style={styles.navItem}>
-                                {({focused}: { focused?: boolean }) => (
-                                    <View style={[styles.navItemInner, focused && styles.navItemFocused]}>
-                                        <Text style={[styles.navText, isActive && styles.navTextActive]}>{item}</Text>
-                                        {isActive && !focused && <View style={styles.activeIndicator}/>}
-                                    </View>
-                                )}
-                            </Pressable>
+                            <NavItem
+                                key={shouldForceFocus ? `${item}-${refocusTick}` : item}
+                                item={item}
+                                isActive={isActive}
+                                hasTVPreferredFocus={shouldForceFocus}
+                                onFocus={handleItemFocus}
+                                onBlur={handleItemBlur}
+                                onLayout={handleItemLayout}
+                                trapLeft={idx === 0}
+                            />
                         );
                     })}
                 </View>
 
                 <View style={styles.right}>
-                    <SearchIcon size={22} color={colors.textDim}/>
-                    <DownloadIcon size={22} color={colors.textDim}/>
-                    <View style={styles.avatar}/>
+                    <IconButton render={(focused) => <SearchIcon size={22} color={focused ? colors.text : colors.textDim}/>}/>
+                    <IconButton render={(focused) => <DownloadIcon size={22} color={focused ? colors.text : colors.textDim}/>}/>
+                    <IconButton trapRight render={(focused) => <View style={[styles.avatar, focused && styles.avatarFocused]}/>}/>
                 </View>
             </View>
         </View>
+    );
+}
+
+interface NavItemProps
+{
+    item: string;
+    isActive: boolean;
+    hasTVPreferredFocus: boolean;
+    onFocus: (item: string) => void;
+    onBlur: () => void;
+    onLayout: (item: string, e: LayoutChangeEvent) => void;
+    trapLeft?: boolean;
+    trapRight?: boolean;
+}
+
+function NavItem({item, isActive, hasTVPreferredFocus, onFocus, onBlur, onLayout, trapLeft, trapRight}: NavItemProps)
+{
+    const [focused, setFocused] = useState(false);
+    const progress = useSharedValue(isActive ? 1 : 0);
+    const pressableRef = useRef<View>(null);
+    const [selfHandle, setSelfHandle] = useState<number | null>(null);
+
+    useEffect(() =>
+    {
+        progress.value = withTiming(focused || isActive ? 1 : 0, {duration: FOCUS_ANIM_MS});
+    }, [focused, isActive, progress]);
+
+    useEffect(() =>
+    {
+        setSelfHandle(findNodeHandle(pressableRef.current));
+    }, []);
+
+    const textStyle = useAnimatedStyle(() => ({
+        color: interpolateColor(progress.value, [0, 1], [colors.textDim, colors.text])
+    }));
+
+    return (
+        <Pressable
+            ref={pressableRef}
+            hasTVPreferredFocus={hasTVPreferredFocus}
+            nextFocusLeft={trapLeft && selfHandle !== null ? selfHandle : undefined}
+            nextFocusRight={trapRight && selfHandle !== null ? selfHandle : undefined}
+            onFocus={() =>
+            {
+                setFocused(true);
+                onFocus(item);
+            }}
+            onBlur={() =>
+            {
+                setFocused(false);
+                onBlur();
+            }}
+            onLayout={(e) => onLayout(item, e)}
+            style={styles.navItem}
+        >
+            <View style={styles.navItemInner}>
+                <Animated.Text style={[styles.navText, textStyle]}>{item}</Animated.Text>
+                {isActive && <View style={styles.activeIndicator}/>}
+            </View>
+        </Pressable>
+    );
+}
+
+interface IconButtonProps
+{
+    render: (focused: boolean) => React.ReactNode;
+    trapLeft?: boolean;
+    trapRight?: boolean;
+}
+
+function IconButton({render, trapLeft, trapRight}: IconButtonProps)
+{
+    const ref = useRef<View>(null);
+    const [selfHandle, setSelfHandle] = useState<number | null>(null);
+
+    useEffect(() =>
+    {
+        setSelfHandle(findNodeHandle(ref.current));
+    }, []);
+
+    return (
+        <Pressable
+            ref={ref}
+            nextFocusLeft={trapLeft && selfHandle !== null ? selfHandle : undefined}
+            nextFocusRight={trapRight && selfHandle !== null ? selfHandle : undefined}
+            style={styles.iconButton}
+        >
+            {({focused}: {focused?: boolean}) => render(!!focused)}
+        </Pressable>
     );
 }
 
@@ -131,7 +305,20 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         justifyContent: "flex-end",
         alignItems: "center",
-        gap: spacing.xl
+        gap: spacing.sm
+    },
+    iconButton: {
+        padding: spacing.sm,
+        borderRadius: 8,
+        alignItems: "center",
+        justifyContent: "center"
+    },
+    focusIndicator: {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        backgroundColor: colors.accentGlow,
+        borderRadius: 5
     },
     navItem: {
         paddingVertical: spacing.sm,
@@ -144,10 +331,6 @@ const styles = StyleSheet.create({
         marginHorizontal: -spacing.md,
         marginVertical: -spacing.xs,
         borderRadius: 4
-    },
-    navItemFocused: {
-        backgroundColor: "rgba(0,0,0,0.5)",
-        borderRadius: 5
     },
     navText: {
         fontSize: 20,
@@ -191,5 +374,9 @@ const styles = StyleSheet.create({
         borderRadius: 18,
         borderWidth: 1,
         borderColor: "rgba(255,255,255,0.1)"
+    },
+    avatarFocused: {
+        borderColor: colors.text,
+        borderWidth: 2
     }
 });
