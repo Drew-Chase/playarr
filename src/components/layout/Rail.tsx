@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { colors, spacing, typography } from '@/theme/tokens';
@@ -11,6 +11,7 @@ interface RailProps<T> {
   estimatedItemSize: number;
   showSeeAll?: boolean;
   itemGap?: number;
+  onCardFocus?: (railRef: React.RefObject<View | null>) => void;
 }
 
 export function Rail<T>({
@@ -20,9 +21,24 @@ export function Rail<T>({
   estimatedItemSize,
   showSeeAll = true,
   itemGap = spacing.xl,
+  onCardFocus,
 }: RailProps<T>) {
+  const railRef = useRef<View>(null);
+
+  const handleRender = ({ item, index }: { item: T; index: number }) => {
+    const card = renderItem(item, index);
+    if (!onCardFocus) return card;
+    const originalOnFocus = (card.props as { onFocus?: () => void }).onFocus;
+    return React.cloneElement(card, {
+      onFocus: () => {
+        onCardFocus(railRef);
+        originalOnFocus?.();
+      },
+    } as Partial<{ onFocus: () => void }>);
+  };
+
   return (
-    <View style={styles.container}>
+    <View ref={railRef} style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.heading}>{heading}</Text>
         {showSeeAll && (
@@ -42,7 +58,7 @@ export function Rail<T>({
           drawDistance={estimatedItemSize * 4}
           contentContainerStyle={{ paddingLeft: spacing['5xl'] }}
           ItemSeparatorComponent={() => <View style={{ width: itemGap }} />}
-          renderItem={({ item, index }) => renderItem(item, index)}
+          renderItem={handleRender}
         />
       </View>
     </View>
