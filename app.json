@@ -47,8 +47,7 @@
             "topShelfWide2x": "./assets/tv_icons/icon-4640x1440.png"
           }
         }
-      ],
-      "expo-web-browser"
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
