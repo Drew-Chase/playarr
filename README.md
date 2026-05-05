@@ -24,6 +24,7 @@ yarn prebuild:tv # Executes clean Expo prebuild with TV modifications
 yarn ios # Build and run for Apple TV
 yarn android # Build for Android TV
 ```
+
 - For mobile development:
 
 ```sh
