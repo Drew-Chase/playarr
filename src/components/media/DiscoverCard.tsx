@@ -4,17 +4,32 @@ import {useNavigate} from "react-router-dom";
 import type {TmdbItem} from "../../lib/types.ts";
 import {tmdbImage} from "../../lib/utils.ts";
 
-export default function DiscoverCard({item, mediaType}: { item: TmdbItem; mediaType: "movie" | "tv" }) {
+interface DiscoverCardProps {
+    item: TmdbItem;
+    mediaType: "movie" | "tv";
+    /** Desaturate the poster to signal the item is not in the library. */
+    dimmed?: boolean;
+    /** Render a "Discover" pill under the title. */
+    showDiscoverBadge?: boolean;
+    /** Card width in px (default 185). */
+    width?: number;
+}
+
+export default function DiscoverCard({item, mediaType, dimmed, showDiscoverBadge, width = 185}: DiscoverCardProps) {
     const navigate = useNavigate();
     const title = item.title || item.name || "Unknown";
     const date = item.release_date || item.first_air_date || "";
 
     return (
         <div
-            className="shrink-0 w-[185px] group scroll-snap-start cursor-pointer transition-transform duration-200 hover:scale-105"
+            className="shrink-0 group scroll-snap-start cursor-pointer transition-transform duration-200 hover:scale-105"
+            style={{width}}
             onClick={() => navigate(`/discover/${mediaType}/${item.id}`)}
         >
-            <div className="relative w-[185px] h-[278px] rounded-lg overflow-hidden bg-content2">
+            <div
+                className={`relative rounded-lg overflow-hidden bg-content2 aspect-[2/3] transition-[filter] ${dimmed ? "saturate-50 brightness-75 group-hover:saturate-100 group-hover:brightness-100" : ""}`}
+                style={{width}}
+            >
                 <img
                     alt={title}
                     className="object-cover w-full h-full"
@@ -42,6 +57,12 @@ export default function DiscoverCard({item, mediaType}: { item: TmdbItem; mediaT
             <div className="mt-2 px-1">
                 <p className="text-sm font-semibold truncate">{title}</p>
                 <p className="text-xs text-default-400">{date.slice(0, 4)}</p>
+                {showDiscoverBadge && (
+                    <span className="mt-2 inline-flex items-center gap-1 rounded-full border border-default-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-default-500">
+                        <Icon icon="mdi:plus" width="10"/>
+                        Discover
+                    </span>
+                )}
             </div>
         </div>
     );
