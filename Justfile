@@ -7,6 +7,9 @@ dist_dir := "target/dist"
 export OPENSUBTITLES_API_KEY := ""
 export TMDB_API_KEY := ""
 
+@default:
+    @just --list
+
 build:
     cargo build --release
     just _package
