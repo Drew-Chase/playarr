@@ -18,6 +18,11 @@ import CreditsOverlay from "./CreditsOverlay.tsx";
 
 import {plexImage} from "../../lib/utils.ts";
 
+// Firefox has an audio playback bug where frequent playbackRate changes cause
+// audible glitches, so rate changes are throttled to once every 2000ms.
+const IS_FIREFOX = navigator.userAgent.toLowerCase().includes("firefox");
+const RATE_CHANGE_INTERVAL_MS = 2000;
+
 interface VideoPlayerProps {
     item: PlexMediaItem;
     onNext?: () => void;
@@ -44,6 +49,7 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
     const isTransitioningRef = useRef(false);
     const syncFromPartyRef = useRef(false);
     const remoteRef = useRef({ t: 0, playing: false, m: performance.now() });
+    const lastRateChangeRef = useRef(0);
     const audioContextRef = useRef<AudioContext | null>(null);
     const gainNodeRef = useRef<GainNode | null>(null);
     const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
@@ -684,21 +690,33 @@ export default function VideoPlayer({item, onNext, onPrevious, hasNext, hasPrevi
 
         video.preservesPitch = true;
 
+        // Firefox audio bug workaround: only apply a new playbackRate every
+        // 2000ms. No-op assignments (rate unchanged) are always allowed and
+        // don't consume the throttle window.
+        const setPlaybackRate = (rate: number) => {
+            if (IS_FIREFOX && video.playbackRate !== rate) {
+                const now = performance.now();
+                if (now - lastRateChangeRef.current < RATE_CHANGE_INTERVAL_MS) return;
+                lastRateChangeRef.current = now;
+            }
+            video.playbackRate = rate;
+        };
+
         if (Math.abs(diff) > 0.5) {
             // Hard seek for large drift
             if (video.readyState >= 1) {
                 video.currentTime = target;
                 setCurrentTime(target);
             }
-            video.playbackRate = 1;
+            setPlaybackRate(1);
         } else if (remoteRef.current.playing) {
             // Gentle proportional rate correction for small drift.
             // Clamped to ±5% to avoid A/V desync on HLS streams.
             // Dead zone: don't adjust for drifts under 50ms.
             if (Math.abs(diff) < 0.05) {
-                video.playbackRate = 1;
+                setPlaybackRate(1);
             } else {
-                video.playbackRate = Math.max(0.95, Math.min(1.05, 1 + diff * 0.1));
+                setPlaybackRate(Math.max(0.95, Math.min(1.05, 1 + diff * 0.1)));
             }
         }
 
