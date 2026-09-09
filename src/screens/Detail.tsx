@@ -105,16 +105,21 @@ function LiveDetail({
         <View style={{ flexDirection: 'row', gap: px(48) }}>
           <Text style={{ flex: 1, fontSize: px(19), lineHeight: px(30), color: C.textDim }}>{meta.summary || 'No summary available.'}</Text>
           {(meta.Role ?? []).length ? (
-            <View style={{ width: px(420), gap: px(16) }}>
-              <Text style={{ fontSize: px(14), color: '#7f868c', marginBottom: px(6) }}>CAST</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: px(10) }}>
-                {(meta.Role ?? []).slice(0, 6).map((r) => (
-                  <View key={r.tag} style={{ flexDirection: 'row', alignItems: 'center', gap: px(8), backgroundColor: 'rgba(255,255,255,.06)', borderRadius: px(24), paddingRight: px(14), paddingLeft: px(6), paddingVertical: px(6) }}>
-                    <Avatar initials={r.tag.split(' ').map((x) => x[0]).slice(0, 2).join('')} art={['#2a2f36', '#12151a']} size={30} />
-                    <Text style={{ fontSize: px(14), color: C.textDim }}>{r.tag}</Text>
+            <View style={{ width: px(560) }}>
+              <Text style={{ fontFamily: F.head, fontSize: px(28), color: C.text, marginBottom: px(20) }}>Cast</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: px(10) }}>
+                {(meta.Role ?? []).slice(0, 8).map((r) => (
+                  <View key={r.tag} style={{ width: px(130), marginRight: px(26), alignItems: 'center' }}>
+                    <Grad art={['#2a2f36', '#12151a']} deg={155} style={{ width: px(130), height: px(130), borderRadius: px(65), alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ fontFamily: F.head, fontSize: px(34), fontWeight: '700', color: 'rgba(255,255,255,.85)' }}>
+                        {r.tag.split(' ').map((x) => x[0]).slice(0, 2).join('')}
+                      </Text>
+                    </Grad>
+                    <Text numberOfLines={1} style={{ fontSize: px(16), fontWeight: '600', color: C.text, marginTop: px(12) }}>{r.tag}</Text>
+                    {r.role ? <Text numberOfLines={1} style={{ fontSize: px(14), color: '#868d93', marginTop: px(2) }}>{r.role}</Text> : null}
                   </View>
                 ))}
-              </View>
+              </ScrollView>
             </View>
           ) : null}
         </View>
@@ -122,62 +127,69 @@ function LiveDetail({
         {isShow && seasons.length ? (
           <View>
             <Text style={{ fontFamily: F.head, fontSize: px(28), color: C.text, marginBottom: px(20) }}>Seasons</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: px(12) }}>
-              {seasons.map((sn, i) => {
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: px(12), marginBottom: px(44) }}>
+              {seasons.map((sn) => {
                 const on = activeSeason?.ratingKey === sn.ratingKey;
                 return (
                   <Focusable
                     key={sn.ratingKey}
                     onPress={() => setSeasonKey(sn.ratingKey)}
                     focusStyle={{ transform: [{ scale: 1.05 }] }}
-                    style={{ width: px(300), marginRight: px(22), borderRadius: px(14), borderWidth: px(2), borderColor: on ? C.accent : 'rgba(255,255,255,.08)', overflow: 'hidden' }}
+                    style={{ width: px(196), marginRight: px(22) }}
                   >
-                    <View style={{ height: px(130) }}>
+                    <View style={{ height: px(290), borderRadius: px(14), overflow: 'hidden', backgroundColor: '#000', borderWidth: px(2), borderColor: on ? C.accent : 'rgba(255,255,255,.08)' }}>
                       <ImgOrGrad uri={posterUrl(sn)} art={['#1b3566', '#101a3a', '#05060c']} style={{ position: 'absolute', width: '100%', height: '100%' }} />
-                      <Grad art={['rgba(0,0,0,.25)', 'rgba(0,0,0,.55)']} deg={180} style={{ position: 'absolute', width: '100%', height: '100%' }} />
-                      <View style={{ position: 'absolute', left: px(20), bottom: px(16) }}>
-                        <Text style={{ fontFamily: F.head, fontSize: px(22), color: '#fff' }}>{sn.title}</Text>
-                        <Text style={{ fontSize: px(14), color: 'rgba(255,255,255,.7)', marginTop: px(3) }}>
-                          {`${sn.childCount ?? leaves.filter((l) => l.parentRatingKey === sn.ratingKey).length} episodes`}
-                        </Text>
+                      <Grad art={['rgba(0,0,0,0)', 'rgba(0,0,0,.8)']} deg={180} style={{ position: 'absolute', width: '100%', height: '100%' }} />
+                      <View style={{ position: 'absolute', left: px(16), right: px(16), bottom: px(16) }}>
+                        <TitleGlyph t={sn.title} ink="#ffffff" size={23} />
                       </View>
                     </View>
+                    <Text style={{ marginTop: px(11), fontSize: px(16), fontWeight: '600', color: C.text }}>{sn.title}</Text>
+                    <Text style={{ fontSize: px(14), color: '#868d93', marginTop: px(3) }}>
+                      {`${sn.childCount ?? leaves.filter((l) => l.parentRatingKey === sn.ratingKey).length} episodes`}
+                    </Text>
                   </Focusable>
                 );
               })}
             </ScrollView>
-            <View style={{ gap: px(10), marginTop: px(24) }}>
+            <Text style={{ fontFamily: F.head, fontSize: px(28), color: C.text, marginBottom: px(20) }}>Episodes</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: px(22) }}>
               {seasonEpisodes.map((ep, i) => {
                 const watched = !!ep.viewCount || (!!ep.viewOffset && ep.duration ? ep.viewOffset / ep.duration > 0.95 : false);
                 const inProgress = !!ep.viewOffset && ep.duration ? ep.viewOffset / ep.duration <= 0.95 : false;
+                const pct = inProgress ? pctOf(((ep.viewOffset ?? 0) / (ep.duration || 1)) * 100) : null;
                 return (
                   <Focusable
                     key={ep.ratingKey}
+                    hasTV={i === 0}
+                    focusRadius={14}
                     onPress={() => {
                       a.set({ liveEpisodes: seasonEpisodes, epIndex: i });
                       a.nav('episode');
                     }}
-                    focusStyle={{ borderColor: C.accent, borderWidth: px(2) }}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: px(20),
-                      backgroundColor: 'rgba(0,212,116,.1)',
-                      borderWidth: px(1),
-                      borderColor: 'rgba(255,255,255,.08)',
-                      borderRadius: px(14),
-                      padding: px(14),
-                    }}
+                    focusStyle={{ transform: [{ scale: 1.03 }] }}
+                    style={{ width: px(582), borderRadius: px(14), overflow: 'hidden', backgroundColor: '#0f1114', borderWidth: px(1), borderColor: 'rgba(255,255,255,.06)' }}
                   >
-                    <ImgOrGrad uri={thumbUrl(ep)} art={['#1b3566', '#101a3a', '#05060c']} style={{ width: px(150), height: px(86), borderRadius: px(10) }} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: px(14), color: '#8f969c' }}>
-                        {`E${ep.index ?? i + 1}`} · {fmtDuration(ep.duration)}
-                      </Text>
-                      <Text style={{ fontSize: px(18), fontWeight: '600', color: C.text, marginTop: px(3) }}>{ep.title}</Text>
-                      <Text numberOfLines={1} style={{ fontSize: px(14), color: '#8a9197', marginTop: px(3) }}>{ep.summary || ''}</Text>
+                    <View style={{ height: px(196) }}>
+                      <ImgOrGrad uri={thumbUrl(ep)} art={['#1b3566', '#101a3a', '#05060c']} style={{ position: 'absolute', width: '100%', height: '100%' }} />
+                      <Grad art={['rgba(0,0,0,.15)', 'rgba(0,0,0,.7)']} deg={180} style={{ position: 'absolute', width: '100%', height: '100%' }} />
+                      <View style={{ position: 'absolute', top: px(14), left: px(14), paddingHorizontal: px(11), paddingVertical: px(5), borderRadius: px(7), backgroundColor: 'rgba(0,0,0,.6)' }}>
+                        <Text style={{ fontSize: px(14), fontWeight: '700', color: C.text }}>{`E${ep.index ?? i + 1}`}</Text>
+                      </View>
+                      <Text style={{ position: 'absolute', bottom: px(14), right: px(14), fontSize: px(14), color: '#dfe3e6' }}>{fmtDuration(ep.duration)}</Text>
+                      {pct ? (
+                        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: px(5), backgroundColor: 'rgba(255,255,255,.2)' }}>
+                          <View style={{ height: '100%', width: pct, backgroundColor: C.accent }} />
+                        </View>
+                      ) : null}
                     </View>
-                    {inProgress ? <Text style={{ fontSize: px(14), fontWeight: '700', color: C.amber }}>In progress</Text> : watched ? <Text style={{ fontSize: px(14), fontWeight: '700', color: '#7dffc0' }}>Watched</Text> : null}
+                    <View style={{ padding: px(18), paddingLeft: px(20), paddingRight: px(20), paddingBottom: px(22) }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: px(10) }}>
+                        <Text numberOfLines={1} style={{ flex: 1, fontSize: px(18), fontWeight: '600', color: C.text }}>{ep.title}</Text>
+                        {inProgress ? <Text style={{ fontSize: px(14), color: C.amber }}>In progress</Text> : watched ? <Text style={{ fontSize: px(14), color: '#7dffc0' }}>Watched</Text> : null}
+                      </View>
+                      <Text numberOfLines={2} style={{ fontSize: px(15), lineHeight: px(22), color: '#8a9197', marginTop: px(8) }}>{ep.summary || ''}</Text>
+                    </View>
                   </Focusable>
                 );
               })}

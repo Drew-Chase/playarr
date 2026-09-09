@@ -3,6 +3,7 @@ import { C, F, px } from './theme';
 import { focusLastContent, lastContentHandle, lastFocusWasTop, onLastContentChange, setTopBarRef } from './focusNav';
 import { useEffect, useRef, useState } from 'react';
 import { TVEventHandler, TVFocusGuideView } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { Avatar, Focusable } from './ui';
 import { useStore, type Screen } from './store';
 
@@ -91,6 +92,15 @@ export function TopBar() {
         borderBottomColor: atTop ? 'rgba(255,255,255,0)' : 'rgba(255,255,255,.08)',
       }}
     >
+      {!atTop ? (
+        <BlurView
+          intensity={50}
+          tint="dark"
+          experimentalBlurMethod="dimezisBlurView"
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(10,12,15,.55)' }}
+        />
+      ) : null}
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: atTop ? 'rgba(7,8,10,0)' : 'rgba(10,12,15,.45)' }} pointerEvents="none" />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: px(52) }}>
         <Focusable hostRef={logoRef} zone='top' onPress={() => a.nav('home')} focusStyle={{ transform: [{ scale: 1.05 }], borderColor: C.accent, borderWidth: px(3) }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: px(13) }}>
