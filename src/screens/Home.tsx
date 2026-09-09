@@ -2,27 +2,79 @@ import { ScrollView, Text, View } from 'react-native';
 import { C, F, asPct, pctOf, px } from '../theme';
 import { Avatar, Btn, Chip, Focusable, Grad, ImgOrGrad, Rail, TitleGlyph, type PosterData } from '../ui';
 import { DISCOVER, FRIENDS, TITLES, useStore } from '../store';
-import { mediaThumbUrl } from '../api/client';
-import type { PlexMediaItem } from '../api/types';
+import {
+  artUrl,
+  detailTarget,
+  displayTitle,
+  progressPct,
+  subFor,
+  thumbUrl,
+  tmdbDiscoverItem,
+  tmdbToPoster,
+  toPoster,
+  fmtDuration,
+} from '../api/mappers';
+import { useContinueWatching, useLibraryItems, useLibraries, useRecentlyAdded, useTrending } from '../api/useLive';
+import type { PlexMediaItem, TmdbItem } from '../api/types';
 
-export function plexPoster(m: PlexMediaItem, onPress: () => void): PosterData {
-  return {
-    key: m.ratingKey,
-    t: m.title,
-    sub: (m.year ? m.year + ' · ' : '') + (m.type === 'movie' ? 'Movie' : 'Series'),
-    art: ['#0d4d55', '#0a2030', '#04070c'],
-    ink: '#cfe9ff',
-    progPct: m.viewOffset && m.duration ? pctOf((m.viewOffset / m.duration) * 100) : undefined,
-    uri: mediaThumbUrl(m),
-    onPress,
-  };
-}
+
 
 export function HomeScreen() {
   const { s, a } = useStore();
-  const hero = TITLES[s.hero % 4];
+  const { data: cw } = useContinueWatching();
+  const { data: ra } = useRecentlyAdded();
+  const { data: libs } = useLibraries();
+  const { data: trending } = useTrending();
+  const movieLib = libs?.find((l) => l.type === 'movie');
+  const showLib = libs?.find((l) => l.type === 'show');
+  const { data: movieItems } = useLibraryItems(movieLib?.key ?? null);
+  const { data: showItems } = useLibraryItems(showLib?.key ?? null);
 
-  const railItem = (t: (typeof TITLES)[number]): PosterData => ({
+  const heroModel = (m: PlexMediaItem) => {
+    const artId = m.type === 'episode' ? m.grandparentRatingKey || m.ratingKey : m.ratingKey;
+    const resume = !!m.viewOffset && m.viewOffset > 0;
+    return {
+      tag: m.type === 'episode' ? 'Continue watching' : 'New in your library',
+      title: displayTitle(m),
+      rating: m.audienceRating ? m.audienceRating.toFixed(1) + ' ★' : null,
+      meta: [
+        m.year ? String(m.year) : '',
+        m.contentRating || '',
+        m.type === 'episode'
+          ? `S${m.parentIndex} · E${m.index}`
+          : m.type === 'show'
+            ? `${m.childCount ?? ''} seasons`
+            : fmtDuration(m.duration),
+      ]
+        .filter(Boolean)
+        .join(' · '),
+      overview: m.summary || 'No overview available.',
+      playLabel: resume ? '▶ Resume' : '▶ Play',
+      art: artUrl({ ratingKey: artId }),
+      onPlay: () =>
+        a.play(
+          m.ratingKey,
+          'Playing ' + displayTitle(m),
+          {
+            title: displayTitle(m),
+            sub: subFor(m),
+            art: artUrl({ ratingKey: artId }),
+          },
+          m.viewOffset ? m.viewOffset / 1000 : undefined
+        ),
+      onInfo: () => a.openTitle(detailTarget(m)),
+    };
+  };
+
+  const heroSource: PlexMediaItem[] = [
+    ...(cw ?? []).slice(0, 2),
+    ...(ra ?? []).filter((x) => x.type === 'movie' || x.type === 'show').slice(0, 3),
+  ];
+  const liveHeroOn = heroSource.length > 0;
+  const liveHero = liveHeroOn ? heroModel(heroSource[s.hero % heroSource.length]) : null;
+  const demoHero = TITLES[s.hero % 4];
+
+  const demoRailItem = (t: (typeof TITLES)[number]): PosterData => ({
     key: t.id,
     t: t.t,
     sub: t.yr + ' · ' + (t.kind === 'show' ? t.seasons + ' seasons' : t.ep),
@@ -32,7 +84,22 @@ export function HomeScreen() {
     onPress: () => a.openTitle(t.id),
   });
 
-  const libMovies = TITLES.filter((t) => t.kind === 'movie');
+  const continueItems: PosterData[] = cw?.length
+    ? cw.map((m) => toPoster(m, () => a.openTitle(detailTarget(m))))
+    : TITLES.filter((t) => t.prog).map(demoRailItem);
+
+  const recentItems: PosterData[] = ra?.length
+    ? ra.slice(0, 12).map((m) => toPoster(m, () => a.openTitle(detailTarget(m))))
+    : TITLES.slice(4, 12).map(demoRailItem);
+
+  const movieRail: PosterData[] = movieItems?.length
+    ? movieItems.slice(0, 12).map((m) => toPoster(m, () => a.openTitle(m.ratingKey)))
+    : TITLES.filter((t) => t.kind === 'movie').map(demoRailItem);
+
+  const showRail: PosterData[] = showItems?.length
+    ? showItems.slice(0, 12).map((m) => toPoster(m, () => a.openTitle(m.ratingKey)))
+    : TITLES.filter((t) => t.kind === 'show').map(demoRailItem);
+
   const partyCards = [
     { name: "Drew's Movie Night", watching: 'Rift Runners · 41:20 remaining', pct: '38%', live: true, members: FRIENDS.slice(0, 3) },
     { name: 'Sunday Rewatch', watching: 'Copperline · S02 E07', pct: '62%', live: true, members: FRIENDS.slice(1, 4) },
@@ -40,22 +107,58 @@ export function HomeScreen() {
     { name: 'Late Shift', watching: 'Hollow Signal · S03 E04', pct: '31%', live: true, members: FRIENDS.slice(2, 4) },
   ];
 
-  const discCard = (d: (typeof DISCOVER)[number], hasTV: boolean) => {
-    const done = !!s.requested[d.id];
+  const demoDiscCard = (d: (typeof DISCOVER)[number], hasTV: boolean) => (
+    <Focusable
+      key={d.id}
+      hasTV={hasTV}
+      onPress={() => a.set({ modal: 'request', reqTarget: d.id, reqFields: [0, 0, 0, 0] })}
+      focusStyle={{ transform: [{ scale: 1.05 }] }}
+      style={{ width: px(300), marginRight: px(22) }}
+    >
+      <View style={{ height: px(170), borderRadius: px(14), overflow: 'hidden' }}>
+        <ImgOrGrad art={d.art} style={{ position: 'absolute', width: '100%', height: '100%' }} />
+        <Grad art={['rgba(0,0,0,0)', 'rgba(0,0,0,.75)']} deg={180} style={{ position: 'absolute', width: '100%', height: '100%' }} />
+        <View style={{ position: 'absolute', left: px(16), right: px(16), bottom: px(14) }}>
+          <TitleGlyph t={d.t} ink={d.ink} size={24} />
+          <Text style={{ fontSize: px(14), color: 'rgba(255,255,255,.75)', marginTop: px(4) }}>{d.rating} ★</Text>
+        </View>
+      </View>
+      <View
+        style={{
+          alignSelf: 'flex-start',
+          marginTop: px(12),
+          paddingHorizontal: px(18),
+          paddingVertical: px(10),
+          borderRadius: px(20),
+          backgroundColor: s.requested[d.id] ? 'rgba(0,212,116,.9)' : 'rgba(255,255,255,.16)',
+        }}
+      >
+        <Text style={{ fontSize: px(15), fontWeight: '700', color: s.requested[d.id] ? '#04120b' : C.text }}>
+          {s.requested[d.id] ? 'Requested ✓' : '+ Request'}
+        </Text>
+      </View>
+    </Focusable>
+  );
+
+  const liveDiscCard = (item: TmdbItem, hasTV: boolean) => {
+    const id = 'tmdb:' + item.id;
+    const poster = tmdbToPoster(item, () => a.set({ modal: 'request', reqTmdbItem: tmdbDiscoverItem(item), reqFields: [0, 0, 0, 0] }));
     return (
       <Focusable
-        key={d.id}
+        key={id}
         hasTV={hasTV}
-        onPress={() => a.set({ modal: 'request', reqTarget: d.id, reqFields: [0, 0, 0, 0] })}
+        onPress={poster.onPress}
         focusStyle={{ transform: [{ scale: 1.05 }] }}
         style={{ width: px(300), marginRight: px(22) }}
       >
-        <View style={{ height: px(170), borderRadius: px(14), overflow: 'hidden' }}>
-          <ImgOrGrad art={d.art} style={{ position: 'absolute', width: '100%', height: '100%' }} />
+        <View style={{ height: px(170), borderRadius: px(14), overflow: 'hidden', backgroundColor: '#000' }}>
+          <ImgOrGrad uri={poster.uri} art={poster.art} style={{ position: 'absolute', width: '100%', height: '100%' }} />
           <Grad art={['rgba(0,0,0,0)', 'rgba(0,0,0,.75)']} deg={180} style={{ position: 'absolute', width: '100%', height: '100%' }} />
           <View style={{ position: 'absolute', left: px(16), right: px(16), bottom: px(14) }}>
-            <TitleGlyph t={d.t} ink={d.ink} size={24} />
-            <Text style={{ fontSize: px(14), color: 'rgba(255,255,255,.75)', marginTop: px(4) }}>{d.rating} ★</Text>
+            <TitleGlyph t={poster.t} ink={poster.ink} size={24} />
+            <Text style={{ fontSize: px(14), color: 'rgba(255,255,255,.75)', marginTop: px(4) }}>
+              {item.vote_average ? item.vote_average.toFixed(1) + ' ★' : ''}
+            </Text>
           </View>
         </View>
         <View
@@ -65,23 +168,25 @@ export function HomeScreen() {
             paddingHorizontal: px(18),
             paddingVertical: px(10),
             borderRadius: px(20),
-            backgroundColor: done ? 'rgba(0,212,116,.9)' : 'rgba(255,255,255,.16)',
+            backgroundColor: s.requested[id] ? 'rgba(0,212,116,.9)' : 'rgba(255,255,255,.16)',
           }}
         >
-          <Text style={{ fontSize: px(15), fontWeight: '700', color: done ? '#04120b' : C.text }}>
-            {done ? 'Requested ✓' : '+ Request'}
+          <Text style={{ fontSize: px(15), fontWeight: '700', color: s.requested[id] ? '#04120b' : C.text }}>
+            {s.requested[id] ? 'Requested ✓' : '+ Request'}
           </Text>
         </View>
       </Focusable>
     );
   };
 
-  const pool = s.discoverTab === 'Popular movies'
-    ? DISCOVER.filter((d) => d.kind === 'movie')
-    : s.discoverTab === 'Popular shows'
-      ? DISCOVER.filter((d) => d.kind === 'show')
-      : DISCOVER;
-  const rot = (n: number) => pool.concat(pool).slice(n, n + Math.max(pool.length, 5));
+  const trendingAll: TmdbItem[] | null = trending ? [...(trending.movies || []), ...(trending.tv || [])] : null;
+  const discoverSets: { label: string; items: TmdbItem[] }[] | null = trending
+    ? [
+        { label: s.discoverTab === 'Trending' ? 'Trending this week' : s.discoverTab, items: s.discoverTab === 'Popular movies' ? trending.movies || [] : s.discoverTab === 'Popular shows' ? trending.tv || [] : trendingAll || [] },
+        { label: 'Popular on TMDB', items: (trending.tv || []).slice(0, 10) },
+        { label: 'Popular movies on TMDB', items: (trending.movies || []).slice(0, 10) },
+      ]
+    : null;
 
   return (
     <ScrollView
@@ -91,7 +196,11 @@ export function HomeScreen() {
       contentContainerStyle={{ paddingBottom: px(90) }}
     >
       <View style={{ height: px(820), overflow: 'hidden' }}>
-        <ImgOrGrad art={hero.art} style={{ position: 'absolute', width: '100%', height: '100%' }} />
+        {liveHero && liveHeroOn ? (
+          <ImgOrGrad uri={liveHero.art} art={demoHero.art} style={{ position: 'absolute', width: '100%', height: '100%' }} />
+        ) : (
+          <ImgOrGrad art={demoHero.art} style={{ position: 'absolute', width: '100%', height: '100%' }} />
+        )}
         <Grad
           art={['rgba(7,8,10,.95)', 'rgba(7,8,10,.5)', 'rgba(7,8,10,.1)']}
           deg={90}
@@ -110,52 +219,66 @@ export function HomeScreen() {
             }}
           >
             <Text style={{ fontSize: px(15), fontWeight: '600', letterSpacing: px(0.6), textTransform: 'uppercase', color: C.accentSoft }}>
-              {hero.prog ? 'Continue watching' : 'New in your library'}
+              {liveHeroOn && liveHero ? liveHero.tag : demoHero.prog ? 'Continue watching' : 'New in your library'}
             </Text>
           </View>
           <View style={{ marginTop: px(22) }}>
-            <TitleGlyph t={hero.t} ink="#ffffff" size={92} />
+            <TitleGlyph t={liveHeroOn && liveHero ? liveHero.title : demoHero.t} ink="#ffffff" size={liveHeroOn && liveHero && liveHero.title.length > 16 ? 64 : 92} />
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: px(18), marginTop: px(20) }}>
-            <Text style={{ fontSize: px(18), fontWeight: '700', color: C.accent }}>{hero.rating} ★</Text>
-            <Text style={{ fontSize: px(18), color: '#c2c8cd' }}>
-              {hero.yr} · {hero.gen.join(' / ')} · {hero.kind === 'show' ? hero.seasons + ' seasons' : hero.ep}
+            {liveHeroOn && liveHero && liveHero.rating ? (
+              <Text style={{ fontSize: px(18), fontWeight: '700', color: C.accent }}>{liveHero.rating}</Text>
+            ) : (
+              <Text style={{ fontSize: px(18), fontWeight: '700', color: C.accent }}>{demoHero.rating} ★</Text>
+            )}
+            <Text numberOfLines={1} style={{ fontSize: px(18), color: '#c2c8cd', flexShrink: 1 }}>
+              {liveHeroOn && liveHero ? liveHero.meta : `${demoHero.yr} · ${demoHero.gen.join(' / ')} · ${demoHero.kind === 'show' ? demoHero.seasons + ' seasons' : demoHero.ep}`}
             </Text>
           </View>
-          <Text style={{ fontSize: px(20), lineHeight: px(30), color: C.textDim, marginTop: px(18), maxWidth: px(700) }}>
-            {hero.ov}
+          <Text numberOfLines={3} style={{ fontSize: px(20), lineHeight: px(30), color: C.textDim, marginTop: px(18), maxWidth: px(700) }}>
+            {liveHeroOn && liveHero ? liveHero.overview : demoHero.ov}
           </Text>
           <View style={{ flexDirection: 'row', gap: px(16), marginTop: px(34) }}>
             <Btn
               hasTV
               kind="accent"
-              label={(hero.prog ? '▶ Resume ' + hero.ep.split('—')[0].trim() : '▶ Play')}
-              onPress={() => a.play(hero.id, 'Playing ' + hero.t)}
+              label={liveHeroOn && liveHero ? liveHero.playLabel : demoHero.prog ? '▶ Resume ' + demoHero.ep.split('—')[0].trim() : '▶ Play'}
+              onPress={() => {
+                if (liveHeroOn && liveHero) liveHero.onPlay();
+                else a.play(demoHero.id, 'Playing ' + demoHero.t);
+              }}
             />
-            <Btn kind="soft" label="More info" onPress={() => a.openTitle(hero.id)} />
+            <Btn
+              kind="soft"
+              label="More info"
+              onPress={() => (liveHeroOn && liveHero ? liveHero.onInfo() : a.openTitle(demoHero.id))}
+            />
             <Btn kind="outline" label="Start watch party" onPress={() => a.set({ modal: 'create' })} />
           </View>
         </View>
         <View style={{ position: 'absolute', right: px(64), bottom: px(250), flexDirection: 'row', gap: px(10) }}>
-          {[0, 1, 2, 3].map((i) => (
-            <Focusable
-              key={i}
-              hasTV={false}
-              onPress={() => a.set({ hero: i })}
-              focusStyle={{ borderColor: 'rgba(255,255,255,.6)', borderWidth: px(2) }}
-              style={{
-                width: i === s.hero % 4 ? px(34) : px(8),
-                height: px(8),
-                borderRadius: px(4),
-                backgroundColor: i === s.hero % 4 ? C.accent : 'rgba(255,255,255,.3)',
-              }}
-            />
-          ))}
+          {Array.from({ length: 4 }, (_, i) => i).map((i) => {
+            const on = liveHeroOn ? i === s.hero % Math.min(heroSource.length, 4) : i === s.hero % 4;
+            return (
+              <Focusable
+                key={i}
+                hasTV={false}
+                onPress={() => a.set({ hero: i })}
+                focusStyle={{ borderColor: 'rgba(255,255,255,.6)', borderWidth: px(2) }}
+                style={{
+                  width: on ? px(34) : px(8),
+                  height: px(8),
+                  borderRadius: px(4),
+                  backgroundColor: on ? C.accent : 'rgba(255,255,255,.3)',
+                }}
+              />
+            );
+          })}
         </View>
       </View>
 
       <View style={{ paddingHorizontal: px(64), marginTop: -px(70), gap: px(52) }}>
-        <Rail label="Continue watching" note="Picks up where every device left off" items={TITLES.filter((t) => t.prog).map(railItem)} />
+        <Rail label="Continue watching" note="Picks up where every device left off" items={continueItems} />
 
         <View>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: px(20) }}>
@@ -224,9 +347,9 @@ export function HomeScreen() {
           </ScrollView>
         </View>
 
-        <Rail label="Recently added" note="Imported this week" items={TITLES.slice(4, 12).map(railItem)} />
-        <Rail label="Because you watched Hollow Signal" items={TITLES.slice(2, 10).map(railItem)} />
-        <Rail label="Movies in your library" note={libMovies.length + ' titles'} items={libMovies.map(railItem)} />
+        <Rail label="Recently added" note="From your libraries" items={recentItems} />
+        <Rail label="Movies in your library" note={movieLib ? movieLib.title : undefined} items={movieRail} />
+        <Rail label="TV in your library" note={showLib ? showLib.title : undefined} items={showRail} />
 
         <View>
           <Text style={{ fontFamily: F.head, fontSize: px(28), color: C.text, marginBottom: px(4) }}>Discover</Text>
@@ -236,30 +359,29 @@ export function HomeScreen() {
               <Chip key={f} label={f} active={s.discoverTab === f} hasTV={i === 0} onPress={() => a.set({ discoverTab: f })} />
             ))}
           </View>
-          <View style={{ gap: px(40) }}>
-            <View>
-              <Text style={{ fontFamily: F.head, fontSize: px(24), color: C.text, marginBottom: px(18) }}>
-                {s.discoverTab === 'Trending' ? 'Trending this week' : s.discoverTab}
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {rot(0).map((d, i) => discCard(d, i === 0))}
-              </ScrollView>
+          {discoverSets ? (
+            <View style={{ gap: px(40) }}>
+              {discoverSets.map((set) => (
+                <View key={set.label}>
+                  <Text style={{ fontFamily: F.head, fontSize: px(24), color: C.text, marginBottom: px(18) }}>{set.label}</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    {set.items.map((item, i) => liveDiscCard(item, i === 0))}
+                  </ScrollView>
+                </View>
+              ))}
             </View>
-            <View>
-              <Text style={{ fontFamily: F.head, fontSize: px(24), color: C.text, marginBottom: px(18) }}>Recommended for your library</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {rot(2).map((d, i) => discCard(d, false))}
-              </ScrollView>
+          ) : (
+            <View style={{ gap: px(40) }}>
+              <View>
+                <Text style={{ fontFamily: F.head, fontSize: px(24), color: C.text, marginBottom: px(18) }}>
+                  {s.discoverTab === 'Trending' ? 'Trending this week' : s.discoverTab}
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {DISCOVER.map((d, i) => demoDiscCard(d, i === 0))}
+                </ScrollView>
+              </View>
             </View>
-            <View>
-              <Text style={{ fontFamily: F.head, fontSize: px(24), color: C.text, marginBottom: px(18) }}>
-                Most requested by your users
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {rot(4).map((d, i) => discCard(d, false))}
-              </ScrollView>
-            </View>
-          </View>
+          )}
         </View>
       </View>
     </ScrollView>

@@ -16,7 +16,16 @@ export type Screen =
 export type ModalName = 'create' | 'join' | 'request' | 'releases' | null;
 export type SettingsPane = 'root' | 'quality' | 'audio' | 'subs' | 'speed' | null;
 
+export interface LiveNowMeta {
+  title: string;
+  sub: string;
+  art: string;
+}
+
 export interface AppState {
+  liveNow: LiveNowMeta | null;
+  liveEpisodes: import("./api/types").PlexMediaItem[];
+  reqTmdbItem: import("./data").DiscoverItem | null;
   screen: Screen;
   hero: number;
   titleId: string;
@@ -55,6 +64,9 @@ export interface AppState {
 }
 
 export const initialState: AppState = {
+  liveNow: null,
+  liveEpisodes: [],
+  reqTmdbItem: null,
   screen: 'home',
   hero: 0,
   titleId: 'hollow',
@@ -97,7 +109,7 @@ export interface Actions {
   nav: (screen: Screen, extra?: Partial<AppState>) => void;
   back: () => void;
   flash: (msg: string) => void;
-  play: (id?: string, label?: string) => void;
+  play: (id?: string, label?: string, meta?: LiveNowMeta, startSec?: number) => void;
   openTitle: (id: string) => void;
   startNext: () => void;
   fmt: (sec: number) => string;

@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { initialState, type Actions, type AppState, type Screen } from './store';
+import { initialState, type Actions, type AppState, type LiveNowMeta, type Screen } from './store';
 
 
 function fmt(sec: number) {
@@ -59,13 +59,14 @@ export function useAppStore() {
   }, []);
 
   const play = useCallback(
-    (id?: string, label?: string) => {
+    (id?: string, label?: string, meta?: LiveNowMeta, startSec?: number) => {
       setS((prev) => ({
         ...prev,
         screen: 'player',
         titleId: id || prev.titleId,
         playing: true,
-        t: 372,
+        t: startSec !== undefined ? Math.max(0, Math.round(startSec)) : 372,
+        liveNow: meta ?? null,
         upNext: false,
         settingsPane: null,
         countdown: 10,
