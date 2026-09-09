@@ -16,6 +16,15 @@ export function currentServerBase(): string {
   return serverBase;
 }
 
+export function currentAuthToken(): string | null {
+  return authToken;
+}
+
+export function resolveServerUrl(path: string): string {
+  if (/^https?:\/\//.test(path)) return path;
+  return serverBase + path;
+}
+
 export function apiBase(): string {
   return `${serverBase}/api`;
 }

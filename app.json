@@ -16,7 +16,8 @@
           }
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-video"
     ],
     "android": {
       "splash": {

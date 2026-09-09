@@ -1,8 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { Text, View } from 'react-native';
 import { C, F, pctOf, px } from '../theme';
 import { Avatar, Focusable, Grad, ImgOrGrad } from '../ui';
 import { AUDIO, EP_OV, EP_TITLES, QUALITY, SUBS, TITLES, titleById, useStore } from '../store';
+import { playarr } from '../api/playarr';
+import { currentAuthToken, resolveServerUrl } from '../api/client';
+import type { PlexMediaItem } from '../api/types';
 
 function CircleBtn({
   label,
@@ -40,6 +44,108 @@ export function PlayerScreen() {
   const { s, a } = useStore();
   const T = titleById(s.titleId);
   const live = s.liveNow;
+  const [source, setSource] = useState<{ uri: string; headers: Record<string, string> } | null>(null);
+  const [mediaInfo, setMediaInfo] = useState<PlexMediaItem | null>(null);
+  const [vtime, setVtime] = useState(0);
+  const [vdur, setVdur] = useState(0);
+  const [vplaying, setVplaying] = useState(false);
+
+  useEffect(() => {
+    if (!live) return;
+    let alive = true;
+    playarr
+      .stream(s.titleId)
+      .then((si) => {
+        if (!alive) return;
+        const uri = resolveServerUrl(si.url);
+        const token = currentAuthToken();
+        setSource({ uri, headers: token ? { Cookie: `plex_user_token=${token}` } : {} });
+      })
+      .catch(() => {
+        if (alive) a.flash('Stream unavailable for this item');
+      });
+    playarr
+      .media(s.titleId)
+      .then((m) => {
+        if (alive) setMediaInfo(m);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [live, s.titleId, a]);
+
+  const player = useVideoPlayer(null);
+
+  const retriedFromZero = useRef(false);
+  useEffect(() => {
+    if (!source) return;
+    retriedFromZero.current = false;
+    player.timeUpdateEventInterval = 0.5;
+    player.replace(source);
+    if (s.t > 0) player.currentTime = s.t;
+    player.play();
+  }, [source, player, s.t]);
+
+  useEffect(() => {
+    const sub = player.addListener('statusChange', (e: { status?: string; newStatus?: string }) => {
+      const st = e?.newStatus ?? e?.status;
+      if (st === 'error' && !retriedFromZero.current) {
+        retriedFromZero.current = true;
+        console.log('[player] stream error, retrying from 0');
+        if (source) player.replace(source);
+        player.play();
+      }
+    });
+    return () => sub.remove();
+  }, [player, source]);
+
+  useEffect(() => {
+    const onTime = (e: { currentTime: number; duration?: number }) => {
+      setVtime(e.currentTime);
+      const d = e.duration ?? player.duration;
+      if (d && d > 0) setVdur(d);
+    };
+    const onEnd = () => {
+      if (!live) return;
+      const idx = s.liveEpisodes.findIndex((ep) => ep.ratingKey === s.titleId);
+      if (idx >= 0 && idx < s.liveEpisodes.length - 1) {
+        a.set({ upNext: true, countdown: 10, autoplay: true, playing: false });
+      } else {
+        a.nav('detail');
+      }
+    };
+    const playSub = player.addListener('playingChange', (e: { isPlaying: boolean }) => setVplaying(e.isPlaying));
+    const timeSub = player.addListener('timeUpdate', onTime as never);
+    const endSub = player.addListener('playToEnd', onEnd as never);
+    return () => {
+      playSub.remove();
+      timeSub.remove();
+      endSub.remove();
+    };
+  }, [player, live, s.liveEpisodes, s.titleId, a]);
+
+  useEffect(() => {
+    if (!live || !mediaInfo) return;
+    const report = (state: 'playing' | 'paused' | 'stopped') => {
+      playarr
+        .timeline({
+          ratingKey: s.titleId,
+          key: mediaInfo.key ?? s.titleId,
+          state,
+          time: Math.round((player.currentTime ?? 0) * 1000),
+          duration: Math.round((player.duration ?? mediaInfo.duration ?? 0) * 1000) || mediaInfo.duration || 0,
+        })
+        .catch(() => {});
+    };
+    const iv = setInterval(() => {
+      if (player.playing) report('playing');
+    }, 10000);
+    return () => {
+      clearInterval(iv);
+      report('stopped');
+    };
+  }, [live, mediaInfo, s.titleId, player]);
 
 
   useEffect(() => {
@@ -49,19 +155,17 @@ export function PlayerScreen() {
         if (s.countdown <= 1) return a.startNext();
         return a.set({ countdown: s.countdown - 1 });
       }
-      if (!s.playing) return;
+      if (!s.playing || live) return;
       const nt = s.t + 1;
-      if (!live) {
-        if (nt >= 3570) a.set({ t: nt, upNext: true, countdown: 10, settingsPane: null });
-        else a.set({ t: nt });
-      } else if (nt % 5 === 0) {
-        a.set({ t: nt });
-      }
+      if (nt >= 3570) a.set({ t: nt, upNext: true, countdown: 10, settingsPane: null });
+      else a.set({ t: nt });
     }, 1000);
     return () => clearInterval(tick);
   }, [s.upNext, s.autoplay, s.playing, s.t, s.countdown, live, a]);
 
-  const pct = pctOf((s.t / 3600) * 100);
+  const cur = live ? vtime : s.t;
+  const dur = live ? (vdur || 3600) : 3600;
+  const pct = pctOf((cur / dur) * 100);
   const chatFeed = s.chat.length
     ? s.chat
     : [
@@ -74,7 +178,16 @@ export function PlayerScreen() {
 
   return (
     <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#000', overflow: 'hidden' }}>
-      <ImgOrGrad uri={live ? live.art : null} art={T.art} style={{ position: 'absolute', width: '100%', height: '100%' }} />
+      {live && source ? (
+        <VideoView
+          player={player}
+          nativeControls={false}
+          contentFit="contain"
+          style={{ position: 'absolute', width: '100%', height: '100%', backgroundColor: '#000' }}
+        />
+      ) : (
+        <ImgOrGrad uri={live ? live.art : null} art={T.art} style={{ position: 'absolute', width: '100%', height: '100%' }} />
+      )}
       <Grad art={['rgba(0,0,0,0)', 'rgba(0,0,0,.85)']} deg={180} style={{ position: 'absolute', width: '100%', height: '100%' }} />
 
       {s.upNext ? null : (
@@ -93,7 +206,14 @@ export function PlayerScreen() {
           }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: px(22) }}>
-            <CircleBtn label="←" size={56} onPress={() => a.back()} />
+            <CircleBtn
+              label="←"
+              size={56}
+              onPress={() => {
+                if (live) player.pause();
+                a.back();
+              }}
+            />
             <View>
               <Text style={{ fontFamily: F.head, fontSize: px(30), letterSpacing: -px(0.4), color: C.text }}>{live ? live.title : T.t}</Text>
               <Text style={{ fontSize: px(17), color: '#a7aeb4', marginTop: px(4) }}>
@@ -455,7 +575,7 @@ export function PlayerScreen() {
         <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: px(56), paddingBottom: px(48) }}>
           <View style={{ height: px(140) }} />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: px(18), marginBottom: px(14) }}>
-            <Text style={{ fontSize: px(17), color: '#b9c0c6' }}>{a.fmt(s.t)} / {a.fmt(3600)}</Text>
+            <Text style={{ fontSize: px(17), color: '#b9c0c6' }}>{a.fmt(cur)} / {a.fmt(dur)}</Text>
             {s.party ? (
               <View style={{ paddingHorizontal: px(12), paddingVertical: px(5), borderRadius: px(6), backgroundColor: 'rgba(0,212,116,.16)' }}>
                 <Text style={{ fontSize: px(14), fontWeight: '600', color: C.accentSoft }}>In sync · ±120 ms</Text>
@@ -463,7 +583,7 @@ export function PlayerScreen() {
             ) : null}
           </View>
           <Focusable
-            onPress={() => a.flash('Seeking not available in demo — use -10 / +10')}
+            onPress={() => a.flash('Use -10 / +10 to seek')}
             focusStyle={{ borderColor: C.accent, borderWidth: px(2) }}
             style={{ height: px(22), justifyContent: 'center' }}
           >
@@ -473,11 +593,34 @@ export function PlayerScreen() {
           </Focusable>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: px(26) }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: px(16) }}>
-              <CircleBtn label="-10" size={60} onPress={() => a.set({ t: Math.max(0, s.t - 10) })} />
-              <CircleBtn hasTV={!!s.party || s.t === 0} label={s.playing ? '❚❚' : '▶'} size={78} accent onPress={() => a.set({ playing: !s.playing })} />
-              <CircleBtn label="+10" size={60} onPress={() => a.set({ t: Math.min(3600, s.t + 10) })} />
+              <CircleBtn
+                label="-10"
+                size={60}
+                onPress={() => {
+                  if (live) player.currentTime = Math.max(0, player.currentTime - 10);
+                  else a.set({ t: Math.max(0, s.t - 10) });
+                }}
+              />
+              <CircleBtn
+                hasTV
+                label={live ? (vplaying ? '❚❚' : '▶') : s.playing ? '❚❚' : '▶'}
+                size={78}
+                accent
+                onPress={() => {
+                  if (live) { if (player.playing) player.pause(); else player.play(); }
+                  else a.set({ playing: !s.playing });
+                }}
+              />
+              <CircleBtn
+                label="+10"
+                size={60}
+                onPress={() => {
+                  if (live) player.currentTime = player.currentTime + 10;
+                  else a.set({ t: Math.min(dur, s.t + 10) });
+                }}
+              />
               <Focusable
-                onPress={() => a.startNext()}
+                onPress={() => (live ? a.flash('Use Up Next at the end of the episode') : a.startNext())}
                 focusStyle={{ transform: [{ scale: 1.06 }] }}
                 style={{ paddingHorizontal: px(26), paddingVertical: px(16), borderRadius: px(30), backgroundColor: 'rgba(255,255,255,.09)' }}
               >
