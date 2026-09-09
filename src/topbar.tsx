@@ -1,9 +1,8 @@
-import { Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Text, TVEventHandler, TVFocusGuideView, View } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { C, F, px } from './theme';
 import { focusLastContent, lastContentHandle, lastFocusWasTop, onLastContentChange, setTopBarRef } from './focusNav';
-import { useEffect, useRef, useState } from 'react';
-import { TVEventHandler, TVFocusGuideView } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { Avatar, Focusable } from './ui';
 import { useStore, type Screen } from './store';
 
