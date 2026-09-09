@@ -99,6 +99,24 @@ export function setupPageHtml(): string {
     }).then(function (r) { return r.json(); });
   }
 
+  function pollSetupStatus() {
+    return fetch('/api/setup/status').then(function (r) { return r.json(); });
+  }
+
+  function awaitSetupResult(cb) {
+    var tries = 0;
+    var t = setInterval(function () {
+      tries += 1;
+      pollSetupStatus().then(function (s) {
+        if (s.status === 'success') { clearInterval(t); cb(null, s); }
+        else if (s.status === 'error') { clearInterval(t); cb(s.error || 'Setup failed.', s); }
+        else if (tries > 60) { clearInterval(t); cb('Timed out while connecting to the TV.', s); }
+      }).catch(function () {
+        if (tries > 10) { clearInterval(t); cb('Lost connection to the TV.', null); }
+      });
+    }, 1000);
+  }
+
   function startPolling() {
     if (pollTimer) clearInterval(pollTimer);
     pollTimer = setInterval(function () {
@@ -171,16 +189,24 @@ export function setupPageHtml(): string {
 
     doneBtn.disabled = true;
     doneBtn.textContent = 'Connecting…';
-    submitSetup(serverUrl, authToken).then(function (result) {
-      if (result && result.success) {
-        doneBtn.textContent = '✓ TV connected';
-        hintEl.textContent = 'You can close this page';
-        codeEl.classList.add('ok');
-      } else {
-        setError((result && result.error) || 'Setup failed. Please try again.');
+    submitSetup(serverUrl, authToken).then(function (start) {
+      if (!start || start.status !== 'pending') {
+        setError('The TV did not accept the request. Please try again.');
         doneBtn.disabled = false;
         doneBtn.textContent = '2 · Complete setup';
+        return;
       }
+      awaitSetupResult(function (err) {
+        if (!err) {
+          doneBtn.textContent = '✓ TV connected';
+          hintEl.textContent = 'You can close this page';
+          codeEl.classList.add('ok');
+        } else {
+          setError(err);
+          doneBtn.disabled = false;
+          doneBtn.textContent = '2 · Complete setup';
+        }
+      });
     }).catch(function () {
       setError('Connection error. Please try again.');
       doneBtn.disabled = false;

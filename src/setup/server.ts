@@ -15,6 +15,12 @@ export interface SetupResult {
   serverName?: string;
 }
 
+export interface SetupStatus {
+  status: 'pending' | 'success' | 'error';
+  error?: string;
+  serverName?: string;
+}
+
 interface Request {
   method: string;
   path: string;
@@ -61,7 +67,8 @@ function json(socket: Socket, status: number, obj: unknown) {
 export function startSetupServer(opts: {
   port?: number;
   getPin: () => PinSnapshot;
-  onSetup: (serverUrl: string, rawToken: string) => Promise<SetupResult>;
+  onSetup: (serverUrl: string, rawToken: string) => Promise<SetupStatus>;
+  getStatus: () => SetupStatus;
 }): () => void {
   const port = opts.port ?? 65267;
 
@@ -83,6 +90,10 @@ export function startSetupServer(opts: {
         json(socket, 200, opts.getPin());
         return;
       }
+      if (req.method === 'GET' && req.path === '/api/setup/status') {
+        json(socket, 200, opts.getStatus());
+        return;
+      }
       if (req.method === 'POST' && req.path === '/api/setup') {
         let serverUrl = '';
         let rawToken = '';
@@ -99,15 +110,8 @@ export function startSetupServer(opts: {
           json(socket, 400, { success: false, error: 'Please link your Plex account first.' });
           return;
         }
-        opts
-          .onSetup(serverUrl, rawToken)
-          .then((result) => {
-            if (result.success) json(socket, 200, { success: true, serverName: result.serverName || 'Playarr' });
-            else json(socket, 400, { success: false, error: result.error || 'Setup failed.' });
-          })
-          .catch((e: unknown) => {
-            json(socket, 400, { success: false, error: e instanceof Error ? e.message : 'Setup failed.' });
-          });
+        opts.onSetup(serverUrl, rawToken).catch(() => {});
+        json(socket, 200, { status: 'pending' });
         return;
       }
       respond(socket, 404, 'Not Found', 'text/plain', 'Not found');

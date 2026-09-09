@@ -13,7 +13,7 @@ import {
   saveConfig,
   type PlexPinData,
 } from '../config';
-import { startSetupServer, type PinSnapshot, type SetupResult } from '../setup/server';
+import { startSetupServer, type PinSnapshot, type SetupStatus } from '../setup/server';
 import { configureApi } from '../api/client';
 
 const PORT = 65267;
@@ -35,13 +35,14 @@ export function PairScreen({ onDone }: { onDone: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const clientIdRef = useRef<string>('');
   const aliveRef = useRef(true);
+  const statusRef = useRef<SetupStatus>({ status: 'pending' });
   const pinRef = useRef<PlexPinData | null>(null);
   const doneRef = useRef(onDone);
   useEffect(() => {
     doneRef.current = onDone;
   }, [onDone]);
 
-  const handleSetup = useCallback(async (serverUrl: string, rawToken: string): Promise<SetupResult> => {
+  const handleSetup = useCallback(async (serverUrl: string, rawToken: string): Promise<SetupStatus> => {
     try {
       const clean = serverUrl.replace(/\/+$/, '');
       const composite = await resolveCompositeToken(clientIdRef.current, rawToken);
@@ -51,9 +52,13 @@ export function PairScreen({ onDone }: { onDone: () => void }) {
       if (!res.ok) throw new Error('The server rejected your Plex token. Check the URL and your account access.');
       await saveConfig(clean, composite);
       configureApi(clean, composite);
-      return { success: true, serverName: 'Playarr' };
+      const ok: SetupStatus = { status: 'success', serverName: 'Playarr' };
+      statusRef.current = ok;
+      return ok;
     } catch (e) {
-      return { success: false, error: e instanceof Error ? e.message : 'Could not connect to the Playarr server.' };
+      const status: SetupStatus = { status: 'error', error: e instanceof Error ? e.message : 'Could not connect to the Playarr server.' };
+      statusRef.current = status;
+      return status;
     }
   }, []);
 
@@ -104,13 +109,14 @@ export function PairScreen({ onDone }: { onDone: () => void }) {
         }),
         onSetup: (serverUrl, rawToken) =>
           handleSetup(serverUrl, rawToken).then((result) => {
-            if (result.success) {
+            if (result.status === 'success') {
               setStatus('linked');
               if (timer) clearInterval(timer);
               setTimeout(() => doneRef.current(), 1200);
             }
             return result;
           }),
+        getStatus: () => statusRef.current,
       });
       void createPinWithRetry();
 
