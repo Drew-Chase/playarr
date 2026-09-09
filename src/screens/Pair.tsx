@@ -143,7 +143,7 @@ export function PairScreen({ onDone }: { onDone: () => void }) {
       if (timer) clearInterval(timer);
       if (stopServer) stopServer();
     };
-  }, [createPin, handleSetup]);
+  }, [createPin, createPinWithRetry, handleSetup]);
 
   const url = ip ? `http://${ip}:${PORT}` : null;
   const code = pin?.code ?? null;

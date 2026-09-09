@@ -1,5 +1,5 @@
-import { memo, useState, type ReactNode } from 'react';
-import { Image, Pressable, ScrollView, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { memo, useRef, useState, type ReactNode } from 'react';
+import { FlatList, Image, Pressable, ScrollView, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { C, F, px } from './theme';
 
@@ -126,14 +126,24 @@ export interface PosterData {
   ink: string;
   progPct?: `${number}%`;
   uri?: string | null;
+  hideOverlay?: boolean;
   onPress: () => void;
 }
 
-export const Poster = memo(function Poster({ item, hasTV }: { item: PosterData; hasTV?: boolean }) {
+export const Poster = memo(function Poster({
+  item,
+  hasTV,
+  onFocus,
+}: {
+  item: PosterData;
+  hasTV?: boolean;
+  onFocus?: () => void;
+}) {
   return (
     <Focusable
       hasTV={hasTV}
       onPress={item.onPress}
+      onFocus={onFocus}
       style={{ width: px(224), marginRight: px(22) }}
       focusStyle={{ transform: [{ scale: 1.07 }] }}
     >
@@ -152,9 +162,11 @@ export const Poster = memo(function Poster({ item, hasTV }: { item: PosterData; 
           locations={[0, 0.38, 1]}
           style={{ position: 'absolute', width: '100%', height: '100%' }}
         />
-        <View style={{ position: 'absolute', left: px(18), right: px(18), bottom: px(20) }}>
-          <TitleGlyph t={item.t} ink={item.ink} size={27} />
-        </View>
+        {item.hideOverlay ? null : (
+          <View style={{ position: 'absolute', left: px(18), right: px(18), bottom: px(20) }}>
+            <TitleGlyph t={item.t} ink={item.ink} size={27} />
+          </View>
+        )}
         {item.progPct ? (
           <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: px(5), backgroundColor: 'rgba(255,255,255,.2)' }}>
             <View style={{ height: '100%', width: item.progPct as `${number}%`, backgroundColor: C.accent }} />
@@ -172,17 +184,33 @@ export const Poster = memo(function Poster({ item, hasTV }: { item: PosterData; 
 });
 
 export function Rail({ label, note, items }: { label: string; note?: string; items: PosterData[] }) {
+  const listRef = useRef<FlatList<PosterData> | null>(null);
   return (
     <View>
-      <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: px(20) }}>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: px(8) }}>
         <Text style={{ fontFamily: F.head, fontSize: px(28), letterSpacing: -px(0.4), color: C.text }}>{label}</Text>
         {note ? <Text style={{ fontSize: px(16), color: '#7f868c' }}>{note}</Text> : null}
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: px(12) }}>
-        {items.map((it, i) => (
-          <Poster key={it.key} item={it} hasTV={i === 0} />
-        ))}
-      </ScrollView>
+      <FlatList
+        ref={listRef}
+        horizontal
+        data={items}
+        keyExtractor={(i) => i.key}
+        renderItem={({ item, index }) => (
+          <Poster
+            item={item}
+            hasTV={index === 0}
+            onFocus={() => listRef.current?.scrollToIndex({ index, viewPosition: 0.15, animated: true })}
+          />
+        )}
+        showsHorizontalScrollIndicator={false}
+        windowSize={7}
+        initialNumToRender={6}
+        maxToRenderPerBatch={8}
+        initialScrollIndex={0}
+        contentContainerStyle={{ paddingHorizontal: px(16), paddingVertical: px(12) }}
+        style={{ marginHorizontal: -px(16) }}
+      />
     </View>
   );
 }

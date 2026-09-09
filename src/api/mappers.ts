@@ -10,6 +10,20 @@ export function thumbUrl(m: Pick<PlexMediaItem, 'ratingKey'>): string {
   return `${apiBase()}/media/${m.ratingKey}/thumb`;
 }
 
+export function posterId(m: PlexMediaItem): string {
+  if (m.type === 'episode') return m.grandparentRatingKey || m.ratingKey;
+  if (m.type === 'season') return m.parentRatingKey || m.ratingKey;
+  return m.ratingKey;
+}
+
+export function posterUrl(m: PlexMediaItem): string {
+  return `${apiBase()}/media/${posterId(m)}/thumb`;
+}
+
+export function backdropUrl(m: PlexMediaItem): string {
+  return `${apiBase()}/media/${posterId(m)}/art`;
+}
+
 export function artUrl(m: Pick<PlexMediaItem, 'ratingKey'>): string {
   return `${apiBase()}/media/${m.ratingKey}/art`;
 }
@@ -55,7 +69,8 @@ export function toPoster(m: PlexMediaItem, onPress: () => void): PosterData {
     art: FALLBACK_ART,
     ink: FALLBACK_INK,
     progPct: progressPct(m),
-    uri: thumbUrl(m),
+    uri: posterUrl(m),
+    hideOverlay: true,
     onPress,
   };
 }
@@ -76,6 +91,7 @@ export function tmdbToPoster(item: TmdbItem, onPress: () => void): PosterData {
     art: FALLBACK_ART,
     ink: FALLBACK_INK,
     uri: tmdbPosterUrl(item),
+    hideOverlay: true,
     onPress,
   };
 }
