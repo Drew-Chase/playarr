@@ -35,6 +35,7 @@ export interface PlexMedia {
   height: number;
   videoCodec: string;
   audioCodec: string;
+  audioChannels?: number;
   container: string;
   Part: PlexPart[];
 }

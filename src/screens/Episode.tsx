@@ -1,10 +1,133 @@
 import { ScrollView, Text, View } from 'react-native';
 import { C, F, px } from '../theme';
-import { Btn, Focusable, Grad } from '../ui';
+import { Btn, Focusable, ImgOrGrad, Grad } from '../ui';
 import { EP_OV, EP_TITLES, episodesFor, titleById, useStore } from '../store';
+import { fmtDuration, fmtSize, pad2, thumbUrl } from '../api/mappers';
 
 export function EpisodeScreen() {
   const { s, a } = useStore();
+  const live = s.liveEpisodes.length > 0;
+
+  if (live) {
+    const ep = s.liveEpisodes[Math.min(s.epIndex, s.liveEpisodes.length - 1)];
+    if (!ep) return <View style={{ flex: 1, backgroundColor: C.bg }} />;
+    const showTitle = ep.grandparentTitle || ep.parentTitle || 'Now playing';
+    const part = ep.Media?.[0];
+    const tech: { label: string; value: string }[] = [];
+    if (part) {
+      tech.push({ label: 'Video', value: `${part.videoCodec ?? '?'} · ${part.height ? part.height + 'p' : '?'}${part.bitrate ? ' · ' + part.bitrate + ' kbps' : ''}` });
+      tech.push({ label: 'Audio', value: `${part.audioCodec ?? '?'} · ${part.audioChannels ? part.audioChannels + ' channels' : '?'}` });
+      tech.push({ label: 'Container', value: part.container ?? '?' });
+      tech.push({ label: 'File', value: `${fmtSize(part.Part?.[0]?.size ?? 0)} · ${part.Part?.[0]?.file ?? ''}` });
+    }
+
+    return (
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        onScroll={(e) => a.set({ scrollY: e.nativeEvent.contentOffset.y })}
+        scrollEventThrottle={32}
+        contentContainerStyle={{ paddingHorizontal: px(64), paddingTop: px(150), paddingBottom: px(90) }}
+      >
+        <Focusable
+          onPress={() => a.nav('detail', { titleId: ep.grandparentRatingKey || ep.parentRatingKey || ep.ratingKey })}
+          focusStyle={{ transform: [{ scale: 1.05 }] }}
+          style={{ alignSelf: 'flex-start' }}
+        >
+          <Text style={{ fontSize: px(16), color: '#8f969c' }}>
+            <Text style={{ color: C.textDim }}>{showTitle}</Text>  ›  Season {pad2(ep.parentIndex ?? 1)}
+          </Text>
+        </Focusable>
+        <View style={{ flexDirection: 'row', gap: px(40), marginTop: px(28) }}>
+          <View style={{ width: px(560) }}>
+            <ImgOrGrad uri={thumbUrl(ep)} art={['#1b3566', '#101a3a', '#05060c']} style={{ height: px(316), borderRadius: px(16), overflow: 'hidden' }} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: px(16), color: '#8f969c' }}>
+              S{pad2(ep.parentIndex ?? 1)} · E{pad2(ep.index ?? 1)}
+              {ep.year ? ' · ' + ep.year : ''}
+            </Text>
+            <Text style={{ fontFamily: F.head, fontSize: px(40), color: C.text, marginTop: px(8), letterSpacing: -px(0.5) }}>{ep.title}</Text>
+            <Text style={{ fontSize: px(16), color: '#9aa1a7', marginTop: px(10) }}>
+              {[
+                fmtDuration(ep.duration),
+                ep.originallyAvailableAt ? 'Aired ' + ep.originallyAvailableAt : '',
+                ep.contentRating || '',
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </Text>
+            <Text style={{ fontSize: px(18), lineHeight: px(28), color: C.textDim, marginTop: px(16) }}>
+              {ep.summary || 'No summary available.'}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: px(14), marginTop: px(24) }}>
+              <Btn
+                hasTV
+                kind="accent"
+                label={ep.viewOffset ? '▶ Resume' : '▶ Play episode'}
+                onPress={() =>
+                  a.play(
+                    ep.ratingKey,
+                    'Playing ' + ep.title,
+                    {
+                      title: showTitle,
+                      sub: `S${pad2(ep.parentIndex ?? 1)} · E${pad2(ep.index ?? 1)} — ${ep.title}`,
+                      art: thumbUrl(ep),
+                    },
+                    ep.viewOffset ? ep.viewOffset / 1000 : undefined
+                  )
+                }
+              />
+              <Btn kind="soft" label="Mark as watched" onPress={() => a.flash('Marked watched')} />
+            </View>
+          </View>
+        </View>
+
+        {tech.length ? (
+          <View style={{ marginTop: px(40), gap: px(12), maxWidth: px(960) }}>
+            {tech.map((r) => (
+              <View key={r.label} style={{ flexDirection: 'row', gap: px(20), borderBottomWidth: px(1), borderBottomColor: 'rgba(255,255,255,.05)', paddingBottom: px(12) }}>
+                <Text style={{ width: px(120), fontSize: px(15), color: '#7f868c' }}>{r.label}</Text>
+                <Text style={{ flex: 1, fontSize: px(15), color: C.textDim }}>{r.value}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        <Text style={{ fontFamily: F.head, fontSize: px(26), color: C.text, marginTop: px(44), marginBottom: px(18) }}>Episodes</Text>
+        <View style={{ gap: px(10) }}>
+          {s.liveEpisodes.map((sib, i) => (
+            <Focusable
+              key={sib.ratingKey}
+              hasTV={i === 0}
+              onPress={() => a.set({ epIndex: i })}
+              focusStyle={{ borderColor: C.accent, borderWidth: px(2) }}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: px(18),
+                maxWidth: px(960),
+                backgroundColor: i === s.epIndex ? 'rgba(0,212,116,.1)' : '#0f1114',
+                borderWidth: px(1),
+                borderColor: i === s.epIndex ? 'rgba(0,212,116,.4)' : 'rgba(255,255,255,.06)',
+                borderRadius: px(12),
+                padding: px(12),
+              }}
+            >
+              <ImgOrGrad uri={thumbUrl(sib)} art={['#1b3566', '#101a3a', '#05060c']} style={{ width: px(120), height: px(70), borderRadius: px(8) }} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: px(13), color: '#8f969c' }}>
+                  E{pad2(sib.index ?? i + 1)} · {fmtDuration(sib.duration)}
+                </Text>
+                <Text style={{ fontSize: px(16), fontWeight: '600', color: C.text, marginTop: px(2) }}>{sib.title}</Text>
+              </View>
+              {sib.viewOffset ? <Text style={{ fontSize: px(13), fontWeight: '700', color: C.amber }}>In progress</Text> : sib.viewCount ? <Text style={{ fontSize: px(13), fontWeight: '700', color: '#7dffc0' }}>Watched</Text> : null}
+            </Focusable>
+          ))}
+        </View>
+      </ScrollView>
+    );
+  }
+
   const T = titleById(s.titleId);
   const episodes = episodesFor(s, T);
   const idx = s.epIndex;

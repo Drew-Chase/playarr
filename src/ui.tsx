@@ -1,5 +1,5 @@
 import { memo, useRef, useState, type ReactNode } from 'react';
-import { FlatList, Image, Pressable, ScrollView, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { FlatList, Image, Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { C, F, px } from './theme';
 
