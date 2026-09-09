@@ -39,6 +39,8 @@ function CircleBtn({
 export function PlayerScreen() {
   const { s, a } = useStore();
   const T = titleById(s.titleId);
+  const live = s.liveNow;
+
 
   useEffect(() => {
     const tick = setInterval(() => {
@@ -48,12 +50,16 @@ export function PlayerScreen() {
         return a.set({ countdown: s.countdown - 1 });
       }
       if (!s.playing) return;
-      const nt = Math.min(s.t + 1, 3600);
-      if (nt >= 3570) a.set({ t: nt, upNext: true, countdown: 10, settingsPane: null });
-      else a.set({ t: nt });
+      const nt = s.t + 1;
+      if (!live) {
+        if (nt >= 3570) a.set({ t: nt, upNext: true, countdown: 10, settingsPane: null });
+        else a.set({ t: nt });
+      } else if (nt % 5 === 0) {
+        a.set({ t: nt });
+      }
     }, 1000);
     return () => clearInterval(tick);
-  }, [s.upNext, s.autoplay, s.playing, s.t, s.countdown, a]);
+  }, [s.upNext, s.autoplay, s.playing, s.t, s.countdown, live, a]);
 
   const pct = pctOf((s.t / 3600) * 100);
   const chatFeed = s.chat.length
@@ -68,7 +74,7 @@ export function PlayerScreen() {
 
   return (
     <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#000', overflow: 'hidden' }}>
-      <ImgOrGrad art={T.art} style={{ position: 'absolute', width: '100%', height: '100%' }} />
+      <ImgOrGrad uri={live ? live.art : null} art={T.art} style={{ position: 'absolute', width: '100%', height: '100%' }} />
       <Grad art={['rgba(0,0,0,0)', 'rgba(0,0,0,.85)']} deg={180} style={{ position: 'absolute', width: '100%', height: '100%' }} />
 
       {s.upNext ? null : (
@@ -89,9 +95,9 @@ export function PlayerScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: px(22) }}>
             <CircleBtn label="←" size={56} onPress={() => a.back()} />
             <View>
-              <Text style={{ fontFamily: F.head, fontSize: px(30), letterSpacing: -px(0.4), color: C.text }}>{T.t}</Text>
+              <Text style={{ fontFamily: F.head, fontSize: px(30), letterSpacing: -px(0.4), color: C.text }}>{live ? live.title : T.t}</Text>
               <Text style={{ fontSize: px(17), color: '#a7aeb4', marginTop: px(4) }}>
-                {T.kind === 'show'
+                {live ? live.sub : T.kind === 'show'
                   ? 'S0' + s.season + ' · E0' + (s.epIndex + 1) + ' — ' + EP_TITLES[(s.epIndex + s.season) % EP_TITLES.length]
                   : T.yr + ' · ' + T.ep}
               </Text>

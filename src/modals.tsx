@@ -208,9 +208,11 @@ export function JoinPartyModal() {
 
 export function RequestModal() {
   const { s, a } = useStore();
-  const reqT = s.reqTarget
-    ? DISCOVER.find((d) => d.id === s.reqTarget) || TITLES.find((t) => t.id === s.reqTarget) || DISCOVER[0]
-    : DISCOVER[0];
+  const reqT = s.reqTmdbItem
+    ? s.reqTmdbItem
+    : s.reqTarget
+      ? DISCOVER.find((d) => d.id === s.reqTarget) || TITLES.find((t) => t.id === s.reqTarget) || DISCOVER[0]
+      : DISCOVER[0];
   const opts = [
     { label: 'Root folder', vals: ['/mnt/media/movies', '/mnt/media/4k', '/mnt/media/archive'] },
     { label: 'Quality profile', vals: ['Any', 'HD-1080p', 'Ultra-HD', 'Remux'] },
