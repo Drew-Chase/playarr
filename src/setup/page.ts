@@ -21,7 +21,7 @@ export function setupPageHtml(): string {
   input.error { border-color:#ff6b6b; }
   .code-wrap { margin:22px 0; padding:18px; border:1px dashed rgba(0,212,116,.4); border-radius:14px; text-align:center; background:rgba(0,212,116,.06); }
   .copy-hint { font-size:12px; color:var(--dim); letter-spacing:.4px; text-transform:uppercase; }
-  .code { font-size:44px; font-weight:800; letter-spacing:8px; color:var(--accent-soft); margin-top:6px; cursor:pointer; user-select:all; }
+  .code { font-size:clamp(18px,6vw,44px); font-weight:800; letter-spacing:4px; word-break:break-all; color:var(--accent-soft); margin-top:6px; cursor:pointer; user-select:all; }
   .steps { margin:0 0 22px 2px; padding:0; list-style:none; color:var(--dim); font-size:13.5px; line-height:1.9; }
   .steps b { color:#e9ecee; font-weight:600; }
   button { width:100%; border:none; border-radius:12px; font-size:16px; font-weight:700; padding:15px 18px; cursor:pointer; margin-top:10px; }

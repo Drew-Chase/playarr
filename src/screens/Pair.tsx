@@ -34,6 +34,7 @@ export function PairScreen({ onDone }: { onDone: () => void }) {
   const [status, setStatus] = useState<'starting' | 'waiting' | 'linked' | 'error'>('starting');
   const [error, setError] = useState<string | null>(null);
   const clientIdRef = useRef<string>('');
+  const aliveRef = useRef(true);
   const pinRef = useRef<PlexPinData | null>(null);
   const doneRef = useRef(onDone);
   useEffect(() => {
@@ -56,22 +57,33 @@ export function PairScreen({ onDone }: { onDone: () => void }) {
     }
   }, []);
 
-  const createPin = useCallback(async () => {
+  const createPin = useCallback(async (): Promise<boolean> => {
     try {
       const p = await createPlexPin(clientIdRef.current);
       pinRef.current = p;
       setPin(p);
       setStatus('waiting');
       setError(null);
+      return true;
     } catch (e) {
       setStatus('error');
       setError(e instanceof Error ? e.message : 'Failed to reach plex.tv');
+      return false;
     }
   }, []);
 
+  const createPinWithRetry = useCallback(async () => {
+    let delay = 5000;
+    while (aliveRef.current) {
+      if (await createPin()) return;
+      await new Promise((r) => setTimeout(r, delay));
+      delay = Math.min(delay * 2, 60000);
+    }
+  }, [createPin]);
+
   useEffect(() => {
     let stopServer: (() => void) | null = null;
-    let alive = true;
+    aliveRef.current = true;
     let timer: ReturnType<typeof setInterval> | null = null;
 
     (async () => {
@@ -100,14 +112,14 @@ export function PairScreen({ onDone }: { onDone: () => void }) {
             return result;
           }),
       });
-      await createPin();
+      void createPinWithRetry();
 
       timer = setInterval(async () => {
         const current = pinRef.current;
-        if (!current || !alive) return;
+        if (!current || !aliveRef.current) return;
         try {
           const check = await checkPlexPin(clientIdRef.current, current.id);
-          if (!alive) return;
+          if (!aliveRef.current) return;
           if (check.authToken) {
             pinRef.current = { ...current, authToken: check.authToken };
             setPin(pinRef.current);
@@ -115,13 +127,13 @@ export function PairScreen({ onDone }: { onDone: () => void }) {
             if (timer) clearInterval(timer);
           }
         } catch {
-          if (alive) await createPin();
+          void createPinWithRetry();
         }
       }, 2000);
     })();
 
     return () => {
-      alive = false;
+      aliveRef.current = false;
       if (timer) clearInterval(timer);
       if (stopServer) stopServer();
     };
@@ -205,7 +217,18 @@ export function PairScreen({ onDone }: { onDone: () => void }) {
             <Text style={{ fontSize: px(14), color: C.textMut, letterSpacing: px(1), textTransform: 'uppercase' }}>
               Plex code
             </Text>
-            <Text style={{ fontFamily: F.black, fontSize: px(72), color: C.text, letterSpacing: px(14), marginTop: px(6) }}>
+            <Text
+              numberOfLines={2}
+              style={{
+                fontFamily: F.black,
+                fontSize: (code ?? '').length > 6 ? px(30) : px(72),
+                letterSpacing: (code ?? '').length > 6 ? px(4) : px(14),
+                color: C.text,
+                marginTop: px(6),
+                textAlign: 'center',
+                maxWidth: px(560),
+              }}
+            >
               {code ?? '······'}
             </Text>
           </View>
