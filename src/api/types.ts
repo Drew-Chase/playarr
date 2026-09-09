@@ -61,41 +61,54 @@ export interface PlexStream {
   default?: boolean;
 }
 
+export interface PlexImage {
+  alt?: string;
+  type?: string;
+  url?: string;
+}
+
 export interface PlexMediaItem {
   ratingKey: string;
-  key: string;
+  key?: string;
   title: string;
-  titleSort?: string;
-  type: 'movie' | 'show' | 'season' | 'episode' | 'clip';
-  summary: string;
+  type?: 'movie' | 'show' | 'season' | 'episode' | 'clip';
+  summary?: string;
   year?: number;
-  thumb: string;
-  art: string;
+  index?: number;
+  parentIndex?: number;
+  parentRatingKey?: string;
+  parentTitle?: string;
+  parentThumb?: string;
+  grandparentRatingKey?: string;
+  grandparentTitle?: string;
+  grandparentThumb?: string;
+  grandparentArt?: string;
   duration?: number;
-  rating?: number;
-  audienceRating?: number;
+  viewOffset?: number;
+  viewCount?: number;
+  lastViewedAt?: number;
   contentRating?: string;
   studio?: string;
   tagline?: string;
-  addedAt: number;
   originallyAvailableAt?: string;
-  viewOffset?: number;
-  viewCount?: number;
-  parentTitle?: string;
-  grandparentTitle?: string;
-  parentIndex?: number;
-  index?: number;
-  grandparentRatingKey?: string;
-  parentRatingKey?: string;
-  leafCount?: number;
+  addedAt?: number;
+  audienceRating?: number;
+  userRating?: number;
+  rating?: number;
   childCount?: number;
-  Media?: PlexMedia[];
-  Role?: PlexRole[];
-  Director?: PlexTag[];
-  Writer?: PlexTag[];
-  Genre?: PlexTag[];
-  Marker?: PlexMarker[];
+  leafCount?: number;
+  viewedLeafCount?: number;
+  thumb?: string;
+  art?: string;
+  slug?: string;
+  skipChildren?: boolean;
   Guid?: { id: string }[];
+  Image?: PlexImage[];
+  Media?: PlexMedia[];
+  Genre?: { tag: string }[];
+  Role?: { tag: string; role?: string; thumb?: string }[];
+  Director?: { tag: string }[];
+  Writer?: { tag: string }[];
 }
 
 export interface StreamInfo {
