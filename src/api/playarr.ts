@@ -1,6 +1,7 @@
 import { request } from './client';
 import {
   DiscoverResults,
+  DownloadStatus,
   LibraryItems,
   PlexLibrary,
   PlexMediaItem,
@@ -41,6 +42,13 @@ export const playarr = {
   scrobble: (id: string) => request<void>(`/player/scrobble/${id}`, { method: 'POST' }),
   unscrobble: (id: string) => request<void>(`/player/unscrobble/${id}`, { method: 'POST' }),
   stop: () => request<void>('/player/stop', { method: 'POST' }),
+
+  // downloads
+  downloads: () => request<DownloadStatus>('/downloads'),
+
+  // calendar
+  radarrCalendar: () => request<unknown[]>('/radarr/calendar'),
+  sonarrCalendar: () => request<unknown[]>('/sonarr/calendar'),
 
   // discover
   trending: () => request<DiscoverResults>('/discover/trending'),
