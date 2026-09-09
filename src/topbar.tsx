@@ -1,5 +1,8 @@
 import { Text, View } from 'react-native';
 import { C, F, px } from './theme';
+import { focusLastContent, lastContentHandle, lastFocusWasTop, onLastContentChange, setTopBarRef } from './focusNav';
+import { useEffect, useRef, useState } from 'react';
+import { TVEventHandler, TVFocusGuideView } from 'react-native';
 import { Avatar, Focusable } from './ui';
 import { useStore, type Screen } from './store';
 
@@ -32,14 +35,33 @@ function CalendarGlyph({ ink }: { ink: string }) {
 export function TopBar() {
   const { s, a } = useStore();
   const atTop = s.scrollY < 40;
-  const activeKey: string =
-    s.screen === 'grid' ? (s.gridKind === 'movie' ? 'movies' : 'shows') : (s.screen as Screen);
+  const logoRef = useRef<any>(null);
+
+  useEffect(() => {
+    setTopBarRef(logoRef);
+  }, []);
+
+  const [destHandle, setDestHandle] = useState<number | null>(null);
+  useEffect(() => onLastContentChange(() => setDestHandle(lastContentHandle(s.screen))), [s.screen]);
+
+  useEffect(() => {
+    const sub = (TVEventHandler as any).addListener((e: any, data: { eventType?: string; eventKeyAction?: number }) => {
+      const d = data ?? e;
+      if (d?.eventType === 'down' && lastFocusWasTop()) {
+        focusLastContent(s.screen);
+      }
+    });
+    return () => sub.remove();
+  }, [s.screen]);
 
   const go = (key: string) => {
     if (key === 'movies') a.nav('grid', { gridKind: 'movie', gridFilter: 'All' });
     else if (key === 'shows') a.nav('grid', { gridKind: 'show', gridFilter: 'All' });
     else a.nav(key as Screen);
   };
+
+  const activeKey: string =
+    s.screen === 'grid' ? (s.gridKind === 'movie' ? 'movies' : 'shows') : (s.screen as Screen);
 
   const iconBtn = {
     width: px(48),
@@ -50,7 +72,9 @@ export function TopBar() {
   } as const;
 
   return (
-    <View
+    <TVFocusGuideView
+      trapFocusDown
+      destinations={destHandle ? [destHandle] : []}
       style={{
         position: 'absolute',
         left: 0,
@@ -68,7 +92,7 @@ export function TopBar() {
       }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: px(52) }}>
-        <Focusable onPress={() => a.nav('home')} focusStyle={{ transform: [{ scale: 1.05 }], opacity: 0.9 }}>
+        <Focusable hostRef={logoRef} zone='top' onPress={() => a.nav('home')} focusStyle={{ transform: [{ scale: 1.05 }], borderColor: C.accent, borderWidth: px(3) }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: px(13) }}>
             <View
               style={{
@@ -91,6 +115,8 @@ export function TopBar() {
             return (
               <Focusable
                 key={n.key}
+                zone='top'
+               
                 onPress={() => go(n.key)}
                 focusStyle={{ borderColor: C.accent, borderWidth: px(2), transform: [{ scale: 1.05 }] }}
                 style={{
@@ -108,18 +134,22 @@ export function TopBar() {
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: px(14) }}>
         <Focusable
+          zone='top'
+         
           onPress={() => a.nav('calendar')}
           focusStyle={{ transform: [{ scale: 1.1 }] }}
           style={[iconBtn, { backgroundColor: s.screen === 'calendar' ? 'rgba(0,212,116,.18)' : 'rgba(255,255,255,.09)' }]}
         >
           <CalendarGlyph ink={s.screen === 'calendar' ? C.accent : '#e9ecee'} />
         </Focusable>
-        <Focusable onPress={() => a.nav('search')} focusStyle={{ transform: [{ scale: 1.1 }] }} style={iconBtn}>
+        <Focusable zone='top' onPress={() => a.nav('search')} focusStyle={{ transform: [{ scale: 1.1 }] }} style={iconBtn}>
           <View style={[iconBtn, { backgroundColor: 'rgba(255,255,255,.09)' }]}>
             <Text style={{ fontSize: px(20), color: '#e9ecee' }}>⌕</Text>
           </View>
         </Focusable>
         <Focusable
+          zone='top'
+         
           onPress={() => a.nav('downloads')}
           focusStyle={{ transform: [{ scale: 1.1 }] }}
           style={{ ...iconBtn, backgroundColor: 'rgba(255,255,255,.09)' }}
@@ -141,10 +171,10 @@ export function TopBar() {
             <Text style={{ fontSize: px(11), fontWeight: '700', color: C.ink }}>3</Text>
           </View>
         </Focusable>
-        <Focusable onPress={() => a.nav('profile')} focusStyle={{ transform: [{ scale: 1.1 }] }} style={[iconBtn, { backgroundColor: 'transparent' }]}>
+        <Focusable zone='top' onPress={() => a.nav('profile')} focusStyle={{ transform: [{ scale: 1.1 }] }} style={[iconBtn, { backgroundColor: 'transparent' }]}>
           <Avatar initials="DC" art={['#00D474', '#0b7f5b']} size={48} />
         </Focusable>
       </View>
-    </View>
+    </TVFocusGuideView>
   );
 }

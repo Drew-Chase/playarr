@@ -81,6 +81,7 @@ export function SearchScreen() {
 
   return (
     <ScrollView
+      focusable={false}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingHorizontal: px(64), paddingTop: px(150), paddingBottom: px(90) }}
     >

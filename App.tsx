@@ -6,6 +6,7 @@ import { Archivo_400Regular, Archivo_600SemiBold, Archivo_700Bold } from '@expo-
 import { DMSans_400Regular, DMSans_500Medium, DMSans_700Bold } from '@expo-google-fonts/dm-sans';
 import { StoreContext } from './src/store';
 import { useAppStore } from './src/storeImpl';
+import { focusTopBar, lastFocusWasTop, setCurrentScreen } from './src/focusNav';
 import { isConfigured, loadConfig, type AppConfig } from './src/config';
 import { configureApi } from './src/api/client';
 import { TopBar } from './src/topbar';
@@ -27,6 +28,7 @@ export default function App() {
   const { s, a, ctx } = useAppStore();
   const [, setTick] = useState(0);
   const [cfg, setCfg] = useState<AppConfig | null>(null);
+  const sRef = s;
 
   const [loaded] = useFonts({
     ArchivoBlack_400Regular,
@@ -54,12 +56,26 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    setCurrentScreen(s.screen);
+  }, [s.screen]);
+
+  useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      a.back();
-      return true;
+      const st = sRef;
+      if (st.modal || st.settingsPane || st.upNext || st.screen === 'player' || st.screen === 'episode') {
+        a.back();
+        return true;
+      }
+      if (st.screen !== 'home') {
+        a.back();
+        setTimeout(() => focusTopBar(), 80);
+        return true;
+      }
+      if (!lastFocusWasTop() && focusTopBar()) return true;
+      return false;
     });
     return () => sub.remove();
-  }, [a]);
+  }, [a, sRef]);
 
   if (!loaded || !cfg) return <View style={{ flex: 1, backgroundColor: C.bgDeep }} />;
 

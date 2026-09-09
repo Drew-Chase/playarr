@@ -48,6 +48,7 @@ function LiveDetail({
 
   return (
     <ScrollView
+      focusable={false}
       showsVerticalScrollIndicator={false}
       onScroll={(e) => a.set({ scrollY: e.nativeEvent.contentOffset.y })}
       scrollEventThrottle={32}
@@ -127,7 +128,6 @@ function LiveDetail({
                 return (
                   <Focusable
                     key={sn.ratingKey}
-                    hasTV={i === 0}
                     onPress={() => setSeasonKey(sn.ratingKey)}
                     focusStyle={{ transform: [{ scale: 1.05 }] }}
                     style={{ width: px(300), marginRight: px(22), borderRadius: px(14), borderWidth: px(2), borderColor: on ? C.accent : 'rgba(255,255,255,.08)', overflow: 'hidden' }}
@@ -153,7 +153,6 @@ function LiveDetail({
                 return (
                   <Focusable
                     key={ep.ratingKey}
-                    hasTV={i === 0}
                     onPress={() => {
                       a.set({ liveEpisodes: seasonEpisodes, epIndex: i });
                       a.nav('episode');
@@ -214,6 +213,7 @@ function DemoDetail() {
 
   return (
     <ScrollView
+      focusable={false}
       showsVerticalScrollIndicator={false}
       onScroll={(e) => a.set({ scrollY: e.nativeEvent.contentOffset.y })}
       scrollEventThrottle={32}

@@ -88,6 +88,7 @@ export function CalendarScreen() {
 
   return (
     <ScrollView
+      focusable={false}
       showsVerticalScrollIndicator={false}
       onScroll={(e) => a.set({ scrollY: e.nativeEvent.contentOffset.y })}
       scrollEventThrottle={32}

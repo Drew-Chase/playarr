@@ -111,9 +111,10 @@ export function GridScreen() {
           </View>
         )}
         columnWrapperStyle={{ justifyContent: 'space-between' }}
-        windowSize={5}
+        windowSize={3}
         initialNumToRender={12}
         maxToRenderPerBatch={12}
+        removeClippedSubviews={false}
         onScroll={(e) => a.set({ scrollY: e.nativeEvent.contentOffset.y })}
         scrollEventThrottle={64}
         showsVerticalScrollIndicator={false}

@@ -1,5 +1,6 @@
 import { memo, useRef, useState, type ReactNode } from 'react';
 import { FlatList, Image, Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { noteFocus } from './focusNav';
 import { LinearGradient } from 'expo-linear-gradient';
 import { C, F, px } from './theme';
 
@@ -64,26 +65,49 @@ interface FocusableProps {
   onPress?: () => void;
   onFocus?: () => void;
   onBlur?: () => void;
+  onKeyDown?: (e: { nativeEvent: { key: string }; preventDefault: () => void }) => void;
   focusStyle?: StyleProp<ViewStyle>;
   style?: StyleProp<ViewStyle>;
   hasTV?: boolean;
   children?: ReactNode;
   disabled?: boolean;
-  testID?: string;
+  zone?: 'top' | 'content';
+  hostRef?: { current: any };
+  focusRing?: boolean;
+  focusRadius?: number;
 }
 
-export function Focusable({ onPress, onFocus, onBlur, focusStyle, style, hasTV, children, disabled }: FocusableProps) {
+export function Focusable({
+  onPress,
+  onFocus,
+  onBlur,
+  onKeyDown,
+  focusStyle,
+  style,
+  hasTV,
+  children,
+  disabled,
+  zone = 'content',
+  hostRef: externalRef,
+  focusRing = true,
+  focusRadius,
+}: FocusableProps) {
   const [f, setF] = useState(false);
+  const innerRef = useRef<any>(null);
+  const hostRef = externalRef ?? innerRef;
   return (
     <Pressable
+      ref={hostRef}
       accessibilityRole="button"
       focusable={!disabled}
       disabled={disabled}
       hasTVPreferredFocus={hasTV}
       onPress={onPress}
+      {...((onKeyDown ? { onKeyDown } : {}) as any)}
       onFocus={() => {
         setF(true);
         onFocus?.();
+        noteFocus(zone, hostRef);
       }}
       onBlur={() => {
         setF(false);
@@ -91,11 +115,27 @@ export function Focusable({ onPress, onFocus, onBlur, focusStyle, style, hasTV, 
       }}
       style={[
         style,
-        f && (focusStyle ?? { borderColor: C.accent, borderWidth: px(3) }),
+        f ? focusStyle : null,
         f && { zIndex: 5 },
       ]}
     >
       {children}
+      {f && focusRing ? (
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            top: -px(4),
+            left: -px(4),
+            right: -px(4),
+            bottom: -px(4),
+            borderWidth: px(3),
+            borderColor: C.accent,
+            borderRadius: focusRadius !== undefined ? px(focusRadius) : px(18),
+            zIndex: 60,
+          }}
+        />
+      ) : null}
     </Pressable>
   );
 }
@@ -199,14 +239,14 @@ export function Rail({ label, note, items }: { label: string; note?: string; ite
         renderItem={({ item, index }) => (
           <Poster
             item={item}
-            hasTV={index === 0}
             onFocus={() => listRef.current?.scrollToIndex({ index, viewPosition: 0.15, animated: true })}
           />
         )}
         showsHorizontalScrollIndicator={false}
-        windowSize={7}
+        windowSize={3}
         initialNumToRender={6}
-        maxToRenderPerBatch={8}
+        maxToRenderPerBatch={6}
+        removeClippedSubviews={false}
         initialScrollIndex={0}
         contentContainerStyle={{ paddingHorizontal: px(16), paddingVertical: px(12) }}
         style={{ marginHorizontal: -px(16) }}
@@ -221,12 +261,14 @@ export function Btn({
   kind = 'ghost',
   hasTV,
   style,
+  hostRef,
 }: {
   label: string;
   onPress: () => void;
   kind?: 'accent' | 'ghost' | 'outline' | 'soft';
   hasTV?: boolean;
   style?: StyleProp<ViewStyle>;
+  hostRef?: { current: any };
 }) {
   const bg =
     kind === 'accent'
@@ -239,9 +281,10 @@ export function Btn({
   const fg = kind === 'accent' ? C.ink : C.text;
   return (
     <Focusable
+      hostRef={hostRef}
       hasTV={hasTV}
       onPress={onPress}
-      focusStyle={{ transform: [{ scale: 1.05 }], borderColor: kind === 'accent' ? C.accentSoft : C.accent, borderWidth: px(3) }}
+      focusStyle={{ transform: [{ scale: 1.05 }] }}
       style={[
         {
           backgroundColor: bg,

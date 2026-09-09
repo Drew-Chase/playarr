@@ -98,7 +98,6 @@ export function EpisodeScreen() {
           {s.liveEpisodes.map((sib, i) => (
             <Focusable
               key={sib.ratingKey}
-              hasTV={i === 0}
               onPress={() => a.set({ epIndex: i })}
               focusStyle={{ borderColor: C.accent, borderWidth: px(2) }}
               style={{
@@ -134,6 +133,7 @@ export function EpisodeScreen() {
 
   return (
     <ScrollView
+      focusable={false}
       showsVerticalScrollIndicator={false}
       onScroll={(e) => a.set({ scrollY: e.nativeEvent.contentOffset.y })}
       scrollEventThrottle={32}
@@ -188,7 +188,6 @@ export function EpisodeScreen() {
         {episodes.map((e, i) => (
           <Focusable
             key={e.num}
-            hasTV={i === 0}
             onPress={() => a.nav('episode', { epIndex: i })}
             focusStyle={{ borderColor: C.accent, borderWidth: px(2) }}
             style={{

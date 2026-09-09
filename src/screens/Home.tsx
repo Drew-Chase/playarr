@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { C, F, asPct, pctOf, px } from '../theme';
 import { Avatar, Btn, Chip, Focusable, Grad, ImgOrGrad, Rail, TitleGlyph, type PosterData } from '../ui';
@@ -13,6 +14,7 @@ import {
   fmtDuration,
 } from '../api/mappers';
 import { useContinueWatching, useLibraryItems, useLibraries, useRecentlyAdded, useTrending } from '../api/useLive';
+import { focusRef } from '../focusNav';
 import type { PlexMediaItem, TmdbItem } from '../api/types';
 
 
@@ -69,7 +71,14 @@ export function HomeScreen() {
     ...(ra ?? []).filter((x) => x.type === 'movie' || x.type === 'show').slice(0, 3),
   ];
   const liveHeroOn = heroSource.length > 0;
+  const heroPlayRef = useRef<any>(null);
   const liveHero = liveHeroOn ? heroModel(heroSource[s.hero % heroSource.length]) : null;
+
+  useEffect(() => {
+    if (!heroSource.length) return;
+    const timers = [300, 900, 1800].map((ms) => setTimeout(() => focusRef(heroPlayRef), ms));
+    return () => timers.forEach(clearTimeout);
+  }, [heroSource.length]);
   const demoHero = TITLES[s.hero % 4];
 
   const demoRailItem = (t: (typeof TITLES)[number]): PosterData => ({
@@ -105,10 +114,9 @@ export function HomeScreen() {
     { name: 'Late Shift', watching: 'Hollow Signal · S03 E04', pct: '31%', live: true, members: FRIENDS.slice(2, 4) },
   ];
 
-  const demoDiscCard = (d: (typeof DISCOVER)[number], hasTV: boolean) => (
+  const demoDiscCard = (d: (typeof DISCOVER)[number]) => (
     <Focusable
       key={d.id}
-      hasTV={hasTV}
       onPress={() => a.set({ modal: 'request', reqTarget: d.id, reqFields: [0, 0, 0, 0] })}
       focusStyle={{ transform: [{ scale: 1.05 }] }}
       style={{ width: px(300), marginRight: px(22) }}
@@ -138,13 +146,12 @@ export function HomeScreen() {
     </Focusable>
   );
 
-  const liveDiscCard = (item: TmdbItem, hasTV: boolean) => {
+  const liveDiscCard = (item: TmdbItem) => {
     const id = 'tmdb:' + item.id;
     const poster = tmdbToPoster(item, () => a.set({ modal: 'request', reqTmdbItem: tmdbDiscoverItem(item), reqFields: [0, 0, 0, 0] }));
     return (
       <Focusable
         key={id}
-        hasTV={hasTV}
         onPress={poster.onPress}
         focusStyle={{ transform: [{ scale: 1.05 }] }}
         style={{ width: px(300), marginRight: px(22) }}
@@ -188,6 +195,7 @@ export function HomeScreen() {
 
   return (
     <ScrollView
+      focusable={false}
       showsVerticalScrollIndicator={false}
       onScroll={(e) => a.set({ scrollY: e.nativeEvent.contentOffset.y })}
       scrollEventThrottle={32}
@@ -238,7 +246,7 @@ export function HomeScreen() {
           </Text>
           <View style={{ flexDirection: 'row', gap: px(16), marginTop: px(34) }}>
             <Btn
-              hasTV
+              hostRef={heroPlayRef}
               kind="accent"
               label={liveHeroOn && liveHero ? liveHero.playLabel : demoHero.prog ? '▶ Resume ' + demoHero.ep.split('—')[0].trim() : '▶ Play'}
               onPress={() => {
@@ -290,14 +298,14 @@ export function HomeScreen() {
             <View style={{ flexDirection: 'row', gap: px(12) }}>
               <Focusable
                 onPress={() => a.set({ modal: 'create' })}
-                focusStyle={{ transform: [{ scale: 1.06 }] }}
+                focusRadius={24}
                 style={{ paddingHorizontal: px(22), paddingVertical: px(11), borderRadius: px(24), backgroundColor: C.accent }}
               >
                 <Text style={{ fontSize: px(16), fontWeight: '700', color: C.ink }}>Create party</Text>
               </Focusable>
               <Focusable
                 onPress={() => a.set({ modal: 'join' })}
-                focusStyle={{ transform: [{ scale: 1.06 }] }}
+                focusRadius={24}
                 style={{ paddingHorizontal: px(22), paddingVertical: px(11), borderRadius: px(24), backgroundColor: 'rgba(255,255,255,.1)' }}
               >
                 <Text style={{ fontSize: px(16), fontWeight: '600', color: C.text }}>Join with code</Text>
@@ -354,7 +362,7 @@ export function HomeScreen() {
           <Text style={{ fontSize: px(16), color: '#7f868c', marginBottom: px(20) }}>From TMDB · request anything for your server</Text>
           <View style={{ flexDirection: 'row', marginBottom: px(26) }}>
             {(['Trending', 'Popular movies', 'Popular shows'] as const).map((f, i) => (
-              <Chip key={f} label={f} active={s.discoverTab === f} hasTV={i === 0} onPress={() => a.set({ discoverTab: f })} />
+              <Chip key={f} label={f} active={s.discoverTab === f} onPress={() => a.set({ discoverTab: f })} />
             ))}
           </View>
           {discoverSets ? (
@@ -363,7 +371,7 @@ export function HomeScreen() {
                 <View key={set.label}>
                   <Text style={{ fontFamily: F.head, fontSize: px(24), color: C.text, marginBottom: px(18) }}>{set.label}</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    {set.items.map((item, i) => liveDiscCard(item, i === 0))}
+                    {set.items.map((item) => liveDiscCard(item))}
                   </ScrollView>
                 </View>
               ))}
@@ -375,7 +383,7 @@ export function HomeScreen() {
                   {s.discoverTab === 'Trending' ? 'Trending this week' : s.discoverTab}
                 </Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  {DISCOVER.map((d, i) => demoDiscCard(d, i === 0))}
+                  {DISCOVER.map((d) => demoDiscCard(d))}
                 </ScrollView>
               </View>
             </View>
