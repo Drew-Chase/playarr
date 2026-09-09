@@ -173,7 +173,7 @@ export function PairScreen({ onDone }: { onDone: () => void }) {
           <View style={{ gap: px(16), marginTop: px(34) }}>
             {[
               { n: '1', t: 'Scan the QR code or open the address on your phone' },
-              { n: '2', t: 'Link with Plex and enter the code below when asked' },
+              { n: '2', t: 'Visit plex.tv/link and enter the code shown here' },
               { n: '3', t: 'Enter your Playarr server URL and complete setup' },
             ].map((s) => (
               <View key={s.n} style={{ flexDirection: 'row', alignItems: 'center', gap: px(16) }}>

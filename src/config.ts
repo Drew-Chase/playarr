@@ -75,7 +75,7 @@ export async function createPlexPin(clientId: string): Promise<PlexPinData> {
   return plexRequest<PlexPinData>('https://plex.tv/api/v2/pins', {
     method: 'POST',
     headers: { ...plexHeaders(clientId), 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: 'strong=true',
+    body: 'strong=false',
   });
 }
 

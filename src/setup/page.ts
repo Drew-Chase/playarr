@@ -39,7 +39,7 @@ export function setupPageHtml(): string {
     <p class="sub">Pair this phone with your TV to link your Plex account and Playarr server.</p>
 
     <ol class="steps">
-      <li><b>Link Plex</b> — enter the code below when asked.</li>
+      <li><b>Link Plex</b> — open plex.tv/link and enter the code shown below.</li>
       <li><b>Enter your Playarr server URL</b>.</li>
       <li><b>Complete</b> — the TV connects automatically.</li>
     </ol>
@@ -148,7 +148,7 @@ export function setupPageHtml(): string {
   linkBtn.addEventListener('click', function () {
     if (authToken || !clientId || !pinId) return;
     setError('');
-    window.open('https://app.plex.tv/auth#?clientIdentifier=' + encodeURIComponent(clientId) + '&code=' + encodeURIComponent(codeEl.textContent.trim()), '_blank');
+    window.open('https://plex.tv/link', '_blank');
   });
 
   urlEl.addEventListener('input', function () {
