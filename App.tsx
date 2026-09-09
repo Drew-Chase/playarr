@@ -112,7 +112,15 @@ export default function App() {
       case 'search':
         return <SearchScreen />;
       case 'profile':
-        return <ProfileScreen />;
+        return (
+          <ProfileScreen
+            onSignOut={() => {
+              loadConfig().then((c) => {
+                setCfg({ ...c });
+              });
+            }}
+          />
+        );
       case 'player':
         return <PlayerScreen />;
       default:

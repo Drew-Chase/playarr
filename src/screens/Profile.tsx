@@ -2,15 +2,46 @@ import { ScrollView, Text, View } from 'react-native';
 import { C, F, px } from '../theme';
 import { Avatar, Focusable } from '../ui';
 import { FRIENDS, useStore } from '../store';
+import { useEffect, useState } from 'react';
+import { playarr } from '../api/playarr';
+import { clearConfig } from '../config';
 
-export function ProfileScreen() {
+export function ProfileScreen({ onSignOut }: { onSignOut: () => void }) {
   const { a } = useStore();
+  const [user, setUser] = useState<{ title?: string; email?: string } | null>(null);
+
+  useEffect(() => {
+    playarr
+      .currentUser()
+      .then((u) => setUser(u))
+      .catch(() => {});
+  }, []);
   return (
     <ScrollView
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingHorizontal: px(64), paddingTop: px(150), paddingBottom: px(90) }}
     >
       <Text style={{ fontFamily: F.head, fontSize: px(44), color: C.text }}>Profiles</Text>
+      {user?.title ? (
+        <Text style={{ fontSize: px(16), color: '#7f868c', marginTop: px(8) }}>
+          Signed in as {user.title}{user.email ? ' · ' + user.email : ''}
+        </Text>
+      ) : null}
+      <Focusable
+        hasTV={false}
+        onPress={() => {
+          playarr
+            .logout()
+            .catch(() => {})
+            .finally(() => {
+              clearConfig().finally(onSignOut);
+            });
+        }}
+        focusStyle={{ borderColor: '#ff8a80', borderWidth: px(2), transform: [{ scale: 1.04 }] }}
+        style={{ alignSelf: 'flex-start', marginTop: px(24), paddingHorizontal: px(28), paddingVertical: px(14), borderRadius: px(12), backgroundColor: 'rgba(255,107,128,.12)' }}
+      >
+        <Text style={{ fontSize: px(17), fontWeight: '700', color: '#ff8a80' }}>Sign out (unpairs this TV)</Text>
+      </Focusable>
       <View style={{ flexDirection: 'row', gap: px(28), marginTop: px(36) }}>
         {FRIENDS.map((f, i) => (
           <Focusable

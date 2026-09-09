@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/immutability -- expo-video exposes an imperative player API */
 import { useEffect, useRef, useState } from 'react';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { Text, View } from 'react-native';

@@ -50,11 +50,18 @@ export const playarr = {
   radarrCalendar: () => request<unknown[]>('/radarr/calendar'),
   sonarrCalendar: () => request<unknown[]>('/sonarr/calendar'),
 
+  // requests (sonarr / radarr)
+  radarrLookup: (term: string) => request<Record<string, unknown>[]>('/radarr/lookup', { params: { term } }),
+  radarrAdd: (body: Record<string, unknown>) => request<Record<string, unknown>>('/radarr/movie', { method: 'POST', body }),
+  sonarrLookup: (term: string) => request<Record<string, unknown>[]>('/sonarr/lookup', { params: { term } }),
+  sonarrAdd: (body: Record<string, unknown>) => request<Record<string, unknown>>('/sonarr/series', { method: 'POST', body }),
+
   // discover
   trending: () => request<DiscoverResults>('/discover/trending'),
   recent: () => request<DiscoverResults>('/discover/recent'),
   upcoming: () => request<DiscoverResults>('/discover/upcoming'),
   searchTmdb: (query: string) => request<DiscoverResults>('/discover/search', { params: { query } }),
+  requestRaw: <T>(path: string, opts?: Parameters<typeof request<T>>[1]) => request<T>(path, opts),
   searchLibrary: (query: string) => request<PlexMediaItem[]>('/search', { params: { query } }),
 };
 

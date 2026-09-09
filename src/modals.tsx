@@ -1,7 +1,9 @@
 import { Text, View } from 'react-native';
 import { C, F, px } from './theme';
 import { Focusable, Grad } from './ui';
+import { useEffect, useState } from 'react';
 import { DISCOVER, TITLES, titleById, useStore } from './store';
+import { playarr } from './api/playarr';
 
 function Shell({ children, width }: { children: React.ReactNode; width: number }) {
   const { a } = useStore();
@@ -208,16 +210,38 @@ export function JoinPartyModal() {
 
 export function RequestModal() {
   const { s, a } = useStore();
+  const [folders, setFolders] = useState<string[]>([]);
+  const [profiles, setProfiles] = useState<{ id: number; name: string }[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    if (!s.modal) return;
+    const isMovie = (s.reqTmdbItem?.kind ?? 'movie') === 'movie';
+    const base = isMovie ? '/radarr' : '/sonarr';
+    playarr
+      .requestRaw(base + '/rootfolder')
+      .then((list: unknown) => alive && setFolders((Array.isArray(list) ? list : []).map((x) => String((x as { path?: string }).path ?? '')).filter(Boolean)))
+      .catch(() => {});
+    playarr
+      .requestRaw(base + (isMovie ? '/qualityprofile' : '/profile'))
+      .then((list: unknown) => alive && setProfiles((Array.isArray(list) ? list : []).map((x) => ({ id: Number((x as { id?: number }).id ?? 0), name: String((x as { name?: string }).name ?? '') })).filter((x) => x.name)))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [s.modal, s.reqTmdbItem?.kind]);
   const reqT = s.reqTmdbItem
     ? s.reqTmdbItem
     : s.reqTarget
       ? DISCOVER.find((d) => d.id === s.reqTarget) || TITLES.find((t) => t.id === s.reqTarget) || DISCOVER[0]
       : DISCOVER[0];
+  const [loadingAdd, setLoadingAdd] = useState(false);
+  const isMovie = reqT.kind === 'movie';
   const opts = [
-    { label: 'Root folder', vals: ['/mnt/media/movies', '/mnt/media/4k', '/mnt/media/archive'] },
-    { label: 'Quality profile', vals: ['Any', 'HD-1080p', 'Ultra-HD', 'Remux'] },
-    { label: 'Monitor', vals: ['Movie only', 'All seasons', 'Future episodes', 'First season'] },
-    { label: 'Availability', vals: ['Released', 'Announced', 'In cinemas'] },
+    { label: 'Root folder', vals: folders.length ? folders : ['/mnt/media/movies'] },
+    { label: 'Quality profile', vals: profiles.length ? profiles.map((p) => p.name) : ['Any'] },
+    { label: 'Monitor', vals: isMovie ? ['Movie only', 'Movie + specials'] : ['All seasons', 'Future episodes', 'First season'] },
+    { label: 'Availability', vals: isMovie ? ['Released', 'Announced', 'In cinemas'] : ['Released'] },
   ];
   return (
     <Shell width={820}>
@@ -254,7 +278,7 @@ export function RequestModal() {
           >
             <Text style={{ fontSize: px(16), color: C.textMut }}>{o.label}</Text>
             <Text style={{ fontSize: px(17), fontWeight: '700', color: C.text }}>
-              {o.vals[s.reqFields[i] % o.vals.length]} <Text style={{ color: C.accent }}> ›</Text>
+              {String(o.vals[s.reqFields[i] % o.vals.length])} <Text style={{ color: C.accent }}> ›</Text>
             </Text>
           </Focusable>
         ))}
@@ -291,17 +315,44 @@ export function RequestModal() {
         <Focusable
           hasTV
           onPress={() => {
-            a.set(({
-              requested: { ...s.requested, [reqT.id]: 1 },
-              modal: null,
-            } as never) as never);
-            a.flash(reqT.t + ' requested' + (s.autoSearch ? ' · searching indexers' : ''));
+            const base = isMovie ? '/radarr' : '/sonarr';
+            setLoadingAdd(true);
+            playarr
+              .requestRaw(base + '/lookup', { params: { term: reqT.t } })
+              .then((results: unknown) => {
+                const list = Array.isArray(results) ? results : [];
+                const wanted = reqT.remote ? Number(reqT.remote) : NaN;
+                const match =
+                  list.find((r) => Number((r as { tmdbId?: number }).tmdbId) === wanted) ||
+                  list.find((r) => String((r as { title?: string }).title).toLowerCase() === reqT.t.toLowerCase()) ||
+                  list[0];
+                if (!match) throw new Error('No match found on ' + (isMovie ? 'Radarr' : 'Sonarr') + ' lookup');
+                const folderPath = opts[0].vals[s.reqFields[0] % Math.max(opts[0].vals.length, 1)];
+                const profileName = opts[1].vals[s.reqFields[1] % Math.max(opts[1].vals.length, 1)];
+                const profileId = profiles.find((p) => p.name === profileName)?.id ?? 0;
+                const body: Record<string, unknown> = {
+                  ...(match as Record<string, unknown>),
+                  monitored: true,
+                  rootFolderPath: folderPath,
+                  qualityProfileId: profileId,
+                  addOptions: { searchForMovie: s.autoSearch, searchForMissingEpisodes: s.autoSearch },
+                };
+                return playarr.requestRaw(base + (isMovie ? '/movie' : '/series'), { method: 'POST', body });
+              })
+              .then(() => {
+                a.set({ requested: { ...s.requested, [reqT.id]: 1 }, modal: null });
+                a.flash(reqT.t + ' requested' + (s.autoSearch ? ' · searching indexers' : ''));
+              })
+              .catch((e: unknown) => {
+                a.flash(e instanceof Error ? e.message : 'Request failed');
+                setLoadingAdd(false);
+              });
           }}
           focusStyle={{ transform: [{ scale: 1.05 }] }}
           style={{ paddingHorizontal: px(28), paddingVertical: px(16), borderRadius: px(12), backgroundColor: C.accent }}
         >
           <Text style={{ fontSize: px(18), fontWeight: '700', color: C.ink }}>
-            {reqT.kind === 'movie' ? 'Add to Radarr' : 'Add to Sonarr'}
+            {loadingAdd ? 'Requesting…' : reqT.kind === 'movie' ? 'Add to Radarr' : 'Add to Sonarr'}
           </Text>
         </Focusable>
       </View>

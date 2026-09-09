@@ -70,6 +70,10 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
   return res.json() as Promise<T>;
 }
 
+export function requestRaw<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+  return request<T>(path, opts);
+}
+
 export function mediaThumbUrl(item: Pick<PlexMediaItem, 'ratingKey'>): string {
   return `${apiBase()}/media/${item.ratingKey}/thumb`;
 }
