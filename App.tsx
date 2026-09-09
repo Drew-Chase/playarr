@@ -5,10 +5,13 @@ import { ArchivoBlack_400Regular } from '@expo-google-fonts/archivo-black';
 import { Archivo_400Regular, Archivo_600SemiBold, Archivo_700Bold } from '@expo-google-fonts/archivo';
 import { DMSans_400Regular, DMSans_500Medium, DMSans_700Bold } from '@expo-google-fonts/dm-sans';
 import { StoreContext } from './src/store';
-import { initServer, useAppStore } from './src/storeImpl';
+import { useAppStore } from './src/storeImpl';
+import { isConfigured, loadConfig, type AppConfig } from './src/config';
+import { configureApi } from './src/api/client';
 import { TopBar } from './src/topbar';
 import { Toast } from './src/ui';
 import { Modals } from './src/modals';
+import { PairScreen } from './src/screens/Pair';
 import { HomeScreen } from './src/screens/Home';
 import { GridScreen } from './src/screens/Grid';
 import { DetailScreen } from './src/screens/Detail';
@@ -23,6 +26,7 @@ import { C, refreshScale } from './src/theme';
 export default function App() {
   const { s, a, ctx } = useAppStore();
   const [, setTick] = useState(0);
+  const [cfg, setCfg] = useState<AppConfig | null>(null);
 
   const [loaded] = useFonts({
     ArchivoBlack_400Regular,
@@ -33,6 +37,13 @@ export default function App() {
     DMSans_500Medium,
     DMSans_700Bold,
   });
+
+  useEffect(() => {
+    loadConfig().then((c) => {
+      if (isConfigured(c)) configureApi(c.serverUrl, c.authToken);
+      setCfg(c);
+    });
+  }, []);
 
   useEffect(() => {
     const sub = Dimensions.addEventListener('change', () => {
@@ -50,11 +61,23 @@ export default function App() {
     return () => sub.remove();
   }, [a]);
 
-  useEffect(() => {
-    initServer(a.set, a.flash);
-  }, [a]);
+  if (!loaded || !cfg) return <View style={{ flex: 1, backgroundColor: C.bgDeep }} />;
 
-  if (!loaded) return <View style={{ flex: 1, backgroundColor: C.bgDeep }} />;
+  if (!isConfigured(cfg)) {
+    return (
+      <View style={{ flex: 1, backgroundColor: C.bgDeep }}>
+        <StatusBar hidden />
+        <PairScreen
+          onDone={() => {
+            loadConfig().then((c) => {
+              if (isConfigured(c)) configureApi(c.serverUrl, c.authToken);
+              setCfg({ ...c });
+            });
+          }}
+        />
+      </View>
+    );
+  }
 
   const screen = () => {
     switch (s.screen) {

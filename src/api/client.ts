@@ -1,6 +1,24 @@
 import { PlexMediaItem, TmdbItem } from './types';
 
-export const API_BASE = 'https://playarr.dclabs.app/api';
+const DEFAULT_SERVER = 'https://playarr.dclabs.app';
+
+let serverBase = DEFAULT_SERVER;
+let authToken: string | null = null;
+
+export function configureApi(serverUrl: string | null, token: string | null) {
+  if (serverUrl) {
+    serverBase = serverUrl.replace(/\/+$/, '');
+  }
+  authToken = token;
+}
+
+export function currentServerBase(): string {
+  return serverBase;
+}
+
+export function apiBase(): string {
+  return `${serverBase}/api`;
+}
 
 export class ApiError extends Error {
   status: number;
@@ -17,26 +35,23 @@ interface RequestOptions {
   headers?: Record<string, string>;
 }
 
-let authHook: (() => Promise<boolean>) | null = null;
-export function setAuthHook(fn: () => Promise<boolean>) {
-  authHook = fn;
-}
-
-export async function request<T>(path: string, opts: RequestOptions = {}, retried = false): Promise<T> {
+export async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   const { method = 'GET', params, body, headers } = opts;
-  let url = `${API_BASE}${path}`;
+  let url = `${apiBase()}${path}`;
   if (params) url += `?${new URLSearchParams(params).toString()}`;
+
+  const finalHeaders: Record<string, string> = {
+    Accept: 'application/json',
+    ...headers,
+  };
+  if (body !== undefined) finalHeaders['Content-Type'] = 'application/json';
+  if (authToken) finalHeaders.Cookie = `plex_user_token=${authToken}`;
 
   const res = await fetch(url, {
     method,
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...headers },
+    headers: finalHeaders,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
-
-  if ((res.status === 401 || res.status === 403) && !retried && authHook) {
-    const ok = await authHook();
-    if (ok) return request<T>(path, opts, true);
-  }
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
@@ -47,11 +62,11 @@ export async function request<T>(path: string, opts: RequestOptions = {}, retrie
 }
 
 export function mediaThumbUrl(item: Pick<PlexMediaItem, 'ratingKey'>): string {
-  return `${API_BASE}/media/${item.ratingKey}/thumb`;
+  return `${apiBase()}/media/${item.ratingKey}/thumb`;
 }
 
 export function mediaArtUrl(item: Pick<PlexMediaItem, 'ratingKey'>): string {
-  return `${API_BASE}/media/${item.ratingKey}/art`;
+  return `${apiBase()}/media/${item.ratingKey}/art`;
 }
 
 export function tmdbPosterUrl(item: Pick<TmdbItem, 'poster_path'>, size = 'w342'): string | null {

@@ -1,5 +1,18 @@
 // Learn more https://docs.expo.io/guides/customizing-metro
 const { getDefaultConfig } = require('expo/metro-config');
+const fs = require('fs');
+const path = require('path');
+
+// react-native-tvos packaging bug: @react-native-tvos/virtualized-lists declares
+// upstream react-native as a hard dependency, so npm nests an upstream copy inside
+// the TV fork. Any self-require from the fork then resolves to that copy and the
+// devtools setup runs twice -> "property is not writable" crash at startup.
+// Remove it before Metro builds the graph. (Also guarded by package.json postinstall.)
+const nestedRn = path.join(__dirname, 'node_modules/react-native/node_modules/react-native');
+if (fs.existsSync(nestedRn)) {
+  fs.rmSync(nestedRn, { recursive: true, force: true });
+  console.log('[metro] removed nested upstream react-native copy (react-native-tvos packaging bug)');
+}
 
 const config = getDefaultConfig(__dirname);
 

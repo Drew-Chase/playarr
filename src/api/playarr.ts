@@ -1,4 +1,4 @@
-import { request, setAuthHook } from './client';
+import { request } from './client';
 import {
   DiscoverResults,
   LibraryItems,
@@ -50,13 +50,3 @@ export const playarr = {
   searchLibrary: (query: string) => request<PlexMediaItem[]>('/search', { params: { query } }),
 };
 
-export async function ensureGuestAuth(): Promise<boolean> {
-  try {
-    await playarr.guestLogin();
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-setAuthHook(ensureGuestAuth);

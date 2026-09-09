@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { initialState, type Actions, type AppState, type Screen } from './store';
-import { titleById } from './data';
-import { ensureGuestAuth, playarr } from './api/playarr';
+
 
 function fmt(sec: number) {
   const m = Math.floor(sec / 60);
@@ -93,15 +92,3 @@ export function useAppStore() {
   return { s, a, ctx, setS, fmt };
 }
 
-export async function initServer(set: (patch: Partial<AppState>) => void, flash: (msg: string) => void) {
-  try {
-    await ensureGuestAuth();
-    await playarr.libraries();
-    set({ serverOk: true });
-    flash('Connected to Playarr server');
-  } catch {
-    set({ serverOk: false });
-  }
-}
-
-export { titleById, fmt };
