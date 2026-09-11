@@ -80,7 +80,7 @@ export function SearchScreen() {
   const total = liveMode ? libItems.length + tmdbItems.length : demoFallback.length;
 
   return (
-    <ScrollView
+    <ScrollView removeClippedSubviews={false}
       focusable={false}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{ paddingHorizontal: px(64), paddingTop: px(150), paddingBottom: px(90) }}

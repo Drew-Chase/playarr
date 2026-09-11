@@ -22,7 +22,7 @@ export function EpisodeScreen() {
     }
 
     return (
-      <ScrollView
+      <ScrollView removeClippedSubviews={false}
         showsVerticalScrollIndicator={false}
         onScroll={(e) => a.set({ scrollY: e.nativeEvent.contentOffset.y })}
         scrollEventThrottle={32}
@@ -132,7 +132,7 @@ export function EpisodeScreen() {
   const idx = s.epIndex;
 
   return (
-    <ScrollView
+    <ScrollView removeClippedSubviews={false}
       focusable={false}
       showsVerticalScrollIndicator={false}
       onScroll={(e) => a.set({ scrollY: e.nativeEvent.contentOffset.y })}

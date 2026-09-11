@@ -93,7 +93,6 @@ export function PlayerScreen() {
       const st = e?.newStatus ?? e?.status;
       if (st === 'error' && !retriedFromZero.current) {
         retriedFromZero.current = true;
-        console.log('[player] stream error, retrying from 0');
         if (source) player.replace(source);
         player.play();
       }

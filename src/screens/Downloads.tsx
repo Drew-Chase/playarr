@@ -22,7 +22,7 @@ export function DownloadsScreen() {
   ];
 
   return (
-    <ScrollView
+    <ScrollView removeClippedSubviews={false}
       showsVerticalScrollIndicator={false}
       onScroll={(e) => a.set({ scrollY: e.nativeEvent.contentOffset.y })}
       scrollEventThrottle={32}

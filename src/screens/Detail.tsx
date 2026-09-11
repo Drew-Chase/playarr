@@ -47,7 +47,7 @@ function LiveDetail({
   const similar = TITLES.filter((t) => t.id !== meta.title).slice(0, 7);
 
   return (
-    <ScrollView
+    <ScrollView removeClippedSubviews={false}
       focusable={false}
       showsVerticalScrollIndicator={false}
       onScroll={(e) => a.set({ scrollY: e.nativeEvent.contentOffset.y })}
@@ -107,7 +107,7 @@ function LiveDetail({
           {(meta.Role ?? []).length ? (
             <View style={{ width: px(560) }}>
               <Text style={{ fontFamily: F.head, fontSize: px(28), color: C.text, marginBottom: px(20) }}>Cast</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: px(10) }}>
+              <ScrollView removeClippedSubviews={false} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: px(10) }}>
                 {(meta.Role ?? []).slice(0, 8).map((r) => (
                   <View key={r.tag} style={{ width: px(130), marginRight: px(26), alignItems: 'center' }}>
                     <Grad art={['#2a2f36', '#12151a']} deg={155} style={{ width: px(130), height: px(130), borderRadius: px(65), alignItems: 'center', justifyContent: 'center' }}>
@@ -127,7 +127,7 @@ function LiveDetail({
         {isShow && seasons.length ? (
           <View>
             <Text style={{ fontFamily: F.head, fontSize: px(28), color: C.text, marginBottom: px(20) }}>Seasons</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: px(12), marginBottom: px(44) }}>
+            <ScrollView removeClippedSubviews={false} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: px(12), marginBottom: px(44) }}>
               {seasons.map((sn) => {
                 const on = activeSeason?.ratingKey === sn.ratingKey;
                 return (
@@ -227,7 +227,7 @@ function DemoDetail() {
   const episodes = episodesFor(s, T);
 
   return (
-    <ScrollView
+    <ScrollView removeClippedSubviews={false}
       focusable={false}
       showsVerticalScrollIndicator={false}
       onScroll={(e) => a.set({ scrollY: e.nativeEvent.contentOffset.y })}
@@ -301,7 +301,7 @@ function DemoDetail() {
         {T.kind === 'show' ? (
           <View>
             <Text style={{ fontFamily: F.head, fontSize: px(28), color: C.text, marginBottom: px(20) }}>Seasons</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: px(12) }}>
+            <ScrollView removeClippedSubviews={false} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: px(12) }}>
               {Array.from({ length: Math.max(T.seasons, 1) }, (_, i) => {
                 const on = s.season === i + 1;
                 return (

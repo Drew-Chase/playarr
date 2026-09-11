@@ -6,7 +6,7 @@ import { setTopBarRef } from './focus/engine';
 import { Avatar, Focusable } from './ui';
 import { useStore, type Screen } from './store';
 
-const NAV: { key: string; label: string }[] = [
+const NAV = [
   { key: 'home', label: 'Home' },
   { key: 'movies', label: 'Movies' },
   { key: 'shows', label: 'TV Shows' },
@@ -35,20 +35,20 @@ function CalendarGlyph({ ink }: { ink: string }) {
 export function TopBar() {
   const { s, a } = useStore();
   const atTop = s.scrollY < 40;
-  const logoRef = useRef<any>(null);
+  const homePillRef = useRef<any>(null);
 
   useEffect(() => {
-    setTopBarRef(logoRef);
+    setTopBarRef(homePillRef);
   }, []);
+
+  const activeKey: string =
+    s.screen === 'grid' ? (s.gridKind === 'movie' ? 'movies' : 'shows') : (s.screen as Screen);
 
   const go = (key: string) => {
     if (key === 'movies') a.nav('grid', { gridKind: 'movie', gridFilter: 'All' });
     else if (key === 'shows') a.nav('grid', { gridKind: 'show', gridFilter: 'All' });
     else a.nav(key as Screen);
   };
-
-  const activeKey: string =
-    s.screen === 'grid' ? (s.gridKind === 'movie' ? 'movies' : 'shows') : (s.screen as Screen);
 
   const iconBtn = {
     width: px(48),
@@ -85,35 +85,41 @@ export function TopBar() {
           style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(10,12,15,.55)' }}
         />
       ) : null}
-      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: atTop ? 'rgba(7,8,10,0)' : 'rgba(10,12,15,.45)' }} pointerEvents="none" />
+      <View
+        pointerEvents="none"
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: atTop ? 'rgba(7,8,10,0)' : 'rgba(10,12,15,.45)' }}
+      />
+
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: px(52) }}>
-        <Focusable hostRef={logoRef} zone='top' onPress={() => a.nav('home')} focusStyle={{ transform: [{ scale: 1.05 }], borderColor: C.accent, borderWidth: px(3) }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: px(13) }}>
-            <View
-              style={{
-                width: px(40),
-                height: px(40),
-                borderRadius: px(20),
-                backgroundColor: C.accent,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text style={{ color: C.ink, fontSize: px(17) }}>▶</Text>
-            </View>
-            <Text style={{ fontFamily: F.head, fontSize: px(26), letterSpacing: -px(0.6), color: C.text }}>Playarr</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: px(13) }}>
+          <View
+            style={{
+              width: px(40),
+              height: px(40),
+              borderRadius: px(20),
+              backgroundColor: C.accent,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text style={{ color: C.ink, fontSize: px(17) }}>▶</Text>
           </View>
-        </Focusable>
+          <Text style={{ fontFamily: F.head, fontSize: px(26), letterSpacing: -px(0.6), color: C.text }}>Playarr</Text>
+        </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: px(8) }}>
           {NAV.map((n) => {
             const active = activeKey === n.key;
             return (
               <Focusable
                 key={n.key}
-                zone='top'
-               
+                zone="top"
+                hostRef={n.key === 'home' ? homePillRef : undefined}
+                focusRing={false}
                 onPress={() => go(n.key)}
-                focusStyle={{ borderColor: C.accent, borderWidth: px(2), transform: [{ scale: 1.05 }] }}
+                focusStyle={{
+                  backgroundColor: active ? 'rgba(0,212,116,.3)' : 'rgba(255,255,255,.16)',
+                  transform: [{ scale: 1.04 }],
+                }}
                 style={{
                   paddingHorizontal: px(20),
                   paddingVertical: px(11),
@@ -127,26 +133,27 @@ export function TopBar() {
           })}
         </View>
       </View>
+
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: px(14) }}>
         <Focusable
-          zone='top'
-         
+          zone="top"
+          focusRing={false}
           onPress={() => a.nav('calendar')}
-          focusStyle={{ transform: [{ scale: 1.1 }] }}
+          focusStyle={{ transform: [{ scale: 1.08 }], backgroundColor: 'rgba(255,255,255,.2)' }}
           style={[iconBtn, { backgroundColor: s.screen === 'calendar' ? 'rgba(0,212,116,.18)' : 'rgba(255,255,255,.09)' }]}
         >
           <CalendarGlyph ink={s.screen === 'calendar' ? C.accent : '#e9ecee'} />
         </Focusable>
-        <Focusable zone='top' onPress={() => a.nav('search')} focusStyle={{ transform: [{ scale: 1.1 }] }} style={iconBtn}>
+        <Focusable zone="top" focusRing={false} onPress={() => a.nav('search')} focusStyle={{ transform: [{ scale: 1.08 }], backgroundColor: 'rgba(255,255,255,.2)' }} style={iconBtn}>
           <View style={[iconBtn, { backgroundColor: 'rgba(255,255,255,.09)' }]}>
             <Text style={{ fontSize: px(20), color: '#e9ecee' }}>⌕</Text>
           </View>
         </Focusable>
         <Focusable
-          zone='top'
-         
+          zone="top"
+          focusRing={false}
           onPress={() => a.nav('downloads')}
-          focusStyle={{ transform: [{ scale: 1.1 }] }}
+          focusStyle={{ transform: [{ scale: 1.08 }], backgroundColor: 'rgba(255,255,255,.2)' }}
           style={{ ...iconBtn, backgroundColor: 'rgba(255,255,255,.09)' }}
         >
           <Text style={{ fontSize: px(19), color: '#e9ecee' }}>↓</Text>
@@ -166,7 +173,13 @@ export function TopBar() {
             <Text style={{ fontSize: px(11), fontWeight: '700', color: C.ink }}>3</Text>
           </View>
         </Focusable>
-        <Focusable zone='top' onPress={() => a.nav('profile')} focusStyle={{ transform: [{ scale: 1.1 }] }} style={[iconBtn, { backgroundColor: 'transparent' }]}>
+        <Focusable
+          zone="top"
+          focusRing={false}
+          onPress={() => a.nav('profile')}
+          focusStyle={{ transform: [{ scale: 1.08 }] }}
+          style={[iconBtn, { backgroundColor: 'transparent' }]}
+        >
           <Avatar initials="DC" art={['#00D474', '#0b7f5b']} size={48} />
         </Focusable>
       </View>

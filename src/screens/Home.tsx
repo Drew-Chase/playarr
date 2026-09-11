@@ -14,7 +14,7 @@ import {
   fmtDuration,
 } from '../api/mappers';
 import { useContinueWatching, useLibraryItems, useLibraries, useRecentlyAdded, useTrending } from '../api/useLive';
-import { focusRef, onScrollRequest } from '../focus/engine';
+import { focusRef, getBlockY, onScrollRequest, setBlockY } from '../focus/engine';
 import { DEMO_PARTIES } from '../data';
 import type { PlexMediaItem, TmdbItem } from '../api/types';
 
@@ -78,20 +78,15 @@ export function HomeScreen() {
   const liveHero = liveHeroOn ? heroModel(heroSource[s.hero % heroSource.length]) : null;
 
   useEffect(() => {
-    onScrollRequest((block, ref) => {
+    onScrollRequest((block) => {
       if (block === 'hero') {
         scrollRef.current?.scrollTo({ y: 0, animated: true });
         return;
       }
-      const el = ref.current;
-      if (!el || !scrollRef.current) return;
-      el.measureInWindow((_x: number, y: number, _w: number, h: number) => {
-        const desired = px(170);
-        const delta = y - desired;
-        if (Math.abs(delta) > px(50)) {
-          scrollRef.current?.scrollTo({ y: Math.max(0, scrollYRef.current + delta), animated: true });
-        }
-      });
+      const y = getBlockY(block);
+      if (y == null) return;
+      const target = Math.max(0, y + px(-70) - px(240));
+      scrollRef.current?.scrollTo({ y: target, animated: true });
     });
   }, []);
 
@@ -221,7 +216,7 @@ export function HomeScreen() {
     : null;
 
   return (
-    <ScrollView
+    <ScrollView removeClippedSubviews={false}
       focusable={false}
       showsVerticalScrollIndicator={false}
       onScroll={(e) => {
@@ -232,7 +227,10 @@ export function HomeScreen() {
       ref={scrollRef}
       contentContainerStyle={{ paddingBottom: px(90) }}
     >
-      <View style={{ height: px(820), overflow: 'hidden' }}>
+      <View
+        onLayout={(e) => setBlockY('hero', e.nativeEvent.layout.y - px(70))}
+        style={{ height: px(820), overflow: 'hidden' }}
+      >
         {liveHero && liveHeroOn ? (
           <ImgOrGrad uri={liveHero.art} art={demoHero.art} style={{ position: 'absolute', width: '100%', height: '100%' }} />
         ) : (
@@ -281,6 +279,7 @@ export function HomeScreen() {
               row="hero"
               col={0}
               kind="accent"
+              focusRingOffset={3}
               label={liveHeroOn && liveHero ? liveHero.playLabel : demoHero.prog ? '▶ Resume ' + demoHero.ep.split('—')[0].trim() : '▶ Play'}
               onPress={() => {
                 if (liveHeroOn && liveHero) liveHero.onPlay();
@@ -292,7 +291,7 @@ export function HomeScreen() {
               label="More info"
               onPress={() => (liveHeroOn && liveHero ? liveHero.onInfo() : a.openTitle(demoHero.id))}
             />
-            <Btn row="hero" col={2} kind="outline" label="Start watch party" onPress={() => a.set({ modal: 'create' })} />
+            <Btn row="hero" col={2} kind="outline" label="Start watch party" focusRingOffset={3} onPress={() => a.set({ modal: 'create' })} />
           </View>
         </View>
         <View style={{ position: 'absolute', right: px(64), bottom: px(250), flexDirection: 'row', gap: px(10) }}>
@@ -314,7 +313,7 @@ export function HomeScreen() {
       </View>
 
       <View style={{ paddingHorizontal: px(64), marginTop: -px(70), gap: px(52) }}>
-        <Rail label="Continue watching" note="Picks up where every device left off" items={continueItems ?? SKELETON} rowId="cw" />
+        <Rail label="Continue watching" note="Picks up where every device left off" items={continueItems ?? SKELETON} rowId="cw" onLayoutY={(y) => setBlockY('cw', y)} />
 
         <View>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: px(20) }}>
@@ -342,7 +341,7 @@ export function HomeScreen() {
               </Focusable>
             </View>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: px(12) }}>
+          <ScrollView removeClippedSubviews={false} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: px(12) }}>
             {partyCards.map((p, i) => (
               <Focusable
                 key={p.name}
@@ -384,9 +383,9 @@ export function HomeScreen() {
           </ScrollView>
         </View>
 
-        <Rail label="Recently added" note="From your libraries" items={recentItems ?? SKELETON} rowId="recent" />
-        <Rail label="Movies in your library" note={movieLib ? movieLib.title : undefined} items={movieRail ?? SKELETON} rowId="movies" />
-        <Rail label="TV in your library" note={showLib ? showLib.title : undefined} items={showRail ?? SKELETON} rowId="shows" />
+        <Rail label="Recently added" note="From your libraries" items={recentItems ?? SKELETON} rowId="recent" onLayoutY={(y) => setBlockY('recent', y)} />
+        <Rail label="Movies in your library" note={movieLib ? movieLib.title : undefined} items={movieRail ?? SKELETON} rowId="movies" onLayoutY={(y) => setBlockY('movies', y)} />
+        <Rail label="TV in your library" note={showLib ? showLib.title : undefined} items={showRail ?? SKELETON} rowId="shows" onLayoutY={(y) => setBlockY('shows', y)} />
 
         <View>
           <Text style={{ fontFamily: F.head, fontSize: px(28), color: C.text, marginBottom: px(4) }}>Discover</Text>
@@ -401,7 +400,7 @@ export function HomeScreen() {
               {discoverSets.map((set, setIdx) => (
                 <View key={set.label}>
                   <Text style={{ fontFamily: F.head, fontSize: px(24), color: C.text, marginBottom: px(18) }}>{set.label}</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <ScrollView removeClippedSubviews={false} horizontal showsHorizontalScrollIndicator={false}>
                     {set.items.map((item, i) => liveDiscCard(item, `disc:${setIdx}`, i))}
                   </ScrollView>
                 </View>
@@ -413,7 +412,7 @@ export function HomeScreen() {
                 <Text style={{ fontFamily: F.head, fontSize: px(24), color: C.text, marginBottom: px(18) }}>
                   {s.discoverTab === 'Trending' ? 'Trending this week' : s.discoverTab}
                 </Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <ScrollView removeClippedSubviews={false} horizontal showsHorizontalScrollIndicator={false}>
                   {DISCOVER.map((d) => demoDiscCard(d))}
                 </ScrollView>
               </View>

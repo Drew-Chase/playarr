@@ -34,7 +34,8 @@ let screen = 'home';
 let current: { block: string; col: number; ref: TrackedRef; key: string } | null = null;
 let topBarRef: TrackedRef | null = null;
 let lastZone: 'top' | 'content' = 'content';
-let scrollHandler: ((block: string, ref: TrackedRef) => void) | null = null;
+let scrollHandler: ((block: string) => void) | null = null;
+const blockY = new Map<string, number>();
 
 export function setCurrentScreen(s: string) {
   screen = s;
@@ -44,8 +45,16 @@ export function setTopBarRef(ref: TrackedRef | null) {
   topBarRef = ref;
 }
 
-export function onScrollRequest(cb: (block: string, ref: TrackedRef) => void) {
+export function onScrollRequest(cb: (block: string) => void) {
   scrollHandler = cb;
+}
+
+export function setBlockY(block: string, y: number) {
+  blockY.set(block, y);
+}
+
+export function getBlockY(block: string): number | null {
+  return blockY.get(block) ?? null;
 }
 
 function blockFor(id: string): Block {
@@ -135,7 +144,7 @@ export function focusLastContent(): boolean {
     const h = findNodeHandle(e.ref.current);
     if (h == null) return false;
     const okFirst = dispatchFocus(h);
-    if (okFirst) scrollHandler?.(first, e.ref);
+    if (okFirst) scrollHandler?.(first);
     return okFirst;
   }
   const handle = findNodeHandle(lastContent.ref.current);
@@ -147,7 +156,7 @@ export function focusLastContent(): boolean {
   if (ok) {
     current = { block: lastContent.block, col: lastContent.col, ref: lastContent.ref, key: `${screen}::${lastContent.block}:${lastContent.col}` };
     lastZone = 'content';
-    scrollHandler?.(lastContent.block, lastContent.ref);
+    scrollHandler?.(lastContent.block);
   }
   return ok;
 }
@@ -161,7 +170,7 @@ function focusEntryAt(blockId: string, col: number): boolean {
   if (ok) {
     current = { block: blockId, col: e.col, ref: e.ref, key: `${screen}::${blockId}:${e.col}` };
     lastZone = 'content';
-    scrollHandler?.(blockId, e.ref);
+    scrollHandler?.(blockId);
   }
   return ok;
 }
@@ -212,7 +221,7 @@ export function correctDirection(dir: 'up' | 'down' | 'left' | 'right', from: st
   if (movedToBlock !== targetBlock) {
     focusEntryAt(targetBlock, expected.col);
   } else {
-    scrollHandler?.(targetBlock, expected.ref);
+    scrollHandler?.(targetBlock);
   }
 }
 

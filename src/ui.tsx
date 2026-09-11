@@ -75,6 +75,7 @@ interface FocusableProps {
   focusRing?: boolean;
   focusRadius?: number;
   focusRingColor?: string;
+  focusRingOffset?: number;
   row?: string;
   col?: number;
 }
@@ -93,6 +94,7 @@ export function Focusable({
   focusRing = true,
   focusRadius = 14,
   focusRingColor = C.accent,
+  focusRingOffset = 0,
   row,
   col = 0,
 }: FocusableProps) {
@@ -132,13 +134,13 @@ export function Focusable({
           pointerEvents="none"
           style={{
             position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            borderWidth: px(4),
+            top: -px(focusRingOffset),
+            left: -px(focusRingOffset),
+            right: -px(focusRingOffset),
+            bottom: -px(focusRingOffset),
+            borderWidth: px(3),
             borderColor: focusRingColor,
-            borderRadius: focusRadius,
+            borderRadius: focusRadius + px(focusRingOffset),
             zIndex: 60,
           }}
         />
@@ -245,15 +247,19 @@ export function Rail({
   note,
   items,
   rowId,
+  onLayoutY,
 }: {
   label: string;
   note?: string;
   items: PosterData[];
   rowId: string;
+  onLayoutY?: (y: number) => void;
 }) {
   const [focusIdx, setFocusIdx] = useState(-1);
   return (
-    <View>
+    <View
+      onLayout={(e) => onLayoutY?.(e.nativeEvent.layout.y)}
+    >
       <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: px(8) }}>
         <Text style={{ fontFamily: F.head, fontSize: px(28), letterSpacing: -px(0.4), color: C.text }}>{label}</Text>
         {note ? <Text style={{ fontSize: px(16), color: '#7f868c' }}>{note}</Text> : null}
@@ -279,8 +285,8 @@ export function Rail({
         initialNumToRender={8}
         maxToRenderPerBatch={8}
         removeClippedSubviews={false}
-        contentContainerStyle={{ paddingHorizontal: px(16), paddingVertical: px(14) }}
-        style={{ marginHorizontal: -px(16) }}
+        contentContainerStyle={{ paddingHorizontal: px(18), paddingVertical: px(16) }}
+        style={{ marginHorizontal: -px(18) }}
       />
     </View>
   );
@@ -305,6 +311,7 @@ export function Btn({
   hostRef,
   row,
   col = 0,
+  focusRingOffset = 3,
 }: {
   label: string;
   onPress: () => void;
@@ -314,8 +321,9 @@ export function Btn({
   hostRef?: { current: any };
   row?: string;
   col?: number;
+  focusRingOffset?: number;
 }) {
-  const ringColor = kind === 'accent' ? '#ffffff' : C.accent;
+  const ringColor = kind === 'accent' ? '#ffffff' : C.accentSoft;
   const bg =
     kind === 'accent'
       ? C.accent
@@ -333,6 +341,7 @@ export function Btn({
       hasTV={hasTV}
       onPress={onPress}
       focusRingColor={ringColor}
+      focusRingOffset={focusRingOffset ?? 3}
       focusStyle={{ transform: [{ scale: 1.05 }] }}
       style={[
         {

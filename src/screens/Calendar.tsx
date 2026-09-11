@@ -87,7 +87,7 @@ export function CalendarScreen() {
   const live = !!radarr || !!sonarr;
 
   return (
-    <ScrollView
+    <ScrollView removeClippedSubviews={false}
       focusable={false}
       showsVerticalScrollIndicator={false}
       onScroll={(e) => a.set({ scrollY: e.nativeEvent.contentOffset.y })}
