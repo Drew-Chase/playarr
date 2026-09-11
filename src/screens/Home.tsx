@@ -86,7 +86,7 @@ export function HomeScreen() {
       const y = getBlockY(block);
       if (y == null) return;
       const target = Math.max(0, y + px(-70) - px(240));
-      scrollRef.current?.scrollTo({ y: target, animated: true });
+      scrollRef.current?.scrollTo({ y: target, animated: false });
     });
   }, []);
 

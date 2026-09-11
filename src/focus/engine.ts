@@ -161,6 +161,47 @@ export function focusLastContent(): boolean {
   return ok;
 }
 
+function firstEntryOf(blockId: string): Entry | null {
+  const b = blocks.get(blockId);
+  if (!b || b.entries.size === 0) return null;
+  let best: Entry | null = null;
+  for (const col of [...b.entries.keys()].sort((x, y) => x - y)) {
+    const e = b.entries.get(col);
+    if (e && e.ref.current) {
+      best = e;
+      break;
+    }
+  }
+  return best;
+}
+
+/**
+ * Focuses an entry, tolerating virtualisation: if the block has no mounted
+ * entries yet (the scroll that would reveal it hasn't run), scrolls there and
+ * retries for a few frames until the list mounts its items.
+ */
+function focusBlock(blockId: string, col: number, attempt = 0): boolean {
+  const exact = entryAt(blockId, col);
+  const e = exact ?? firstEntryOf(blockId);
+  if (!e || !e.ref.current) {
+    if (attempt < 25) {
+      scrollHandler?.(blockId);
+      setTimeout(() => focusBlock(blockId, col, attempt + 1), 140);
+    }
+    return false;
+  }
+  const handle = findNodeHandle(e.ref.current);
+  if (handle == null) return false;
+  const ok = dispatchFocus(handle);
+  if (ok) {
+    current = { block: blockId, col: e.col, ref: e.ref, key: `${screen}::${blockId}:${e.col}` };
+    lastZone = 'content';
+    lastContent = { block: blockId, col: e.col, ref: e.ref };
+    scrollHandler?.(blockId);
+  }
+  return ok;
+}
+
 function focusEntryAt(blockId: string, col: number): boolean {
   const e = entryAt(blockId, col);
   if (!e) return false;
@@ -215,11 +256,8 @@ export function correctDirection(dir: 'up' | 'down' | 'left' | 'right', from: st
   if (targetIdx >= rows.length) return;
 
   const targetBlock = rows[targetIdx];
-  const expected = entryAt(targetBlock, fromCol);
-  if (!expected) return;
-
   if (movedToBlock !== targetBlock) {
-    focusEntryAt(targetBlock, expected.col);
+    focusBlock(targetBlock, fromCol);
   } else {
     scrollHandler?.(targetBlock);
   }
