@@ -115,7 +115,7 @@ export function CreatePartyModal() {
       <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: px(14), marginTop: px(28) }}>
         <Focusable
           onPress={() => a.set({ modal: null })}
-          focusStyle={{ transform: [{ scale: 1.05 }] }}
+          focusScale={1.05}
           style={{ paddingHorizontal: px(28), paddingVertical: px(16), borderRadius: px(12), backgroundColor: 'rgba(255,255,255,.08)' }}
         >
           <Text style={{ fontSize: px(18), fontWeight: '600', color: C.text }}>Cancel</Text>
@@ -126,7 +126,7 @@ export function CreatePartyModal() {
             a.set({ party: "Drew's Movie Night", modal: null, partyPanelOpen: true });
             a.play(s.titleId, 'Watch party started · code J4K2');
           }}
-          focusStyle={{ transform: [{ scale: 1.05 }] }}
+          focusScale={1.05}
           style={{ paddingHorizontal: px(28), paddingVertical: px(16), borderRadius: px(12), backgroundColor: C.accent }}
         >
           <Text style={{ fontSize: px(18), fontWeight: '700', color: C.ink }}>Create party</Text>
@@ -307,7 +307,7 @@ export function RequestModal() {
       <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: px(14), marginTop: px(28) }}>
         <Focusable
           onPress={() => a.set({ modal: null })}
-          focusStyle={{ transform: [{ scale: 1.05 }] }}
+          focusScale={1.05}
           style={{ paddingHorizontal: px(28), paddingVertical: px(16), borderRadius: px(12), backgroundColor: 'rgba(255,255,255,.08)' }}
         >
           <Text style={{ fontSize: px(18), fontWeight: '600', color: C.text }}>Cancel</Text>
@@ -348,7 +348,7 @@ export function RequestModal() {
                 setLoadingAdd(false);
               });
           }}
-          focusStyle={{ transform: [{ scale: 1.05 }] }}
+          focusScale={1.05}
           style={{ paddingHorizontal: px(28), paddingVertical: px(16), borderRadius: px(12), backgroundColor: C.accent }}
         >
           <Text style={{ fontSize: px(18), fontWeight: '700', color: C.ink }}>

@@ -34,7 +34,7 @@ let screen = 'home';
 let current: { block: string; col: number; ref: TrackedRef; key: string } | null = null;
 let topBarRef: TrackedRef | null = null;
 let lastZone: 'top' | 'content' = 'content';
-const scrollHandlers = new Map<string, (block: string) => void>();
+const scrollHandlers = new Map<string, (block: string, ref: TrackedRef) => void>();
 const blockY = new Map<string, number>();
 
 export function setCurrentScreen(s: string) {
@@ -45,15 +45,17 @@ export function setTopBarRef(ref: TrackedRef | null) {
   topBarRef = ref;
 }
 
-export function onScrollRequest(screen: string, cb: (block: string) => void) {
+export function onScrollRequest(screen: string, cb: (block: string, ref: TrackedRef) => void) {
   scrollHandlers.set(screen, cb);
 }
 
-function fireScroll(block: string) {
-  // defer so the page scroll wins over the native minimal scroll-to-focus
+function fireScroll(block: string, ref?: TrackedRef) {
+  const r = ref ?? lastContent?.ref;
+  if (!r) return;
+  // defer so the page scroll lands after the native focus round-trip
   setTimeout(() => {
-    scrollHandlers.get(screen)?.(block);
-  }, 60);
+    scrollHandlers.get(screen)?.(block, r);
+  }, 40);
 }
 
 export function setBlockY(block: string, y: number) {
@@ -84,6 +86,15 @@ export function unregisterEntry(block: string, col: number) {
   if (b) b.entries.delete(col);
 }
 
+export function lastZoneWasTop(): boolean {
+  return lastZone === 'top';
+}
+
+export function noteForeignFocus() {
+  foreignFocus = true;
+  lastZone = 'content';
+}
+
 export function noteFocus(block: string, col: number, ref: TrackedRef) {
   current = { block, col, ref, key: `${screen}::${block}:${col}` };
   lastZone = block === TOP_BLOCK ? 'top' : 'content';
@@ -95,6 +106,7 @@ export const TOP_BLOCK = '__top__';
 export function noteTopFocus(ref: TrackedRef) {
   lastZone = 'top';
   topBarRef = ref;
+  foreignFocus = false;
   current = { block: TOP_BLOCK, col: 0, ref, key: 'top' };
 }
 
@@ -140,6 +152,9 @@ export function focusTopBar(): boolean {
 }
 
 let lastContent: { block: string; col: number; ref: TrackedRef } | null = null;
+let expectedBlock = 'hero';
+let expectedCol = 0;
+let foreignFocus = false;
 
 /** Re-focuses the content element that had focus before the top bar. */
 export function focusLastContent(): boolean {
@@ -151,7 +166,7 @@ export function focusLastContent(): boolean {
     const h = findNodeHandle(e.ref.current);
     if (h == null) return false;
     const okFirst = dispatchFocus(h);
-    if (okFirst) fireScroll(first);
+    if (okFirst) fireScroll(first, e.ref);
     return okFirst;
   }
   const handle = findNodeHandle(lastContent.ref.current);
@@ -163,7 +178,7 @@ export function focusLastContent(): boolean {
   if (ok) {
     current = { block: lastContent.block, col: lastContent.col, ref: lastContent.ref, key: `${screen}::${lastContent.block}:${lastContent.col}` };
     lastZone = 'content';
-    fireScroll(lastContent.block);
+    fireScroll(lastContent.block, lastContent.ref);
   }
   return ok;
 }
@@ -193,7 +208,7 @@ function focusBlock(blockId: string, col: number, attempt = 0): boolean {
   const liveHandle = e && e.ref.current ? findNodeHandle(e.ref.current) : null;
   if (!e || liveHandle == null) {
     if (attempt < 25) {
-      fireScroll(blockId);
+      scrollHandlers.get(screen)?.(blockId, { current: null });
       setTimeout(() => focusBlock(blockId, col, attempt + 1), 140);
     }
     return false;
@@ -205,7 +220,7 @@ function focusBlock(blockId: string, col: number, attempt = 0): boolean {
     current = { block: blockId, col: e.col, ref: e.ref, key: `${screen}::${blockId}:${e.col}` };
     lastZone = 'content';
     lastContent = { block: blockId, col: e.col, ref: e.ref };
-    fireScroll(blockId);
+    fireScroll(blockId, e.ref);
   }
   return ok;
 }
@@ -219,7 +234,7 @@ function focusEntryAt(blockId: string, col: number): boolean {
   if (ok) {
     current = { block: blockId, col: e.col, ref: e.ref, key: `${screen}::${blockId}:${e.col}` };
     lastZone = 'content';
-    fireScroll(blockId);
+    fireScroll(blockId, e.ref);
   }
   return ok;
 }
@@ -266,31 +281,9 @@ export function correctDirection(dir: 'up' | 'down' | 'left' | 'right', from: st
   const targetBlock = rows[targetIdx];
   if (movedToBlock !== targetBlock) {
     focusBlock(targetBlock, fromCol);
-  } else {
-    fireScroll(targetBlock);
   }
 }
 
-let snapshotAtLastEvent: { block: string; col: number } | null = null;
-
-/**
- * Call from the global hardware-key listener for every directional key.
- * Runs after the native focus move and corrects it when Android's spatial
- * search picked the wrong element.
- */
-export function handleDirection(dir: 'up' | 'down' | 'left' | 'right') {
-  const prev = snapshotAtLastEvent;
-  const movedToBlock = current ? current.block : null;
-  const from = prev ?? current;
-  if (from) {
-    correctDirection(dir, from.block, from.col, movedToBlock);
-  }
-  snapshotAtLastEvent = current;
-}
-
-export function lastZoneWasTop(): boolean {
-  return lastZone === 'top';
-}
 
 export function debugState(): string {
   return `screen=${screen} current=${current ? current.block + ':' + current.col : 'none'} blocks=[${orderedContentBlocks().join(',')}]`;

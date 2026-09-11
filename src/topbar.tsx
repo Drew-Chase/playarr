@@ -3,6 +3,7 @@ import { Text, TVFocusGuideView, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { C, F, px } from './theme';
 import { setTopBarRef } from './focus/engine';
+import { useFocusGraph } from './focus/graph';
 import { Avatar, Focusable } from './ui';
 import { useStore, type Screen } from './store';
 
@@ -33,6 +34,7 @@ function CalendarGlyph({ ink }: { ink: string }) {
 }
 
 export function TopBar() {
+  const graph = useFocusGraph();
   const { s, a } = useStore();
   const atTop = s.scrollY < 40;
   const homePillRef = useRef<any>(null);
@@ -114,6 +116,8 @@ export function TopBar() {
                 key={n.key}
                 zone="top"
                 hostRef={n.key === 'home' ? homePillRef : undefined}
+                focusKey={`top:${n.key}`}
+                nextFocus={{ down: 'hero:0', right: n.key === 'home' ? 'top:movies' : n.key === 'movies' ? 'top:shows' : undefined, left: n.key === 'shows' ? 'top:movies' : n.key === 'movies' ? 'top:home' : undefined }}
                 focusRing={false}
                 onPress={() => go(n.key)}
                 focusStyle={{
@@ -137,23 +141,27 @@ export function TopBar() {
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: px(14) }}>
         <Focusable
           zone="top"
+          focusKey="top:calendar"
+          nextFocus={{ down: 'hero:0', left: 'top:home' }}
           focusRing={false}
           onPress={() => a.nav('calendar')}
-          focusStyle={{ transform: [{ scale: 1.08 }], backgroundColor: 'rgba(255,255,255,.2)' }}
+          focusScale={1.08} focusStyle={{ backgroundColor: 'rgba(255,255,255,.2)' }}
           style={[iconBtn, { backgroundColor: s.screen === 'calendar' ? 'rgba(0,212,116,.18)' : 'rgba(255,255,255,.09)' }]}
         >
           <CalendarGlyph ink={s.screen === 'calendar' ? C.accent : '#e9ecee'} />
         </Focusable>
-        <Focusable zone="top" focusRing={false} onPress={() => a.nav('search')} focusStyle={{ transform: [{ scale: 1.08 }], backgroundColor: 'rgba(255,255,255,.2)' }} style={iconBtn}>
+        <Focusable zone="top" focusRing={false} onPress={() => a.nav('search')} focusScale={1.08} focusStyle={{ backgroundColor: 'rgba(255,255,255,.2)' }} style={iconBtn}>
           <View style={[iconBtn, { backgroundColor: 'rgba(255,255,255,.09)' }]}>
             <Text style={{ fontSize: px(20), color: '#e9ecee' }}>⌕</Text>
           </View>
         </Focusable>
         <Focusable
           zone="top"
+          focusKey="top:downloads"
+          nextFocus={{ down: 'hero:0', left: 'top:search', right: 'top:profile' }}
           focusRing={false}
           onPress={() => a.nav('downloads')}
-          focusStyle={{ transform: [{ scale: 1.08 }], backgroundColor: 'rgba(255,255,255,.2)' }}
+          focusScale={1.08} focusStyle={{ backgroundColor: 'rgba(255,255,255,.2)' }}
           style={{ ...iconBtn, backgroundColor: 'rgba(255,255,255,.09)' }}
         >
           <Text style={{ fontSize: px(19), color: '#e9ecee' }}>↓</Text>
@@ -175,6 +183,8 @@ export function TopBar() {
         </Focusable>
         <Focusable
           zone="top"
+          focusKey="top:profile"
+          nextFocus={{ down: 'hero:0', left: 'top:downloads' }}
           focusRing={false}
           onPress={() => a.nav('profile')}
           focusStyle={{ transform: [{ scale: 1.08 }] }}

@@ -175,8 +175,8 @@ export function HomeScreen() {
         key={id}
         row={row}
         col={col}
+        focusScale={1.04}
         onPress={poster.onPress}
-        focusStyle={{ transform: [{ scale: 1.05 }] }}
         style={{ width: px(300), marginRight: px(22) }}
       >
         <View style={{ height: px(170), borderRadius: px(14), overflow: 'hidden', backgroundColor: '#000' }}>
@@ -277,8 +277,8 @@ export function HomeScreen() {
           <View style={{ flexDirection: 'row', gap: px(16), marginTop: px(34) }}>
             <Btn
               hostRef={heroPlayRef}
-              row="hero"
-              col={0}
+              focusKey="hero:0"
+              nextFocus={{ down: 'cw:0', right: 'hero:1' }}
               kind="accent"
               focusRingOffset={3}
               label={liveHeroOn && liveHero ? liveHero.playLabel : demoHero.prog ? '▶ Resume ' + demoHero.ep.split('—')[0].trim() : '▶ Play'}
@@ -292,7 +292,16 @@ export function HomeScreen() {
               label="More info"
               onPress={() => (liveHeroOn && liveHero ? liveHero.onInfo() : a.openTitle(demoHero.id))}
             />
-            <Btn row="hero" col={2} kind="outline" label="Start watch party" focusRingOffset={3} onPress={() => a.set({ modal: 'create' })} />
+            <Btn
+              row="hero"
+              col={2}
+              focusKey="hero:2"
+              nextFocus={{ down: 'cw:0', left: 'hero:1' }}
+              kind="outline"
+              label="Start watch party"
+              focusRingOffset={3}
+              onPress={() => a.set({ modal: 'create' })}
+            />
           </View>
         </View>
         <View style={{ position: 'absolute', right: px(64), bottom: px(250), flexDirection: 'row', gap: px(10) }}>
@@ -314,7 +323,15 @@ export function HomeScreen() {
       </View>
 
       <View style={{ paddingHorizontal: px(64), marginTop: -px(70), gap: px(52) }}>
-        <Rail label="Continue watching" note="Picks up where every device left off" items={continueItems ?? SKELETON} rowId="cw" onLayoutY={(y) => setBlockY('cw', y)} />
+        <Rail
+          label="Continue watching"
+          note="Picks up where every device left off"
+          items={continueItems ?? SKELETON}
+          rowId="cw"
+          onLayoutY={(y) => setBlockY('cw', y)}
+          nextDownRow="parties"
+          nextUpRow="hero"
+        />
 
         <View>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: px(20) }}>
@@ -384,9 +401,32 @@ export function HomeScreen() {
           </ScrollView>
         </View>
 
-        <Rail label="Recently added" note="From your libraries" items={recentItems ?? SKELETON} rowId="recent" onLayoutY={(y) => setBlockY('recent', y)} />
-        <Rail label="Movies in your library" note={movieLib ? movieLib.title : undefined} items={movieRail ?? SKELETON} rowId="movies" onLayoutY={(y) => setBlockY('movies', y)} />
-        <Rail label="TV in your library" note={showLib ? showLib.title : undefined} items={showRail ?? SKELETON} rowId="shows" onLayoutY={(y) => setBlockY('shows', y)} />
+        <Rail
+          label="Recently added"
+          note="From your libraries"
+          items={recentItems ?? SKELETON}
+          rowId="recent"
+          onLayoutY={(y) => setBlockY('recent', y)}
+          nextDownRow="movies"
+          nextUpRow="parties"
+        />
+        <Rail
+          label="Movies in your library"
+          note={movieLib ? movieLib.title : undefined}
+          items={movieRail ?? SKELETON}
+          rowId="movies"
+          onLayoutY={(y) => setBlockY('movies', y)}
+          nextDownRow="shows"
+          nextUpRow="recent"
+        />
+        <Rail
+          label="TV in your library"
+          note={showLib ? showLib.title : undefined}
+          items={showRail ?? SKELETON}
+          rowId="shows"
+          onLayoutY={(y) => setBlockY('shows', y)}
+          nextUpRow="movies"
+        />
 
         <View>
           <Text style={{ fontFamily: F.head, fontSize: px(28), color: C.text, marginBottom: px(4) }}>Discover</Text>

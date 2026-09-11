@@ -1,6 +1,7 @@
 import { useEffect, memo, useRef, useState, type ReactNode } from 'react';
 import { FlatList, Image, Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native';
-import { noteFocus, noteTopFocus, registerEntry, unregisterEntry } from './focus/engine';
+import { noteFocus, noteTopFocus } from './focus/engine';
+import { useFocusGraph } from './focus/graph';
 import { LinearGradient } from 'expo-linear-gradient';
 import { C, F, px } from './theme';
 
@@ -76,6 +77,9 @@ interface FocusableProps {
   focusRadius?: number;
   focusRingColor?: string;
   focusRingOffset?: number;
+  focusScale?: number;
+  focusKey?: string;
+  nextFocus?: { up?: string; down?: string; left?: string; right?: string };
   row?: string;
   col?: number;
 }
@@ -95,22 +99,37 @@ export function Focusable({
   focusRadius = 14,
   focusRingColor = C.accent,
   focusRingOffset = 0,
+  focusScale = 1,
+  focusKey,
+  nextFocus,
   row,
   col = 0,
 }: FocusableProps) {
   const [f, setF] = useState(false);
   const innerRef = useRef<any>(null);
   const hostRef = externalRef ?? innerRef;
+  const graph = useFocusGraph();
 
   useEffect(() => {
-    if (!row) return;
-    registerEntry(row, col, hostRef);
-    return () => unregisterEntry(row, col);
-  }, [row, col, hostRef]);
+    if (focusKey) graph.register(focusKey, hostRef.current);
+  }, [focusKey, graph, hostRef]);
+
+  let nextFocusProps: Record<string, number> | undefined;
+  if (nextFocus) {
+    nextFocusProps = {};
+    const map: Record<string, string> = { up: 'NextFocusUp', down: 'NextFocusDown', left: 'NextFocusLeft', right: 'NextFocusRight' };
+    for (const dir of ['up', 'down', 'left', 'right'] as const) {
+      const key = nextFocus[dir];
+      if (!key) continue;
+      const h = graph.handle(key);
+      if (h != null) nextFocusProps[map[dir]] = h;
+    }
+  }
 
   return (
     <Pressable
       ref={hostRef}
+      {...(nextFocusProps as any)}
       accessibilityRole="button"
       focusable={!disabled}
       disabled={disabled}
@@ -126,7 +145,12 @@ export function Focusable({
         setF(false);
         onBlur?.();
       }}
-      style={[style, f ? focusStyle : null, f && { zIndex: 5 }]}
+      style={[
+        { transform: [{ scale: f ? focusScale : 1 }] },
+        style,
+        f ? focusStyle : null,
+        f && { zIndex: 5 },
+      ]}
     >
       {children}
       {f && focusRing ? (
@@ -184,26 +208,26 @@ export const Poster = memo(function Poster({
   hasTV,
   onFocus,
   onBlur,
-  row,
-  col,
+  focusKey,
+  nextFocus,
 }: {
   item: PosterData;
   hasTV?: boolean;
   onFocus?: () => void;
   onBlur?: () => void;
-  row?: string;
-  col?: number;
+  focusKey?: string;
+  nextFocus?: { up?: string; down?: string; left?: string; right?: string };
 }) {
   return (
-    <View style={{ width: px(260), marginRight: px(44) }}>
+    <View style={{ width: px(252), marginRight: px(28) }}>
       <Focusable
         hasTV={hasTV}
         onPress={item.onPress}
         onFocus={onFocus}
         onBlur={onBlur}
-        row={row}
-        col={col}
-        focusRadius={22}
+        focusKey={focusKey}
+        nextFocus={nextFocus}
+        focusRadius={16}
         focusRingOffset={10}
         focusRingColor="rgba(125,255,192,.6)"
         focusStyle={{ transform: [{ scale: 1.05 }], backgroundColor: 'rgba(255,255,255,.08)' }}
@@ -254,12 +278,16 @@ export function Rail({
   items,
   rowId,
   onLayoutY,
+  nextDownRow,
+  nextUpRow,
 }: {
   label: string;
   note?: string;
   items: PosterData[];
   rowId: string;
   onLayoutY?: (y: number) => void;
+  nextDownRow?: string;
+  nextUpRow?: string;
 }) {
   const [focusIdx, setFocusIdx] = useState(-1);
   return (
@@ -279,8 +307,13 @@ export function Rail({
           <View style={{ zIndex: focusIdx === index ? 30 : 0 }}>
             <Poster
               item={item}
-              row={rowId}
-              col={index}
+              focusKey={`${rowId}:${index}`}
+              nextFocus={{
+                down: nextDownRow ? `${nextDownRow}:${index}` : undefined,
+                up: nextUpRow ? `${nextUpRow}:${index}` : undefined,
+                left: index > 0 ? `${rowId}:${index - 1}` : undefined,
+                right: index < items.length - 1 ? `${rowId}:${index + 1}` : undefined,
+              }}
               onFocus={() => setFocusIdx(index)}
               onBlur={() => setFocusIdx(-1)}
             />
@@ -318,6 +351,9 @@ export function Btn({
   row,
   col = 0,
   focusRingOffset = 3,
+  focusScale = 1.05,
+  focusKey,
+  nextFocus,
 }: {
   label: string;
   onPress: () => void;
@@ -328,6 +364,9 @@ export function Btn({
   row?: string;
   col?: number;
   focusRingOffset?: number;
+  focusScale?: number;
+  focusKey?: string;
+  nextFocus?: { up?: string; down?: string; left?: string; right?: string };
 }) {
   const ringColor = kind === 'accent' ? '#ffffff' : C.accentSoft;
   const bg =
@@ -342,13 +381,14 @@ export function Btn({
   return (
     <Focusable
       hostRef={hostRef}
-      row={row}
-      col={col}
+      focusKey={focusKey}
+      nextFocus={nextFocus}
       hasTV={hasTV}
       onPress={onPress}
       focusRingColor={ringColor}
       focusRingOffset={focusRingOffset ?? 3}
-      focusStyle={{ transform: [{ scale: 1.05 }] }}
+      focusScale={focusScale}
+      focusStyle={null}
       style={[
         {
           backgroundColor: bg,

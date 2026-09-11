@@ -183,7 +183,8 @@ function LiveDetail({
                   <Focusable
                     key={ep.ratingKey}
                     hasTV={i === 0}
-                    focusRadius={14}
+                    focusRadius={16}
+                    focusScale={1.03}
                     row={`epgrid:${Math.floor(i / 3)}`}
                     col={i % 3}
                     onPress={() => {

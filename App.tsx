@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react';
-import { BackHandler, Dimensions, StatusBar, TVEventHandler, View } from 'react-native';
+import { BackHandler, Dimensions, StatusBar, View } from 'react-native';
 import { useFonts } from 'expo-font';
 import { ArchivoBlack_400Regular } from '@expo-google-fonts/archivo-black';
 import { Archivo_400Regular, Archivo_600SemiBold, Archivo_700Bold } from '@expo-google-fonts/archivo';
 import { DMSans_400Regular, DMSans_500Medium, DMSans_700Bold } from '@expo-google-fonts/dm-sans';
 import { StoreContext } from './src/store';
 import { useAppStore } from './src/storeImpl';
+import { FocusGraphProvider } from './src/focus/graph';
 import {
   setCurrentScreen as engineSetCurrentScreen,
   focusTopBar as engineFocusTopBar,
   lastZoneWasTop as engineLastZoneWasTop,
-  handleDirection as engineHandleDirection,
   focusLastContent as engineFocusLastContent,
 } from './src/focus/engine';
 import { isConfigured, loadConfig, type AppConfig } from './src/config';
@@ -80,22 +80,8 @@ export default function App() {
       if (!engineLastZoneWasTop() && engineFocusTopBar()) return true;
       return false;
     });
-    const keySub = (TVEventHandler as any).addListener((e: any, data: any) => {
-      const d = data ?? e;
-      const et = d?.eventType;
-      if (et === 'down' && engineLastZoneWasTop()) {
-        engineFocusLastContent();
-        return;
-      }
-      if (et === 'up' || et === 'down' || et === 'left' || et === 'right') {
-        engineHandleDirection(et as 'up' | 'down' | 'left' | 'right');
-      }
-    });
-    return () => {
-      backSub.remove();
-      keySub.remove();
-    };
-  }, [a, sRef]);
+    return () => backSub.remove();
+  }, [a]);
 
   if (!loaded || !cfg) return <View style={{ flex: 1, backgroundColor: C.bgDeep }} />;
 
@@ -149,20 +135,22 @@ export default function App() {
   };
 
   return (
-    <StoreContext.Provider value={ctx}>
-      <StatusBar hidden />
-      <View style={{ flex: 1, backgroundColor: C.bg }}>
-        {s.screen !== 'player' ? (
-          <View style={{ flex: 1 }}>
-            {screen()}
-            <TopBar />
-          </View>
-        ) : (
-          screen()
-        )}
-        <Modals />
-        <Toast msg={s.toast} />
-      </View>
-    </StoreContext.Provider>
+    <FocusGraphProvider>
+      <StoreContext.Provider value={ctx}>
+        <StatusBar hidden />
+        <View style={{ flex: 1, backgroundColor: C.bg }}>
+          {s.screen !== 'player' ? (
+            <View style={{ flex: 1 }}>
+              {screen()}
+              <TopBar />
+            </View>
+          ) : (
+            screen()
+          )}
+          <Modals />
+          <Toast msg={s.toast} />
+        </View>
+      </StoreContext.Provider>
+    </FocusGraphProvider>
   );
 }
