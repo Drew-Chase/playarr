@@ -101,7 +101,6 @@ export const TOP_BLOCK = '__top__';
 export function noteTopFocus(ref: TrackedRef) {
   lastZone = 'top';
   topBarRef = ref;
-  foreignFocus = false;
   current = { block: TOP_BLOCK, col: 0, ref, key: 'top' };
 }
 
