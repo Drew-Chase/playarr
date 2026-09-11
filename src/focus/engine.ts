@@ -90,11 +90,6 @@ export function lastZoneWasTop(): boolean {
   return lastZone === 'top';
 }
 
-export function noteForeignFocus() {
-  foreignFocus = true;
-  lastZone = 'content';
-}
-
 export function noteFocus(block: string, col: number, ref: TrackedRef) {
   current = { block, col, ref, key: `${screen}::${block}:${col}` };
   lastZone = block === TOP_BLOCK ? 'top' : 'content';
@@ -152,9 +147,6 @@ export function focusTopBar(): boolean {
 }
 
 let lastContent: { block: string; col: number; ref: TrackedRef } | null = null;
-let expectedBlock = 'hero';
-let expectedCol = 0;
-let foreignFocus = false;
 
 /** Re-focuses the content element that had focus before the top bar. */
 export function focusLastContent(): boolean {

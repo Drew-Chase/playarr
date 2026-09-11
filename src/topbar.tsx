@@ -3,7 +3,6 @@ import { Text, TVFocusGuideView, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { C, F, px } from './theme';
 import { setTopBarRef } from './focus/engine';
-import { useFocusGraph } from './focus/graph';
 import { Avatar, Focusable } from './ui';
 import { useStore, type Screen } from './store';
 
@@ -34,7 +33,6 @@ function CalendarGlyph({ ink }: { ink: string }) {
 }
 
 export function TopBar() {
-  const graph = useFocusGraph();
   const { s, a } = useStore();
   const atTop = s.scrollY < 40;
   const homePillRef = useRef<any>(null);
