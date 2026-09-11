@@ -163,6 +163,8 @@ function LiveDetail({
                     key={ep.ratingKey}
                     hasTV={i === 0}
                     focusRadius={14}
+                    row={`epgrid:${Math.floor(i / 3)}`}
+                    col={i % 3}
                     onPress={() => {
                       a.set({ liveEpisodes: seasonEpisodes, epIndex: i });
                       a.nav('episode');
@@ -204,6 +206,7 @@ function LiveDetail({
 
         <Rail
           label="More like this"
+          rowId="similar-live"
           items={similar.map((t) => ({
             key: t.id,
             t: t.t,
@@ -363,6 +366,7 @@ function DemoDetail() {
 
         <Rail
           label="More like this"
+          rowId="similar-demo"
           items={TITLES.filter((t) => t.id !== T.id).slice(0, 7).map((t) => ({
             key: t.id,
             t: t.t,

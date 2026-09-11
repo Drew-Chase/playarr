@@ -1,6 +1,6 @@
-import { memo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, memo, useRef, useState, type ReactNode } from 'react';
 import { FlatList, Image, Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native';
-import { noteFocus } from './focusNav';
+import { noteFocus, noteTopFocus, registerEntry, unregisterEntry } from './focus/engine';
 import { LinearGradient } from 'expo-linear-gradient';
 import { C, F, px } from './theme';
 
@@ -65,7 +65,6 @@ interface FocusableProps {
   onPress?: () => void;
   onFocus?: () => void;
   onBlur?: () => void;
-  onKeyDown?: (e: { nativeEvent: { key: string }; preventDefault: () => void }) => void;
   focusStyle?: StyleProp<ViewStyle>;
   style?: StyleProp<ViewStyle>;
   hasTV?: boolean;
@@ -75,13 +74,15 @@ interface FocusableProps {
   hostRef?: { current: any };
   focusRing?: boolean;
   focusRadius?: number;
+  focusRingColor?: string;
+  row?: string;
+  col?: number;
 }
 
 export function Focusable({
   onPress,
   onFocus,
   onBlur,
-  onKeyDown,
   focusStyle,
   style,
   hasTV,
@@ -90,11 +91,21 @@ export function Focusable({
   zone = 'content',
   hostRef: externalRef,
   focusRing = true,
-  focusRadius,
+  focusRadius = 14,
+  focusRingColor = C.accent,
+  row,
+  col = 0,
 }: FocusableProps) {
   const [f, setF] = useState(false);
   const innerRef = useRef<any>(null);
   const hostRef = externalRef ?? innerRef;
+
+  useEffect(() => {
+    if (!row) return;
+    registerEntry(row, col, hostRef);
+    return () => unregisterEntry(row, col);
+  }, [row, col, hostRef]);
+
   return (
     <Pressable
       ref={hostRef}
@@ -103,21 +114,17 @@ export function Focusable({
       disabled={disabled}
       hasTVPreferredFocus={hasTV}
       onPress={onPress}
-      {...((onKeyDown ? { onKeyDown } : {}) as any)}
       onFocus={() => {
         setF(true);
         onFocus?.();
-        noteFocus(zone, hostRef);
+        if (row) noteFocus(row, col, hostRef);
+        else if (zone === 'top') noteTopFocus(hostRef);
       }}
       onBlur={() => {
         setF(false);
         onBlur?.();
       }}
-      style={[
-        style,
-        f ? focusStyle : null,
-        f && { zIndex: 5 },
-      ]}
+      style={[style, f ? focusStyle : null, f && { zIndex: 5 }]}
     >
       {children}
       {f && focusRing ? (
@@ -125,13 +132,13 @@ export function Focusable({
           pointerEvents="none"
           style={{
             position: 'absolute',
-            top: -px(4),
-            left: -px(4),
-            right: -px(4),
-            bottom: -px(4),
-            borderWidth: px(3),
-            borderColor: C.accent,
-            borderRadius: focusRadius !== undefined ? px(focusRadius) : px(18),
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            borderWidth: px(4),
+            borderColor: focusRingColor,
+            borderRadius: focusRadius,
             zIndex: 60,
           }}
         />
@@ -174,17 +181,27 @@ export const Poster = memo(function Poster({
   item,
   hasTV,
   onFocus,
+  onBlur,
+  row,
+  col,
 }: {
   item: PosterData;
   hasTV?: boolean;
   onFocus?: () => void;
+  onBlur?: () => void;
+  row?: string;
+  col?: number;
 }) {
   return (
     <Focusable
       hasTV={hasTV}
       onPress={item.onPress}
       onFocus={onFocus}
-      style={{ width: px(224), marginRight: px(22) }}
+      onBlur={onBlur}
+      row={row}
+      col={col}
+      focusRadius={14}
+      style={{ width: px(224) }}
       focusStyle={{ transform: [{ scale: 1.07 }] }}
     >
       <View
@@ -223,8 +240,18 @@ export const Poster = memo(function Poster({
   );
 });
 
-export function Rail({ label, note, items }: { label: string; note?: string; items: PosterData[] }) {
-  const listRef = useRef<FlatList<PosterData> | null>(null);
+export function Rail({
+  label,
+  note,
+  items,
+  rowId,
+}: {
+  label: string;
+  note?: string;
+  items: PosterData[];
+  rowId: string;
+}) {
+  const [focusIdx, setFocusIdx] = useState(-1);
   return (
     <View>
       <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: px(8) }}>
@@ -232,28 +259,42 @@ export function Rail({ label, note, items }: { label: string; note?: string; ite
         {note ? <Text style={{ fontSize: px(16), color: '#7f868c' }}>{note}</Text> : null}
       </View>
       <FlatList
-        ref={listRef}
         horizontal
         data={items}
         keyExtractor={(i) => i.key}
+        extraData={focusIdx}
         renderItem={({ item, index }) => (
-          <Poster
-            item={item}
-            onFocus={() => listRef.current?.scrollToIndex({ index, viewPosition: 0.15, animated: true })}
-          />
+          <View style={{ zIndex: focusIdx === index ? 30 : 0 }}>
+            <Poster
+              item={item}
+              row={rowId}
+              col={index}
+              onFocus={() => setFocusIdx(index)}
+              onBlur={() => setFocusIdx(-1)}
+            />
+          </View>
         )}
         showsHorizontalScrollIndicator={false}
-        windowSize={3}
-        initialNumToRender={6}
-        maxToRenderPerBatch={6}
+        windowSize={5}
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
         removeClippedSubviews={false}
-        initialScrollIndex={0}
-        contentContainerStyle={{ paddingHorizontal: px(16), paddingVertical: px(12) }}
+        contentContainerStyle={{ paddingHorizontal: px(16), paddingVertical: px(14) }}
         style={{ marginHorizontal: -px(16) }}
       />
     </View>
   );
 }
+
+export const SKELETON: PosterData[] = Array.from({ length: 6 }, (_, i) => ({
+  key: `sk${i}`,
+  t: '',
+  sub: '',
+  art: ['#14171a', '#101316', '#0d0f12'],
+  ink: 'transparent',
+  hideOverlay: true,
+  onPress: () => {},
+}));
 
 export function Btn({
   label,
@@ -262,6 +303,8 @@ export function Btn({
   hasTV,
   style,
   hostRef,
+  row,
+  col = 0,
 }: {
   label: string;
   onPress: () => void;
@@ -269,7 +312,10 @@ export function Btn({
   hasTV?: boolean;
   style?: StyleProp<ViewStyle>;
   hostRef?: { current: any };
+  row?: string;
+  col?: number;
 }) {
+  const ringColor = kind === 'accent' ? '#ffffff' : C.accent;
   const bg =
     kind === 'accent'
       ? C.accent
@@ -282,8 +328,11 @@ export function Btn({
   return (
     <Focusable
       hostRef={hostRef}
+      row={row}
+      col={col}
       hasTV={hasTV}
       onPress={onPress}
+      focusRingColor={ringColor}
       focusStyle={{ transform: [{ scale: 1.05 }] }}
       style={[
         {

@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react';
-import { BackHandler, Dimensions, StatusBar, View } from 'react-native';
+import { BackHandler, Dimensions, StatusBar, TVEventHandler, View } from 'react-native';
 import { useFonts } from 'expo-font';
 import { ArchivoBlack_400Regular } from '@expo-google-fonts/archivo-black';
 import { Archivo_400Regular, Archivo_600SemiBold, Archivo_700Bold } from '@expo-google-fonts/archivo';
 import { DMSans_400Regular, DMSans_500Medium, DMSans_700Bold } from '@expo-google-fonts/dm-sans';
 import { StoreContext } from './src/store';
 import { useAppStore } from './src/storeImpl';
-import { focusTopBar, lastFocusWasTop, setCurrentScreen } from './src/focusNav';
+import {
+  setCurrentScreen as engineSetCurrentScreen,
+  focusTopBar as engineFocusTopBar,
+  lastZoneWasTop as engineLastZoneWasTop,
+  handleDirection as engineHandleDirection,
+  focusLastContent as engineFocusLastContent,
+} from './src/focus/engine';
 import { isConfigured, loadConfig, type AppConfig } from './src/config';
 import { configureApi } from './src/api/client';
 import { TopBar } from './src/topbar';
@@ -56,11 +62,11 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    setCurrentScreen(s.screen);
+    engineSetCurrentScreen(s.screen);
   }, [s.screen]);
 
   useEffect(() => {
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+    const backSub = BackHandler.addEventListener('hardwareBackPress', () => {
       const st = sRef;
       if (st.modal || st.settingsPane || st.upNext || st.screen === 'player' || st.screen === 'episode') {
         a.back();
@@ -68,13 +74,27 @@ export default function App() {
       }
       if (st.screen !== 'home') {
         a.back();
-        setTimeout(() => focusTopBar(), 80);
+        setTimeout(() => engineFocusTopBar(), 80);
         return true;
       }
-      if (!lastFocusWasTop() && focusTopBar()) return true;
+      if (!engineLastZoneWasTop() && engineFocusTopBar()) return true;
       return false;
     });
-    return () => sub.remove();
+    const keySub = (TVEventHandler as any).addListener((e: any, data: any) => {
+      const d = data ?? e;
+      const et = d?.eventType;
+      if (et === 'down' && engineLastZoneWasTop()) {
+        engineFocusLastContent();
+        return;
+      }
+      if (et === 'up' || et === 'down' || et === 'left' || et === 'right') {
+        engineHandleDirection(et as 'up' | 'down' | 'left' | 'right');
+      }
+    });
+    return () => {
+      backSub.remove();
+      keySub.remove();
+    };
   }, [a, sRef]);
 
   if (!loaded || !cfg) return <View style={{ flex: 1, backgroundColor: C.bgDeep }} />;

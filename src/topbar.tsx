@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Text, TVEventHandler, TVFocusGuideView, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { C, F, px } from './theme';
-import { focusLastContent, lastContentHandle, lastFocusWasTop, onLastContentChange, setTopBarRef } from './focusNav';
+import { setTopBarRef } from './focus/engine';
 import { Avatar, Focusable } from './ui';
 import { useStore, type Screen } from './store';
 
@@ -41,19 +41,6 @@ export function TopBar() {
     setTopBarRef(logoRef);
   }, []);
 
-  const [destHandle, setDestHandle] = useState<number | null>(null);
-  useEffect(() => onLastContentChange(() => setDestHandle(lastContentHandle(s.screen))), [s.screen]);
-
-  useEffect(() => {
-    const sub = (TVEventHandler as any).addListener((e: any, data: { eventType?: string; eventKeyAction?: number }) => {
-      const d = data ?? e;
-      if (d?.eventType === 'down' && lastFocusWasTop()) {
-        focusLastContent(s.screen);
-      }
-    });
-    return () => sub.remove();
-  }, [s.screen]);
-
   const go = (key: string) => {
     if (key === 'movies') a.nav('grid', { gridKind: 'movie', gridFilter: 'All' });
     else if (key === 'shows') a.nav('grid', { gridKind: 'show', gridFilter: 'All' });
@@ -74,7 +61,6 @@ export function TopBar() {
   return (
     <TVFocusGuideView
       trapFocusDown
-      destinations={destHandle ? [destHandle] : []}
       style={{
         position: 'absolute',
         left: 0,

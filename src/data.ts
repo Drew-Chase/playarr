@@ -95,3 +95,18 @@ export const EP_OV = 'The crew argues about protocol while the signal repeats on
 export function titleById(id: string): Title {
   return TITLES.find((x) => x.id === id) || TITLES[0];
 }
+
+export interface DemoParty {
+  name: string;
+  watching: string;
+  pct: string;
+  live: boolean;
+  members: Friend[];
+}
+
+export const DEMO_PARTIES: DemoParty[] = [
+  { name: "Drew's Movie Night", watching: 'Rift Runners · 41:20 remaining', pct: '38%', live: true, members: [FRIENDS[0], FRIENDS[1], FRIENDS[2]] },
+  { name: 'Sunday Rewatch', watching: 'Copperline · S02 E07', pct: '62%', live: true, members: [FRIENDS[1], FRIENDS[2], FRIENDS[3]] },
+  { name: 'Anime Club', watching: 'Paper Cranes · starts in 20 min', pct: '0%', live: false, members: [FRIENDS[0], FRIENDS[1]] },
+  { name: 'Late Shift', watching: 'Hollow Signal · S03 E04', pct: '31%', live: true, members: [FRIENDS[2], FRIENDS[3]] },
+];

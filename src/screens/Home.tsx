@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { C, F, asPct, pctOf, px } from '../theme';
-import { Avatar, Btn, Chip, Focusable, Grad, ImgOrGrad, Rail, TitleGlyph, type PosterData } from '../ui';
+import { Avatar, Btn, Chip, Focusable, Grad, ImgOrGrad, Rail, SKELETON, TitleGlyph, type PosterData } from '../ui';
 import { DISCOVER, FRIENDS, TITLES, useStore } from '../store';
 import {
   artUrl,
@@ -14,7 +14,8 @@ import {
   fmtDuration,
 } from '../api/mappers';
 import { useContinueWatching, useLibraryItems, useLibraries, useRecentlyAdded, useTrending } from '../api/useLive';
-import { focusRef } from '../focusNav';
+import { focusRef, onScrollRequest } from '../focus/engine';
+import { DEMO_PARTIES } from '../data';
 import type { PlexMediaItem, TmdbItem } from '../api/types';
 
 
@@ -72,7 +73,27 @@ export function HomeScreen() {
   ];
   const liveHeroOn = heroSource.length > 0;
   const heroPlayRef = useRef<any>(null);
+  const scrollRef = useRef<ScrollView | null>(null);
+  const scrollYRef = useRef(0);
   const liveHero = liveHeroOn ? heroModel(heroSource[s.hero % heroSource.length]) : null;
+
+  useEffect(() => {
+    onScrollRequest((block, ref) => {
+      if (block === 'hero') {
+        scrollRef.current?.scrollTo({ y: 0, animated: true });
+        return;
+      }
+      const el = ref.current;
+      if (!el || !scrollRef.current) return;
+      el.measureInWindow((_x: number, y: number, _w: number, h: number) => {
+        const desired = px(170);
+        const delta = y - desired;
+        if (Math.abs(delta) > px(50)) {
+          scrollRef.current?.scrollTo({ y: Math.max(0, scrollYRef.current + delta), animated: true });
+        }
+      });
+    });
+  }, []);
 
   useEffect(() => {
     if (!heroSource.length) return;
@@ -91,28 +112,32 @@ export function HomeScreen() {
     onPress: () => a.openTitle(t.id),
   });
 
-  const continueItems: PosterData[] = cw?.length
+  const cwLoading = cw === null;
+  const continueItems: PosterData[] | null = cw
     ? cw.map((m) => toPoster(m, () => a.openTitle(detailTarget(m))))
-    : TITLES.filter((t) => t.prog).map(demoRailItem);
+    : cwLoading
+      ? null
+      : TITLES.filter((t) => t.prog).map(demoRailItem);
 
-  const recentItems: PosterData[] = ra?.length
+  const recentItems: PosterData[] | null = ra
     ? ra.slice(0, 12).map((m) => toPoster(m, () => a.openTitle(detailTarget(m))))
-    : TITLES.slice(4, 12).map(demoRailItem);
+    : ra === null
+      ? null
+      : TITLES.slice(4, 12).map(demoRailItem);
 
-  const movieRail: PosterData[] = movieItems?.length
+  const movieRail: PosterData[] | null = movieItems
     ? movieItems.slice(0, 12).map((m) => toPoster(m, () => a.openTitle(m.ratingKey)))
-    : TITLES.filter((t) => t.kind === 'movie').map(demoRailItem);
+    : movieItems === null
+      ? null
+      : TITLES.filter((t) => t.kind === 'movie').map(demoRailItem);
 
-  const showRail: PosterData[] = showItems?.length
+  const showRail: PosterData[] | null = showItems
     ? showItems.slice(0, 12).map((m) => toPoster(m, () => a.openTitle(m.ratingKey)))
-    : TITLES.filter((t) => t.kind === 'show').map(demoRailItem);
+    : showItems === null
+      ? null
+      : TITLES.filter((t) => t.kind === 'show').map(demoRailItem);
 
-  const partyCards = [
-    { name: "Drew's Movie Night", watching: 'Rift Runners · 41:20 remaining', pct: '38%', live: true, members: FRIENDS.slice(0, 3) },
-    { name: 'Sunday Rewatch', watching: 'Copperline · S02 E07', pct: '62%', live: true, members: FRIENDS.slice(1, 4) },
-    { name: 'Anime Club', watching: 'Paper Cranes · starts in 20 min', pct: '0%', live: false, members: FRIENDS.slice(0, 2) },
-    { name: 'Late Shift', watching: 'Hollow Signal · S03 E04', pct: '31%', live: true, members: FRIENDS.slice(2, 4) },
-  ];
+  const partyCards = DEMO_PARTIES;
 
   const demoDiscCard = (d: (typeof DISCOVER)[number]) => (
     <Focusable
@@ -146,12 +171,14 @@ export function HomeScreen() {
     </Focusable>
   );
 
-  const liveDiscCard = (item: TmdbItem) => {
+  const liveDiscCard = (item: TmdbItem, row: string, col: number) => {
     const id = 'tmdb:' + item.id;
     const poster = tmdbToPoster(item, () => a.set({ modal: 'request', reqTmdbItem: tmdbDiscoverItem(item), reqFields: [0, 0, 0, 0] }));
     return (
       <Focusable
         key={id}
+        row={row}
+        col={col}
         onPress={poster.onPress}
         focusStyle={{ transform: [{ scale: 1.05 }] }}
         style={{ width: px(300), marginRight: px(22) }}
@@ -197,8 +224,12 @@ export function HomeScreen() {
     <ScrollView
       focusable={false}
       showsVerticalScrollIndicator={false}
-      onScroll={(e) => a.set({ scrollY: e.nativeEvent.contentOffset.y })}
+      onScroll={(e) => {
+        scrollYRef.current = e.nativeEvent.contentOffset.y;
+        a.set({ scrollY: e.nativeEvent.contentOffset.y });
+      }}
       scrollEventThrottle={32}
+      ref={scrollRef}
       contentContainerStyle={{ paddingBottom: px(90) }}
     >
       <View style={{ height: px(820), overflow: 'hidden' }}>
@@ -247,6 +278,8 @@ export function HomeScreen() {
           <View style={{ flexDirection: 'row', gap: px(16), marginTop: px(34) }}>
             <Btn
               hostRef={heroPlayRef}
+              row="hero"
+              col={0}
               kind="accent"
               label={liveHeroOn && liveHero ? liveHero.playLabel : demoHero.prog ? '▶ Resume ' + demoHero.ep.split('—')[0].trim() : '▶ Play'}
               onPress={() => {
@@ -259,18 +292,15 @@ export function HomeScreen() {
               label="More info"
               onPress={() => (liveHeroOn && liveHero ? liveHero.onInfo() : a.openTitle(demoHero.id))}
             />
-            <Btn kind="outline" label="Start watch party" onPress={() => a.set({ modal: 'create' })} />
+            <Btn row="hero" col={2} kind="outline" label="Start watch party" onPress={() => a.set({ modal: 'create' })} />
           </View>
         </View>
         <View style={{ position: 'absolute', right: px(64), bottom: px(250), flexDirection: 'row', gap: px(10) }}>
           {Array.from({ length: 4 }, (_, i) => i).map((i) => {
             const on = liveHeroOn ? i === s.hero % Math.min(heroSource.length, 4) : i === s.hero % 4;
             return (
-              <Focusable
+              <View
                 key={i}
-                hasTV={false}
-                onPress={() => a.set({ hero: i })}
-                focusStyle={{ borderColor: 'rgba(255,255,255,.6)', borderWidth: px(2) }}
                 style={{
                   width: on ? px(34) : px(8),
                   height: px(8),
@@ -284,7 +314,7 @@ export function HomeScreen() {
       </View>
 
       <View style={{ paddingHorizontal: px(64), marginTop: -px(70), gap: px(52) }}>
-        <Rail label="Continue watching" note="Picks up where every device left off" items={continueItems} />
+        <Rail label="Continue watching" note="Picks up where every device left off" items={continueItems ?? SKELETON} rowId="cw" />
 
         <View>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: px(20) }}>
@@ -316,7 +346,8 @@ export function HomeScreen() {
             {partyCards.map((p, i) => (
               <Focusable
                 key={p.name}
-                hasTV={i === 0}
+                row="parties"
+                col={i}
                 onPress={() => {
                   a.set({ party: p.name, partyPanelOpen: true });
                   a.play(TITLES[(i * 3 + 1) % TITLES.length].id, 'Joined ' + p.name + ' — synced');
@@ -353,9 +384,9 @@ export function HomeScreen() {
           </ScrollView>
         </View>
 
-        <Rail label="Recently added" note="From your libraries" items={recentItems} />
-        <Rail label="Movies in your library" note={movieLib ? movieLib.title : undefined} items={movieRail} />
-        <Rail label="TV in your library" note={showLib ? showLib.title : undefined} items={showRail} />
+        <Rail label="Recently added" note="From your libraries" items={recentItems ?? SKELETON} rowId="recent" />
+        <Rail label="Movies in your library" note={movieLib ? movieLib.title : undefined} items={movieRail ?? SKELETON} rowId="movies" />
+        <Rail label="TV in your library" note={showLib ? showLib.title : undefined} items={showRail ?? SKELETON} rowId="shows" />
 
         <View>
           <Text style={{ fontFamily: F.head, fontSize: px(28), color: C.text, marginBottom: px(4) }}>Discover</Text>
@@ -367,11 +398,11 @@ export function HomeScreen() {
           </View>
           {discoverSets ? (
             <View style={{ gap: px(40) }}>
-              {discoverSets.map((set) => (
+              {discoverSets.map((set, setIdx) => (
                 <View key={set.label}>
                   <Text style={{ fontFamily: F.head, fontSize: px(24), color: C.text, marginBottom: px(18) }}>{set.label}</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    {set.items.map((item) => liveDiscCard(item))}
+                    {set.items.map((item, i) => liveDiscCard(item, `disc:${setIdx}`, i))}
                   </ScrollView>
                 </View>
               ))}
