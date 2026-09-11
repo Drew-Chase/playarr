@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { C, F, pctOf, px } from '../theme';
 import { Avatar, Btn, Focusable, Grad, ImgOrGrad, Rail, TitleGlyph } from '../ui';
 import { EP_COUNT, TITLES, episodesFor, titleById, useStore } from '../store';
 import { artUrl, fmtDuration, posterUrl, subFor, thumbUrl } from '../api/mappers';
 import { useAllLeaves, useMediaChildren, useMediaDetail } from '../api/useLive';
+import { getBlockY, onScrollRequest, setBlockY } from '../focus/engine';
 import type { PlexMediaItem } from '../api/types';
 
 export function DetailScreen() {
@@ -30,7 +31,20 @@ function LiveDetail({
   leaves: PlexMediaItem[];
 }) {
   const { s, a } = useStore();
+  const scrollRef = useRef<ScrollView | null>(null);
   const [seasonKey, setSeasonKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    onScrollRequest('detail', (block: string) => {
+      if (block === 'hero') {
+        scrollRef.current?.scrollTo({ y: 0, animated: false });
+        return;
+      }
+      const y = getBlockY(block);
+      if (y == null) return;
+      scrollRef.current?.scrollTo({ y: Math.max(0, y - px(140)), animated: false });
+    });
+  }, []);
   const isShow = (meta.childCount ?? 0) > 0 || meta.type === 'show';
   const activeSeason = seasons.find((x) => x.ratingKey === seasonKey) ?? seasons[0] ?? null;
   const seasonEpisodes = leaves
@@ -153,7 +167,14 @@ function LiveDetail({
               })}
             </ScrollView>
             <Text style={{ fontFamily: F.head, fontSize: px(28), color: C.text, marginBottom: px(20) }}>Episodes</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: px(22) }}>
+            <View
+              onLayout={(e) => {
+                setBlockY('epgrid:0', e.nativeEvent.layout.y);
+                setBlockY('epgrid:1', e.nativeEvent.layout.y + px(400));
+                setBlockY('epgrid:2', e.nativeEvent.layout.y + px(800));
+                setBlockY('epgrid:3', e.nativeEvent.layout.y + px(1200));
+              }}
+              style={{ flexDirection: 'row', flexWrap: 'wrap', gap: px(22) }}>
               {seasonEpisodes.map((ep, i) => {
                 const watched = !!ep.viewCount || (!!ep.viewOffset && ep.duration ? ep.viewOffset / ep.duration > 0.95 : false);
                 const inProgress = !!ep.viewOffset && ep.duration ? ep.viewOffset / ep.duration <= 0.95 : false;

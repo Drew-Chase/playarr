@@ -195,50 +195,56 @@ export const Poster = memo(function Poster({
   col?: number;
 }) {
   return (
-    <Focusable
-      hasTV={hasTV}
-      onPress={item.onPress}
-      onFocus={onFocus}
-      onBlur={onBlur}
-      row={row}
-      col={col}
-      focusRadius={14}
-      style={{ width: px(224) }}
-      focusStyle={{ transform: [{ scale: 1.07 }] }}
-    >
-      <View
-        style={{
-          height: px(332),
-          borderRadius: px(14),
-          overflow: 'hidden',
-          backgroundColor: '#000',
-          boxShadow: '0 20px 44px rgba(0,0,0,.5)' as never,
-        }}
+    <View style={{ width: px(260), marginRight: px(44) }}>
+      <Focusable
+        hasTV={hasTV}
+        onPress={item.onPress}
+        onFocus={onFocus}
+        onBlur={onBlur}
+        row={row}
+        col={col}
+        focusRadius={22}
+        focusRingOffset={10}
+        focusRingColor="rgba(125,255,192,.6)"
+        focusStyle={{ transform: [{ scale: 1.05 }], backgroundColor: 'rgba(255,255,255,.08)' }}
+        style={{ padding: px(10), borderRadius: px(22) }}
       >
-        <ImgOrGrad uri={item.uri} art={item.art} style={{ position: 'absolute', width: '100%', height: '100%' }} />
-        <LinearGradient
-          colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0)', 'rgba(0,0,0,.78)']}
-          locations={[0, 0.38, 1]}
-          style={{ position: 'absolute', width: '100%', height: '100%' }}
-        />
-        {item.hideOverlay ? null : (
-          <View style={{ position: 'absolute', left: px(18), right: px(18), bottom: px(20) }}>
-            <TitleGlyph t={item.t} ink={item.ink} size={27} />
-          </View>
-        )}
-        {item.progPct ? (
-          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: px(5), backgroundColor: 'rgba(255,255,255,.2)' }}>
-            <View style={{ height: '100%', width: item.progPct as `${number}%`, backgroundColor: C.accent }} />
-          </View>
-        ) : null}
+        <View
+          style={{
+            height: px(332),
+            borderRadius: px(14),
+            overflow: 'hidden',
+            backgroundColor: '#000',
+            boxShadow: '0 20px 44px rgba(0,0,0,.5)' as never,
+          }}
+        >
+          <ImgOrGrad uri={item.uri} art={item.art} style={{ position: 'absolute', width: '100%', height: '100%' }} />
+          <LinearGradient
+            colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0)', 'rgba(0,0,0,.78)']}
+            locations={[0, 0.38, 1]}
+            style={{ position: 'absolute', width: '100%', height: '100%' }}
+          />
+          {item.hideOverlay ? null : (
+            <View style={{ position: 'absolute', left: px(18), right: px(18), bottom: px(20) }}>
+              <TitleGlyph t={item.t} ink={item.ink} size={27} />
+            </View>
+          )}
+          {item.progPct ? (
+            <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: px(5), backgroundColor: 'rgba(255,255,255,.2)' }}>
+              <View style={{ height: '100%', width: item.progPct as `${number}%`, backgroundColor: C.accent }} />
+            </View>
+          ) : null}
+        </View>
+      </Focusable>
+      <View style={{ paddingHorizontal: px(10), paddingTop: px(12) }}>
+        <Text numberOfLines={1} style={{ fontSize: px(17), fontWeight: '600', color: C.text }}>
+          {item.t}
+        </Text>
+        <Text numberOfLines={1} style={{ fontSize: px(15), color: '#868d93', marginTop: px(3) }}>
+          {item.sub}
+        </Text>
       </View>
-      <Text numberOfLines={1} style={{ marginTop: px(12), fontSize: px(17), fontWeight: '600', color: C.text }}>
-        {item.t}
-      </Text>
-      <Text numberOfLines={1} style={{ fontSize: px(15), color: '#868d93', marginTop: px(3) }}>
-        {item.sub}
-      </Text>
-    </Focusable>
+    </View>
   );
 });
 

@@ -34,7 +34,7 @@ let screen = 'home';
 let current: { block: string; col: number; ref: TrackedRef; key: string } | null = null;
 let topBarRef: TrackedRef | null = null;
 let lastZone: 'top' | 'content' = 'content';
-let scrollHandler: ((block: string) => void) | null = null;
+const scrollHandlers = new Map<string, (block: string) => void>();
 const blockY = new Map<string, number>();
 
 export function setCurrentScreen(s: string) {
@@ -45,8 +45,15 @@ export function setTopBarRef(ref: TrackedRef | null) {
   topBarRef = ref;
 }
 
-export function onScrollRequest(cb: (block: string) => void) {
-  scrollHandler = cb;
+export function onScrollRequest(screen: string, cb: (block: string) => void) {
+  scrollHandlers.set(screen, cb);
+}
+
+function fireScroll(block: string) {
+  // defer so the page scroll wins over the native minimal scroll-to-focus
+  setTimeout(() => {
+    scrollHandlers.get(screen)?.(block);
+  }, 60);
 }
 
 export function setBlockY(block: string, y: number) {
@@ -144,7 +151,7 @@ export function focusLastContent(): boolean {
     const h = findNodeHandle(e.ref.current);
     if (h == null) return false;
     const okFirst = dispatchFocus(h);
-    if (okFirst) scrollHandler?.(first);
+    if (okFirst) fireScroll(first);
     return okFirst;
   }
   const handle = findNodeHandle(lastContent.ref.current);
@@ -156,7 +163,7 @@ export function focusLastContent(): boolean {
   if (ok) {
     current = { block: lastContent.block, col: lastContent.col, ref: lastContent.ref, key: `${screen}::${lastContent.block}:${lastContent.col}` };
     lastZone = 'content';
-    scrollHandler?.(lastContent.block);
+    fireScroll(lastContent.block);
   }
   return ok;
 }
@@ -183,9 +190,10 @@ function firstEntryOf(blockId: string): Entry | null {
 function focusBlock(blockId: string, col: number, attempt = 0): boolean {
   const exact = entryAt(blockId, col);
   const e = exact ?? firstEntryOf(blockId);
-  if (!e || !e.ref.current) {
+  const liveHandle = e && e.ref.current ? findNodeHandle(e.ref.current) : null;
+  if (!e || liveHandle == null) {
     if (attempt < 25) {
-      scrollHandler?.(blockId);
+      fireScroll(blockId);
       setTimeout(() => focusBlock(blockId, col, attempt + 1), 140);
     }
     return false;
@@ -197,7 +205,7 @@ function focusBlock(blockId: string, col: number, attempt = 0): boolean {
     current = { block: blockId, col: e.col, ref: e.ref, key: `${screen}::${blockId}:${e.col}` };
     lastZone = 'content';
     lastContent = { block: blockId, col: e.col, ref: e.ref };
-    scrollHandler?.(blockId);
+    fireScroll(blockId);
   }
   return ok;
 }
@@ -211,7 +219,7 @@ function focusEntryAt(blockId: string, col: number): boolean {
   if (ok) {
     current = { block: blockId, col: e.col, ref: e.ref, key: `${screen}::${blockId}:${e.col}` };
     lastZone = 'content';
-    scrollHandler?.(blockId);
+    fireScroll(blockId);
   }
   return ok;
 }
@@ -259,7 +267,7 @@ export function correctDirection(dir: 'up' | 'down' | 'left' | 'right', from: st
   if (movedToBlock !== targetBlock) {
     focusBlock(targetBlock, fromCol);
   } else {
-    scrollHandler?.(targetBlock);
+    fireScroll(targetBlock);
   }
 }
 

@@ -78,14 +78,15 @@ export function HomeScreen() {
   const liveHero = liveHeroOn ? heroModel(heroSource[s.hero % heroSource.length]) : null;
 
   useEffect(() => {
-    onScrollRequest((block) => {
+    onScrollRequest('home', (block: string) => {
+      console.log('[home-scroll]', block, 'y:', getBlockY(block));
       if (block === 'hero') {
         scrollRef.current?.scrollTo({ y: 0, animated: true });
         return;
       }
       const y = getBlockY(block);
       if (y == null) return;
-      const target = Math.max(0, y + px(-70) - px(240));
+      const target = Math.max(0, y - px(70) - px(320));
       scrollRef.current?.scrollTo({ y: target, animated: false });
     });
   }, []);
