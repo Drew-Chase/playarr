@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Text, TVEventHandler, TVFocusGuideView, View } from 'react-native';
+import { Text, TVFocusGuideView, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { C, F, px } from './theme';
 import { setTopBarRef } from './focus/engine';
