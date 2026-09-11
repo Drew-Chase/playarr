@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { C, F, asPct, pctOf, px } from '../theme';
 import { Avatar, Btn, Chip, Focusable, Grad, ImgOrGrad, Rail, SKELETON, TitleGlyph, type PosterData } from '../ui';
-import { DISCOVER, FRIENDS, TITLES, useStore } from '../store';
+import { DISCOVER, TITLES, useStore } from '../store';
 import {
   artUrl,
   detailTarget,

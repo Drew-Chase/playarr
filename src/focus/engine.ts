@@ -34,7 +34,6 @@ let screen = 'home';
 let current: { block: string; col: number; ref: TrackedRef; key: string } | null = null;
 let topBarRef: TrackedRef | null = null;
 let lastZone: 'top' | 'content' = 'content';
-let seq = 0;
 let scrollHandler: ((block: string, ref: TrackedRef) => void) | null = null;
 
 export function setCurrentScreen(s: string) {
@@ -70,7 +69,6 @@ export function unregisterEntry(block: string, col: number) {
 }
 
 export function noteFocus(block: string, col: number, ref: TrackedRef) {
-  seq += 1;
   current = { block, col, ref, key: `${screen}::${block}:${col}` };
   lastZone = block === TOP_BLOCK ? 'top' : 'content';
   if (block !== TOP_BLOCK) lastContent = { block, col, ref };
@@ -81,7 +79,6 @@ export const TOP_BLOCK = '__top__';
 export function noteTopFocus(ref: TrackedRef) {
   lastZone = 'top';
   topBarRef = ref;
-  seq += 1;
   current = { block: TOP_BLOCK, col: 0, ref, key: 'top' };
 }
 
@@ -152,16 +149,6 @@ export function focusLastContent(): boolean {
     lastZone = 'content';
     scrollHandler?.(lastContent.block, lastContent.ref);
   }
-  return ok;
-}
-
-function focusEntryAtCurrentScreen(): boolean {
-  const e = entryAt(orderedContentBlocks()[0] ?? '', 0);
-  if (!e) return false;
-  const handle = findNodeHandle(e.ref.current);
-  if (handle == null) return false;
-  const ok = dispatchFocus(handle);
-  if (ok) scrollHandler?.(orderedContentBlocks()[0], e.ref);
   return ok;
 }
 
