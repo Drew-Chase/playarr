@@ -173,8 +173,13 @@ export function HomeScreen() {
     return (
       <Focusable
         key={id}
-        row={row}
-        col={col}
+        focusKey={`${row}:${col}`}
+        nextFocus={{
+          down: `${row}:${col + 1 < 12 ? col + 1 : col}`,
+          up: col >= 1 ? `${row}:${col - 1}` : `discover-tabs:${col}`,
+          left: col > 0 ? `${row}:${col - 1}` : undefined,
+          right: `${row}:${col + 1}`,
+        }}
         focusScale={1.04}
         onPress={poster.onPress}
         style={{ width: px(300), marginRight: px(22) }}
@@ -363,8 +368,13 @@ export function HomeScreen() {
             {partyCards.map((p, i) => (
               <Focusable
                 key={p.name}
-                row="parties"
-                col={i}
+                focusKey={`parties:${i}`}
+                nextFocus={{
+                  down: `recent:${i}`,
+                  up: `cw:${i}`,
+                  left: i > 0 ? `parties:${i - 1}` : undefined,
+                  right: i < 3 ? `parties:${i + 1}` : undefined,
+                }}
                 onPress={() => {
                   a.set({ party: p.name, partyPanelOpen: true });
                   a.play(TITLES[(i * 3 + 1) % TITLES.length].id, 'Joined ' + p.name + ' — synced');
@@ -433,7 +443,18 @@ export function HomeScreen() {
           <Text style={{ fontSize: px(16), color: '#7f868c', marginBottom: px(20) }}>From TMDB · request anything for your server</Text>
           <View style={{ flexDirection: 'row', marginBottom: px(26) }}>
             {(['Trending', 'Popular movies', 'Popular shows'] as const).map((f, i) => (
-              <Chip key={f} label={f} active={s.discoverTab === f} onPress={() => a.set({ discoverTab: f })} />
+              <Chip
+                key={f}
+                label={f}
+                active={s.discoverTab === f}
+                focusKey={`discover-tabs:${i}`}
+                nextFocus={{
+                  down: `disc:0:${i}`,
+                  left: i > 0 ? `discover-tabs:${i - 1}` : undefined,
+                  right: i < 2 ? `discover-tabs:${i + 1}` : undefined,
+                }}
+                onPress={() => a.set({ discoverTab: f })}
+              />
             ))}
           </View>
           {discoverSets ? (

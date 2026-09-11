@@ -406,10 +406,26 @@ export function Btn({
   );
 }
 
-export function Chip({ label, active, onPress, hasTV }: { label: string; active: boolean; onPress: () => void; hasTV?: boolean }) {
+export function Chip({
+  label,
+  active,
+  onPress,
+  hasTV,
+  focusKey,
+  nextFocus,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+  hasTV?: boolean;
+  focusKey?: string;
+  nextFocus?: { up?: string; down?: string; left?: string; right?: string };
+}) {
   return (
     <Focusable
       hasTV={hasTV}
+      focusKey={focusKey}
+      nextFocus={nextFocus}
       onPress={onPress}
       focusStyle={{ transform: [{ scale: 1.08 }] }}
       style={{

@@ -72,7 +72,7 @@ function LiveDetail({
         <ImgOrGrad uri={artUrl(meta)} art={['#1b3566', '#101a3a', '#05060c']} style={{ position: 'absolute', width: '100%', height: '100%' }} />
         <Grad art={['rgba(7,8,10,.2)', 'rgba(7,8,10,.85)', '#07080a']} deg={180} style={{ position: 'absolute', width: '100%', height: '100%' }} />
         <View style={{ position: 'absolute', left: px(64), right: px(64), bottom: px(40), flexDirection: 'row', gap: px(36) }}>
-          <Focusable hasTV onPress={() => a.play(meta.ratingKey, 'Playing ' + meta.title, liveMeta)} focusStyle={{ transform: [{ scale: 1.06 }] }} style={{ width: px(230) }}>
+          <Focusable hasTV focusKey="dhero:0" nextFocus={{ down: 'dhero:1' }} onPress={() => a.play(meta.ratingKey, 'Playing ' + meta.title, liveMeta)} focusStyle={{ transform: [{ scale: 1.06 }] }} style={{ width: px(230) }}>
             <View style={{ height: px(340), borderRadius: px(14), overflow: 'hidden', backgroundColor: '#000' }}>
               <ImgOrGrad uri={posterUrl(meta)} art={['#1b3566', '#101a3a', '#05060c']} style={{ position: 'absolute', width: '100%', height: '100%' }} />
               {resume ? (
@@ -142,12 +142,17 @@ function LiveDetail({
           <View>
             <Text style={{ fontFamily: F.head, fontSize: px(28), color: C.text, marginBottom: px(20) }}>Seasons</Text>
             <ScrollView removeClippedSubviews={false} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingBottom: px(12), marginBottom: px(44) }}>
-              {seasons.map((sn) => {
+              {seasons.map((sn, i) => {
                 const on = activeSeason?.ratingKey === sn.ratingKey;
                 return (
                   <Focusable
                     key={sn.ratingKey}
-                    onPress={() => setSeasonKey(sn.ratingKey)}
+                    focusKey={`seasons:${i}`}
+                    nextFocus={{
+                      down: `ep:${i}`,
+                      left: i > 0 ? `seasons:${i - 1}` : undefined,
+                      right: `seasons:${i + 1}`,
+                    }}
                     focusStyle={{ transform: [{ scale: 1.05 }] }}
                     style={{ width: px(196), marginRight: px(22) }}
                   >
@@ -185,8 +190,13 @@ function LiveDetail({
                     hasTV={i === 0}
                     focusRadius={16}
                     focusScale={1.03}
-                    row={`epgrid:${Math.floor(i / 3)}`}
-                    col={i % 3}
+                    focusKey={`ep:${i}`}
+                    nextFocus={{
+                      up: i >= 3 ? `ep:${i - 3}` : `seasons:${i}`,
+                      down: `ep:${i + 3}`,
+                      left: i % 3 > 0 ? `ep:${i - 1}` : undefined,
+                      right: `ep:${i + 1}`,
+                    }}
                     onPress={() => {
                       a.set({ liveEpisodes: seasonEpisodes, epIndex: i });
                       a.nav('episode');
