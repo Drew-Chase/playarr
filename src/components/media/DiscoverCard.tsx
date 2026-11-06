@@ -25,6 +25,7 @@ export default function DiscoverCard({item, mediaType, dimmed, showDiscoverBadge
             className="shrink-0 group scroll-snap-start cursor-pointer transition-transform duration-200 hover:scale-105"
             style={{width}}
             onClick={() => navigate(`/discover/${mediaType}/${item.id}`)}
+            data-href={`/discover/${mediaType}/${item.id}`}
         >
             <div
                 className={`relative rounded-lg overflow-hidden bg-content2 aspect-[2/3] transition-[filter] ${dimmed ? "saturate-50 brightness-75 group-hover:saturate-100 group-hover:brightness-100" : ""}`}

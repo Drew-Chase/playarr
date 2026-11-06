@@ -135,6 +135,7 @@ export default function CreditsOverlay({nextEpisode, artUrl, onPlayNext, onCance
                                     className="shrink-0 cursor-pointer group"
                                     style={{width: CARD_WIDTH}}
                                     onClick={() => navigate(`/detail/${item.ratingKey}`)}
+                                    data-href={`/detail/${item.ratingKey}`}
                                 >
                                     <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-content3">
                                         <img

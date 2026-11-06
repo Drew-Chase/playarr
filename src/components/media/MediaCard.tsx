@@ -51,9 +51,11 @@ const MediaCardInner = memo(function MediaCardInner({item, showProgress, showAir
     const {addToQueue, playNext, clearQueue} = usePlayer();
     const isOnPlayerPage = location.pathname.startsWith("/player/");
 
+    const detailPath = `/detail/${item.ratingKey}`;
+
     const handleClick = () =>
     {
-        navigate(`/detail/${item.ratingKey}`);
+        navigate(detailPath);
     };
 
     const handlePlay = (e: React.MouseEvent) =>
@@ -175,6 +177,7 @@ const MediaCardInner = memo(function MediaCardInner({item, showProgress, showAir
                 <div
                     className="shrink-0 cursor-pointer group scroll-snap-start transition-transform duration-200 hover:scale-105"
                     onClick={handleClick}
+                    data-href={detailPath}
                 >
                     <div className="relative aspect-[3/1.5] rounded-lg overflow-hidden bg-content2" style={{width: width ? `${width}px` : "100%"}}>
                         <img
@@ -235,6 +238,7 @@ const MediaCardInner = memo(function MediaCardInner({item, showProgress, showAir
             <div
                 className="cursor-pointer group transition-transform duration-200 hover:scale-105"
                 onClick={handleClick}
+                data-href={detailPath}
             >
                 <div className="relative rounded-lg overflow-hidden bg-content2 aspect-[2/3]" style={{width: width ?? "unset"}}>
                     <img
