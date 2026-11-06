@@ -75,6 +75,7 @@ function EpisodeResult({episode}: { episode: PlexMediaItem })
         <div
             className="group flex gap-3 rounded-lg border border-default-100 bg-content1 p-2.5 cursor-pointer transition-colors hover:border-default-200"
             onClick={() => navigate(`/detail/${episode.ratingKey}`)}
+            data-href={`/detail/${episode.ratingKey}`}
         >
             <div className="relative w-[140px] shrink-0 aspect-video rounded-md overflow-hidden bg-content2">
                 {thumbUrl ? (

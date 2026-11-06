@@ -49,6 +49,23 @@ export function AppRoutes({playerElement}: { playerElement?: React.ReactNode }) 
     );
 }
 
+// Middle-click opens anything marked with data-href in a new tab, like a real link.
+const middleClickTarget = (e: MouseEvent) =>
+    e.button === 1 ? (e.target as Element).closest<HTMLElement>("[data-href]") : null;
+
+document.addEventListener("mousedown", (e) => {
+    // Otherwise the browser starts middle-click autoscroll instead.
+    if (middleClickTarget(e)) e.preventDefault();
+});
+
+document.addEventListener("auxclick", (e) => {
+    const target = middleClickTarget(e);
+    if (!target) return;
+    e.preventDefault();
+    // noopener, as native links do: the new tab must not inherit sessionStorage (watch party room, session id).
+    window.open(target.dataset.href, "_blank", "noopener");
+});
+
 const queryClient = new QueryClient({
     defaultOptions: {
         queries: {

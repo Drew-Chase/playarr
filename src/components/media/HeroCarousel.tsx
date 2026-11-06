@@ -169,6 +169,7 @@ export default function HeroCarousel({items}: HeroCarouselProps) {
                                 size="lg"
                                 startContent={<Icon icon="mdi:information-outline" width="22"/>}
                                 onPress={() => navigate(`/detail/${item.ratingKey}`)}
+                                data-href={`/detail/${item.ratingKey}`}
                             >
                                 More Info
                             </Button>

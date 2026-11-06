@@ -84,6 +84,7 @@ function EpisodeCard({episode, index, downloadItem, sonarrEpisode, realtimeProgr
                 transition={{delay: index * 0.05, duration: 0.3}}
                 className="cursor-pointer group"
                 onClick={() => navigate(`/detail/${episode.ratingKey}`)}
+                data-href={`/detail/${episode.ratingKey}`}
             >
                 <div className={`relative rounded-lg overflow-hidden bg-content2 ${isWatched ? "opacity-60" : ""}`}>
                     {/* 16:9 thumbnail */}

@@ -83,7 +83,7 @@ export default function Navigation()
                             </NavbarItem>
                             <DropdownMenu aria-label="Movie Libraries">
                                 {movieLibraries.map((lib) => (
-                                    <DropdownItem key={lib.key} onPress={() => navigate(`/library/${lib.key}`)}>
+                                    <DropdownItem key={lib.key} onPress={() => navigate(`/library/${lib.key}`)} data-href={`/library/${lib.key}`}>
                                         {lib.title}
                                     </DropdownItem>
                                 ))}
@@ -120,7 +120,7 @@ export default function Navigation()
                             </NavbarItem>
                             <DropdownMenu aria-label="TV Libraries">
                                 {tvLibraries.map((lib) => (
-                                    <DropdownItem key={lib.key} onPress={() => navigate(`/library/${lib.key}`)}>
+                                    <DropdownItem key={lib.key} onPress={() => navigate(`/library/${lib.key}`)} data-href={`/library/${lib.key}`}>
                                         {lib.title}
                                     </DropdownItem>
                                 ))}
@@ -148,6 +148,7 @@ export default function Navigation()
                             size="sm"
                             aria-label="Search"
                             onPress={() => navigate("/search")}
+                            data-href="/search"
                         >
                             <Icon icon="mdi:magnify" width="20" className={isActive("/search") ? "text-primary" : undefined}/>
                         </Button>

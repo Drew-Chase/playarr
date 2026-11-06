@@ -49,6 +49,7 @@ export default function CalendarEventBar({event, compact = false, expanded = fal
             <div
                 className={`${colors.bg} border-l-3 ${colors.border} rounded-r-md p-3 flex gap-3 ${route ? "cursor-pointer hover:brightness-125 transition-all" : ""}`}
                 onClick={handleClick}
+                data-href={route ?? undefined}
             >
                 {event.posterUrl && (
                     <img
@@ -91,6 +92,7 @@ export default function CalendarEventBar({event, compact = false, expanded = fal
             className={`${colors.bg} border-l-2 ${colors.border} rounded-r-sm px-1.5 py-2 truncate ${route ? "cursor-pointer hover:brightness-125 transition-all" : "cursor-default"}`}
             title={`${event.title}${event.subtitle ? ` - ${event.subtitle}` : ""}`}
             onClick={handleClick}
+            data-href={route ?? undefined}
         >
             <span className={`text-xs leading-tight ${colors.text} font-medium truncate block`}>
                 {label}
