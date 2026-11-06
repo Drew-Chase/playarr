@@ -1,22 +1,6 @@
-import React, {useCallback} from "react";
-import {Link, useNavigate, useLocation} from "react-router-dom";
-import {
-    Navbar,
-    NavbarBrand,
-    NavbarContent,
-    NavbarItem,
-    NavbarMenu,
-    NavbarMenuItem,
-    NavbarMenuToggle,
-    Input,
-    Button,
-    Dropdown,
-    DropdownTrigger,
-    DropdownMenu,
-    DropdownItem,
-    useDisclosure, DropdownSection,
-    Modal, ModalContent, ModalHeader, ModalBody, ModalFooter
-} from "@heroui/react";
+import React from "react";
+import {Link, useLocation, useNavigate} from "react-router-dom";
+import {Button, Dropdown, DropdownItem, DropdownMenu, DropdownSection, DropdownTrigger, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Navbar, NavbarBrand, NavbarContent, NavbarItem, NavbarMenu, NavbarMenuItem, NavbarMenuToggle, useDisclosure} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
 import {useAuth} from "../providers/AuthProvider.tsx";
 import {useWatchPartyContext} from "../providers/WatchPartyProvider.tsx";
@@ -27,8 +11,6 @@ import DownloadsDrawer from "./downloads/DownloadsDrawer.tsx";
 export default function Navigation()
 {
     const [isMenuOpen, setIsMenuOpen] = React.useState(false);
-    const [searchQuery, setSearchQuery] = React.useState("");
-    const [searchOpen, setSearchOpen] = React.useState(false);
     const navigate = useNavigate();
     const location = useLocation();
     const {user, isAuthenticated, isAdmin, logout} = useAuth();
@@ -37,16 +19,6 @@ export default function Navigation()
     const {isOpen: isSettingsOpen, onOpen: onSettingsOpen, onClose: onSettingsClose} = useDisclosure();
     const {isOpen: isDownloadsOpen, onOpen: onDownloadsOpen, onClose: onDownloadsClose} = useDisclosure();
     const {isOpen: isSignOutOpen, onOpen: onSignOutOpen, onClose: onSignOutClose} = useDisclosure();
-
-    const handleSearch = useCallback((e: React.FormEvent) =>
-    {
-        e.preventDefault();
-        if (searchQuery.trim())
-        {
-            navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
-            setSearchOpen(false);
-        }
-    }, [searchQuery]);
 
     const isActive = (path: string) => location.pathname === path;
 
@@ -58,8 +30,7 @@ export default function Navigation()
             <Navbar
                 onMenuOpenChange={setIsMenuOpen}
                 maxWidth="full"
-                className="bg-background/80 backdrop-blur-md border-none fixed top-0 z-[20]"
-                height="4rem"
+                className="bg-background/80 backdrop-blur-md border-none fixed top-0 z-[20] h-16"
             >
                 <NavbarContent>
                     <NavbarMenuToggle aria-label={isMenuOpen ? "Close menu" : "Open menu"} className="md:hidden"/>
@@ -112,7 +83,7 @@ export default function Navigation()
                             </NavbarItem>
                             <DropdownMenu aria-label="Movie Libraries">
                                 {movieLibraries.map((lib) => (
-                                    <DropdownItem key={lib.key} onPress={() => navigate(`/library/${lib.key}`)}>
+                                    <DropdownItem key={lib.key} onPress={() => navigate(`/library/${lib.key}`)} data-href={`/library/${lib.key}`}>
                                         {lib.title}
                                     </DropdownItem>
                                 ))}
@@ -149,7 +120,7 @@ export default function Navigation()
                             </NavbarItem>
                             <DropdownMenu aria-label="TV Libraries">
                                 {tvLibraries.map((lib) => (
-                                    <DropdownItem key={lib.key} onPress={() => navigate(`/library/${lib.key}`)}>
+                                    <DropdownItem key={lib.key} onPress={() => navigate(`/library/${lib.key}`)} data-href={`/library/${lib.key}`}>
                                         {lib.title}
                                     </DropdownItem>
                                 ))}
@@ -171,33 +142,16 @@ export default function Navigation()
 
                 <NavbarContent justify="end">
                     <NavbarItem>
-                        {searchOpen ? (
-                            <form onSubmit={handleSearch} className="flex items-center gap-1">
-                                <Input
-                                    size="sm"
-                                    placeholder="Search..."
-                                    value={searchQuery}
-                                    onValueChange={setSearchQuery}
-                                    className="w-48"
-                                    autoFocus
-                                    isClearable
-                                    onClear={() =>
-                                    {
-                                        setSearchQuery("");
-                                        setSearchOpen(false);
-                                    }}
-                                />
-                            </form>
-                        ) : (
-                            <Button
-                                isIconOnly
-                                variant="light"
-                                size="sm"
-                                onPress={() => setSearchOpen(true)}
-                            >
-                                <Icon icon="mdi:magnify" width="20"/>
-                            </Button>
-                        )}
+                        <Button
+                            isIconOnly
+                            variant="light"
+                            size="sm"
+                            aria-label="Search"
+                            onPress={() => navigate("/search")}
+                            data-href="/search"
+                        >
+                            <Icon icon="mdi:magnify" width="20" className={isActive("/search") ? "text-primary" : undefined}/>
+                        </Button>
                     </NavbarItem>
                     <NavbarItem>
                         <Button
@@ -306,9 +260,22 @@ export default function Navigation()
                         </Link>
                     </NavbarMenuItem>
                     <NavbarMenuItem>
+                        <Link
+                            to="/search"
+                            className={`flex items-center gap-3 w-full py-2 ${
+                                isActive("/search") ? "text-primary" : "text-foreground"
+                            }`}
+                            onClick={() => setIsMenuOpen(false)}
+                        >
+                            <Icon icon="mdi:magnify" width="18"/>
+                            Search
+                        </Link>
+                    </NavbarMenuItem>
+                    <NavbarMenuItem>
                         <button
                             className="flex items-center gap-3 w-full py-2 text-foreground"
-                            onClick={() => {
+                            onClick={() =>
+                            {
                                 setIsMenuOpen(false);
                                 onDownloadsOpen();
                             }}
@@ -322,7 +289,8 @@ export default function Navigation()
                             <NavbarMenuItem>
                                 <button
                                     className="flex items-center gap-3 w-full py-2 text-warning"
-                                    onClick={() => {
+                                    onClick={() =>
+                                    {
                                         setIsMenuOpen(false);
                                         watchParty.leaveParty();
                                     }}
@@ -335,7 +303,8 @@ export default function Navigation()
                                 <NavbarMenuItem>
                                     <button
                                         className="flex items-center gap-3 w-full py-2 text-danger"
-                                        onClick={() => {
+                                        onClick={() =>
+                                        {
                                             setIsMenuOpen(false);
                                             watchParty.closeParty();
                                         }}
@@ -351,7 +320,8 @@ export default function Navigation()
                             <NavbarMenuItem>
                                 <button
                                     className="flex items-center gap-3 w-full py-2 text-foreground"
-                                    onClick={() => {
+                                    onClick={() =>
+                                    {
                                         setIsMenuOpen(false);
                                         watchParty?.openCreateModal();
                                     }}
@@ -363,7 +333,8 @@ export default function Navigation()
                             <NavbarMenuItem>
                                 <button
                                     className="flex items-center gap-3 w-full py-2 text-foreground"
-                                    onClick={() => {
+                                    onClick={() =>
+                                    {
                                         setIsMenuOpen(false);
                                         watchParty?.openJoinModal();
                                     }}
@@ -414,7 +385,11 @@ export default function Navigation()
                     </ModalBody>
                     <ModalFooter>
                         <Button variant="light" onPress={onSignOutClose}>Cancel</Button>
-                        <Button color="danger" onPress={() => { onSignOutClose(); logout(); }}>
+                        <Button color="danger" onPress={() =>
+                        {
+                            onSignOutClose();
+                            logout();
+                        }}>
                             Sign Out
                         </Button>
                     </ModalFooter>

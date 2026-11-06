@@ -1,4 +1,4 @@
-import {useNavigate, useParams} from "react-router-dom";
+import {useParams} from "react-router-dom";
 import {useMemo, useRef, useState} from "react";
 import {Button, Chip, Dropdown, DropdownItem, DropdownMenu, DropdownSection, DropdownTrigger, Spinner, Tooltip} from "@heroui/react";
 import {Icon} from "@iconify-icon/react";
@@ -11,11 +11,13 @@ import RequestModal from "../components/discover/RequestModal.tsx";
 import ManualSearchModal from "../components/discover/ManualSearchModal.tsx";
 import type {SonarrEpisode, TmdbCastMember, TmdbSeasonSummary} from "../lib/types.ts";
 
-function CastSection({cast}: { cast: TmdbCastMember[] }) {
+function CastSection({cast}: { cast: TmdbCastMember[] })
+{
     const scrollRef = useRef<HTMLDivElement>(null);
     if (!cast || cast.length === 0) return null;
 
-    const scroll = (direction: "left" | "right") => {
+    const scroll = (direction: "left" | "right") =>
+    {
         if (!scrollRef.current) return;
         const amount = scrollRef.current.clientWidth * 0.8;
         scrollRef.current.scrollBy({left: direction === "left" ? -amount : amount, behavior: "smooth"});
@@ -65,196 +67,209 @@ function CastSection({cast}: { cast: TmdbCastMember[] }) {
 }
 
 function SeasonCard({
-    season,
-    tmdbId,
-    sonarrSeriesId,
-    sonarrEpisodes,
-}: {
+                        season,
+                        tmdbId,
+                        sonarrSeriesId,
+                        sonarrEpisodes
+                    }: {
     season: TmdbSeasonSummary;
     tmdbId: string;
     sonarrSeriesId?: number;
     sonarrEpisodes?: SonarrEpisode[];
-}) {
+})
+{
     const [expanded, setExpanded] = useState(false);
     const queryClient = useQueryClient();
     const {data: seasonDetail, isLoading} = useTmdbSeason(
         expanded ? tmdbId : undefined,
-        expanded ? season.season_number : undefined,
+        expanded ? season.season_number : undefined
     );
 
     // Get Sonarr episodes for this season
     const seasonEpisodes = useMemo(() =>
-        sonarrEpisodes?.filter(e => e.seasonNumber === season.season_number) || [],
-    [sonarrEpisodes, season.season_number]);
+            sonarrEpisodes?.filter(e => e.seasonNumber === season.season_number) || [],
+        [sonarrEpisodes, season.season_number]);
 
     const monitoredCount = seasonEpisodes.filter(e => e.monitored).length;
     const hasFileCount = seasonEpisodes.filter(e => e.hasFile).length;
     const isFullyMonitored = seasonEpisodes.length > 0 && monitoredCount === seasonEpisodes.length;
 
-    const handleToggleSeasonMonitor = async () => {
+    const handleToggleSeasonMonitor = async () =>
+    {
         if (!sonarrSeriesId || seasonEpisodes.length === 0) return;
         const newMonitored = !isFullyMonitored;
-        try {
+        try
+        {
             await api.put("/sonarr/episode/monitor", {
                 episodeIds: seasonEpisodes.map(e => e.id),
-                monitored: newMonitored,
+                monitored: newMonitored
             });
             await queryClient.invalidateQueries({queryKey: ["sonarr", "episodes", sonarrSeriesId]});
             toast.success(`${newMonitored ? "Monitoring" : "Unmonitoring"} ${season.name}`);
-        } catch {
+        } catch
+        {
             toast.error("Failed to update monitoring");
         }
     };
 
     const [manualSearchOpen, setManualSearchOpen] = useState(false);
 
-    const handleSearchSeason = async () => {
+    const handleSearchSeason = async () =>
+    {
         if (!sonarrSeriesId) return;
-        try {
+        try
+        {
             await api.post("/sonarr/command", {
                 name: "SeasonSearch",
                 seriesId: sonarrSeriesId,
-                seasonNumber: season.season_number,
+                seasonNumber: season.season_number
             });
             toast.success(`Searching for ${season.name}`);
-        } catch {
+        } catch
+        {
             toast.error("Failed to trigger search");
         }
     };
 
     return (
         <>
-        <div className="bg-content2 rounded-lg overflow-hidden">
-            <div
-                className="flex items-center gap-4 p-3 cursor-pointer hover:bg-content3 transition-colors"
-                onClick={() => setExpanded(!expanded)}
-            >
-                {season.poster_path ? (
-                    <img
-                        src={tmdbImage(season.poster_path, "w92")}
-                        alt={season.name}
-                        className="w-12 h-18 object-cover rounded shrink-0"
-                    />
-                ) : (
-                    <div className="w-12 h-18 bg-content3 rounded flex items-center justify-center shrink-0">
-                        <Icon icon="mdi:folder" width="24" className="text-default-400"/>
-                    </div>
-                )}
-                <div className="flex-1 min-w-0">
-                    <p className="font-semibold truncate">{season.name}</p>
-                    <p className="text-xs text-default-400">
-                        {season.episode_count} episode{season.episode_count !== 1 ? "s" : ""}
-                        {season.air_date && ` \u00b7 ${season.air_date.slice(0, 4)}`}
-                    </p>
-                    {sonarrSeriesId && seasonEpisodes.length > 0 && (
-                        <p className="text-xs text-default-500 mt-0.5">
-                            {hasFileCount}/{seasonEpisodes.length} downloaded
-                            {" \u00b7 "}{monitoredCount} monitored
-                        </p>
+            <div className="bg-content2 rounded-lg overflow-hidden">
+                <div
+                    className="flex items-center gap-4 p-3 cursor-pointer hover:bg-content3 transition-colors"
+                    onClick={() => setExpanded(!expanded)}
+                >
+                    {season.poster_path ? (
+                        <img
+                            src={tmdbImage(season.poster_path, "w92")}
+                            alt={season.name}
+                            className="w-12 h-18 object-cover rounded shrink-0"
+                        />
+                    ) : (
+                        <div className="w-12 h-18 bg-content3 rounded flex items-center justify-center shrink-0">
+                            <Icon icon="mdi:folder" width="24" className="text-default-400"/>
+                        </div>
                     )}
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                    {sonarrSeriesId && seasonEpisodes.length > 0 && (
-                        <>
-                            <Tooltip content={isFullyMonitored ? "Unmonitor season" : "Monitor season"}>
-                                <Button
-                                    isIconOnly
-                                    size="sm"
-                                    variant="light"
-                                    onPress={(e) => { e.continuePropagation?.(); handleToggleSeasonMonitor(); }}
-                                    onClick={(e) => e.stopPropagation()}
-                                >
-                                    <Icon
-                                        icon={isFullyMonitored ? "mdi:bookmark" : "mdi:bookmark-outline"}
-                                        width="18"
-                                        className={isFullyMonitored ? "text-primary" : "text-default-400"}
-                                    />
-                                </Button>
-                            </Tooltip>
-                            <Dropdown>
-                                <DropdownTrigger>
+                    <div className="flex-1 min-w-0">
+                        <p className="font-semibold truncate">{season.name}</p>
+                        <p className="text-xs text-default-400">
+                            {season.episode_count} episode{season.episode_count !== 1 ? "s" : ""}
+                            {season.air_date && ` \u00b7 ${season.air_date.slice(0, 4)}`}
+                        </p>
+                        {sonarrSeriesId && seasonEpisodes.length > 0 && (
+                            <p className="text-xs text-default-500 mt-0.5">
+                                {hasFileCount}/{seasonEpisodes.length} downloaded
+                                {" \u00b7 "}{monitoredCount} monitored
+                            </p>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                        {sonarrSeriesId && seasonEpisodes.length > 0 && (
+                            <>
+                                <Tooltip content={isFullyMonitored ? "Unmonitor season" : "Monitor season"}>
                                     <Button
                                         isIconOnly
                                         size="sm"
                                         variant="light"
+                                        onPress={(e) =>
+                                        {
+                                            e.continuePropagation?.();
+                                            handleToggleSeasonMonitor();
+                                        }}
                                         onClick={(e) => e.stopPropagation()}
                                     >
-                                        <Icon icon="mdi:dots-vertical" width="18" className="text-default-400"/>
+                                        <Icon
+                                            icon={isFullyMonitored ? "mdi:bookmark" : "mdi:bookmark-outline"}
+                                            width="18"
+                                            className={isFullyMonitored ? "text-primary" : "text-default-400"}
+                                        />
                                     </Button>
-                                </DropdownTrigger>
-                                <DropdownMenu aria-label="Season actions" onAction={(key) => {
-                                    if (key === "auto-search") handleSearchSeason();
-                                    if (key === "manual-search") setManualSearchOpen(true);
-                                }}>
-                                    <DropdownSection title="Sonarr">
-                                        <DropdownItem key="auto-search" startContent={<Icon icon="mdi:magnify" width="16"/>}>
-                                            Auto Search
-                                        </DropdownItem>
-                                        <DropdownItem key="manual-search" startContent={<Icon icon="mdi:text-search" width="16"/>}>
-                                            Manual Search
-                                        </DropdownItem>
-                                    </DropdownSection>
-                                </DropdownMenu>
-                            </Dropdown>
-                        </>
-                    )}
-                    <Icon
-                        icon={expanded ? "mdi:chevron-up" : "mdi:chevron-down"}
-                        width="20"
-                        className="text-default-400"
-                    />
+                                </Tooltip>
+                                <Dropdown>
+                                    <DropdownTrigger>
+                                        <Button
+                                            isIconOnly
+                                            size="sm"
+                                            variant="light"
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            <Icon icon="mdi:dots-vertical" width="18" className="text-default-400"/>
+                                        </Button>
+                                    </DropdownTrigger>
+                                    <DropdownMenu aria-label="Season actions" onAction={(key) =>
+                                    {
+                                        if (key === "auto-search") handleSearchSeason();
+                                        if (key === "manual-search") setManualSearchOpen(true);
+                                    }}>
+                                        <DropdownSection title="Sonarr">
+                                            <DropdownItem key="auto-search" startContent={<Icon icon="mdi:magnify" width="16"/>}>
+                                                Auto Search
+                                            </DropdownItem>
+                                            <DropdownItem key="manual-search" startContent={<Icon icon="mdi:text-search" width="16"/>}>
+                                                Manual Search
+                                            </DropdownItem>
+                                        </DropdownSection>
+                                    </DropdownMenu>
+                                </Dropdown>
+                            </>
+                        )}
+                        <Icon
+                            icon={expanded ? "mdi:chevron-up" : "mdi:chevron-down"}
+                            width="20"
+                            className="text-default-400"
+                        />
+                    </div>
                 </div>
+                {expanded && (
+                    <div className="border-t border-divider">
+                        {isLoading ? (
+                            <div className="flex justify-center py-4"><Spinner size="sm"/></div>
+                        ) : (
+                            <div className="divide-y divide-divider">
+                                {seasonDetail?.episodes?.map((ep) =>
+                                {
+                                    const sonarrEp = seasonEpisodes.find(se => se.episodeNumber === ep.episode_number);
+                                    return (
+                                        <EpisodeRow
+                                            key={ep.id}
+                                            episodeNumber={ep.episode_number}
+                                            name={ep.name}
+                                            overview={ep.overview}
+                                            airDate={ep.air_date}
+                                            runtime={ep.runtime}
+                                            stillPath={ep.still_path}
+                                            sonarrEpisode={sonarrEp}
+                                            sonarrSeriesId={sonarrSeriesId}
+                                        />
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
-            {expanded && (
-                <div className="border-t border-divider">
-                    {isLoading ? (
-                        <div className="flex justify-center py-4"><Spinner size="sm"/></div>
-                    ) : (
-                        <div className="divide-y divide-divider">
-                            {seasonDetail?.episodes?.map((ep) => {
-                                const sonarrEp = seasonEpisodes.find(se => se.episodeNumber === ep.episode_number);
-                                return (
-                                    <EpisodeRow
-                                        key={ep.id}
-                                        episodeNumber={ep.episode_number}
-                                        name={ep.name}
-                                        overview={ep.overview}
-                                        airDate={ep.air_date}
-                                        runtime={ep.runtime}
-                                        stillPath={ep.still_path}
-                                        sonarrEpisode={sonarrEp}
-                                        sonarrSeriesId={sonarrSeriesId}
-                                    />
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
+            {sonarrSeriesId && (
+                <ManualSearchModal
+                    isOpen={manualSearchOpen}
+                    onClose={() => setManualSearchOpen(false)}
+                    title={`Search: ${season.name}`}
+                    sonarrSeriesId={sonarrSeriesId}
+                    sonarrSeasonNumber={season.season_number}
+                />
             )}
-        </div>
-        {sonarrSeriesId && (
-            <ManualSearchModal
-                isOpen={manualSearchOpen}
-                onClose={() => setManualSearchOpen(false)}
-                title={`Search: ${season.name}`}
-                sonarrSeriesId={sonarrSeriesId}
-                sonarrSeasonNumber={season.season_number}
-            />
-        )}
         </>
     );
 }
 
 function EpisodeRow({
-    episodeNumber,
-    name,
-    overview,
-    airDate,
-    runtime,
-    stillPath,
-    sonarrEpisode,
-    sonarrSeriesId,
-}: {
+                        episodeNumber,
+                        name,
+                        overview,
+                        airDate,
+                        runtime,
+                        stillPath,
+                        sonarrEpisode,
+                        sonarrSeriesId
+                    }: {
     episodeNumber: number;
     name: string;
     overview: string;
@@ -263,32 +278,39 @@ function EpisodeRow({
     stillPath: string | null;
     sonarrEpisode?: SonarrEpisode;
     sonarrSeriesId?: number;
-}) {
+})
+{
     const queryClient = useQueryClient();
     const [manualSearchOpen, setManualSearchOpen] = useState(false);
 
-    const handleToggleMonitor = async () => {
+    const handleToggleMonitor = async () =>
+    {
         if (!sonarrEpisode || !sonarrSeriesId) return;
-        try {
+        try
+        {
             await api.put("/sonarr/episode/monitor", {
                 episodeIds: [sonarrEpisode.id],
-                monitored: !sonarrEpisode.monitored,
+                monitored: !sonarrEpisode.monitored
             });
             await queryClient.invalidateQueries({queryKey: ["sonarr", "episodes", sonarrSeriesId]});
-        } catch {
+        } catch
+        {
             toast.error("Failed to update episode monitoring");
         }
     };
 
-    const handleSearchEpisode = async () => {
+    const handleSearchEpisode = async () =>
+    {
         if (!sonarrEpisode) return;
-        try {
+        try
+        {
             await api.post("/sonarr/command", {
                 name: "EpisodeSearch",
-                episodeIds: [sonarrEpisode.id],
+                episodeIds: [sonarrEpisode.id]
             });
             toast.success(`Searching for E${String(episodeNumber).padStart(2, "0")}`);
-        } catch {
+        } catch
+        {
             toast.error("Failed to trigger search");
         }
     };
@@ -342,7 +364,8 @@ function EpisodeRow({
                                     <Icon icon="mdi:dots-vertical" width="16" className="text-default-400"/>
                                 </Button>
                             </DropdownTrigger>
-                            <DropdownMenu aria-label="Episode actions" onAction={(key) => {
+                            <DropdownMenu aria-label="Episode actions" onAction={(key) =>
+                            {
                                 if (key === "auto-search") handleSearchEpisode();
                                 if (key === "manual-search") setManualSearchOpen(true);
                             }}>
@@ -371,9 +394,9 @@ function EpisodeRow({
     );
 }
 
-export default function DiscoverDetail() {
+export default function DiscoverDetail()
+{
     const {mediaType, tmdbId} = useParams<{ mediaType: string; tmdbId: string }>();
-    const navigate = useNavigate();
     const queryClient = useQueryClient();
     const [showRequestModal, setShowRequestModal] = useState(false);
     const [manualSearchOpen, setManualSearchOpen] = useState(false);
@@ -407,43 +430,55 @@ export default function DiscoverDetail() {
     // const videos = isMovie ? movie?.videos?.results : tv?.videos?.results;
     // const trailer = videos?.find(v => v.type === "Trailer" && v.site === "YouTube") || videos?.find(v => v.type === "Teaser" && v.site === "YouTube");
 
-    const handleSearchAll = async () => {
-        try {
-            if (isMovie && radarrMovie) {
+    const handleSearchAll = async () =>
+    {
+        try
+        {
+            if (isMovie && radarrMovie)
+            {
                 await api.post("/radarr/command", {name: "MoviesSearch", movieIds: [radarrMovie.id]});
                 toast.success(`Searching for "${title}"`);
-            } else if (isTv && sonarrSeries) {
+            } else if (isTv && sonarrSeries)
+            {
                 await api.post("/sonarr/command", {name: "SeriesSearch", seriesId: sonarrSeries.id});
                 toast.success(`Searching for "${title}"`);
             }
-        } catch {
+        } catch
+        {
             toast.error("Failed to trigger search");
         }
     };
 
-    const handleToggleMovieMonitor = async () => {
+    const handleToggleMovieMonitor = async () =>
+    {
         if (!radarrMovie) return;
-        try {
+        try
+        {
             await api.put(`/radarr/movie/${radarrMovie.id}`, {...radarrMovie, monitored: !radarrMovie.monitored});
             await queryClient.invalidateQueries({queryKey: ["radarr", "movies"]});
             toast.success(radarrMovie.monitored ? "Unmonitored" : "Monitoring");
-        } catch {
+        } catch
+        {
             toast.error("Failed to update monitoring");
         }
     };
 
-    const handleToggleSeriesMonitor = async () => {
+    const handleToggleSeriesMonitor = async () =>
+    {
         if (!sonarrSeries) return;
-        try {
+        try
+        {
             await api.put(`/sonarr/series/${sonarrSeries.id}`, {...sonarrSeries, monitored: !sonarrSeries.monitored});
             await queryClient.invalidateQueries({queryKey: ["sonarr", "series"]});
             toast.success(sonarrSeries.monitored ? "Unmonitored" : "Monitoring");
-        } catch {
+        } catch
+        {
             toast.error("Failed to update monitoring");
         }
     };
 
-    if (isLoading) {
+    if (isLoading)
+    {
         return (
             <div className="flex justify-center items-center h-64">
                 <Spinner size="lg"/>
@@ -451,7 +486,8 @@ export default function DiscoverDetail() {
         );
     }
 
-    if ((isMovie && !movie) || (isTv && !tv)) {
+    if ((isMovie && !movie) || (isTv && !tv))
+    {
         return <p className="text-center text-default-400 py-12">Not found</p>;
     }
 
@@ -462,7 +498,7 @@ export default function DiscoverDetail() {
                 <div
                     className="absolute inset-0 bg-cover bg-center"
                     style={{
-                        backgroundImage: backdropPath ? `url(${tmdbImage(backdropPath, "w1280")})` : undefined,
+                        backgroundImage: backdropPath ? `url(${tmdbImage(backdropPath, "w1280")})` : undefined
                     }}
                 />
                 <div className="absolute inset-0 hero-gradient-bottom"/>
@@ -476,7 +512,8 @@ export default function DiscoverDetail() {
                     variant="light"
                     size="sm"
                     startContent={<Icon icon="mdi:arrow-left" width="18"/>}
-                    onPress={() => navigate("/discover")}
+                    onPress={() => window.history.back()}
+                    // onPress={() => navigate("/discover")}
                     className="mb-4 text-white/80 hover:text-white"
                 >
                     Back to Discover

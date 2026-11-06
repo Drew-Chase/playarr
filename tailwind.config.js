@@ -5,7 +5,12 @@ export default {
     content: [
         "./index.html",
         "./src/**/*.{js,ts,jsx,tsx}",
-        "./node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}"
+        // Hoisted layout (npm, or pnpm with publicHoistPattern)
+        "./node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}",
+        // pnpm's default isolated layout — @heroui/theme is a transitive dep of
+        // @heroui/react and is not linked into node_modules/@heroui directly.
+        // Without this glob, none of HeroUI's variant classes get generated.
+        "./node_modules/.pnpm/@heroui+theme@*/node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}"
     ],
     theme: {
         fontFamily: {

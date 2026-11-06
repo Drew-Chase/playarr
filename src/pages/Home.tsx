@@ -145,6 +145,7 @@ function PlaylistCard({playlist}: { playlist: PlexPlaylist })
         <div
             className="shrink-0 w-[250px] group scroll-snap-start cursor-pointer transition-transform duration-200 hover:scale-105"
             onClick={() => navigate(`/playlist/${playlist.ratingKey}`)}
+            data-href={`/playlist/${playlist.ratingKey}`}
         >
             <div className="relative w-[250px] h-[375px] rounded-lg overflow-hidden bg-content2">
                 {imgSrc ? (

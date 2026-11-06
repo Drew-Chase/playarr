@@ -87,6 +87,7 @@ function SeasonsGrid({showId, sonarrSeriesId, showTmdbId}: { showId: string; son
                             transition={{duration: 0.3}}
                             className="cursor-pointer group"
                             onClick={() => navigate(`/detail/${season.ratingKey}`)}
+                            data-href={`/detail/${season.ratingKey}`}
                         >
                             <div className="relative rounded-lg overflow-hidden bg-content2 aspect-[2/3]">
                                 {thumbUrl ? (
