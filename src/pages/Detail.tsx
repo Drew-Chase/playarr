@@ -1,4 +1,4 @@
-import {useLocation, useNavigate, useParams} from "react-router-dom";
+import {Link, useLocation, useNavigate, useParams} from "react-router-dom";
 import {useRef, useState} from "react";
 import {AnimatePresence, motion} from "framer-motion";
 import {BreadcrumbItem, Breadcrumbs, Button, Chip, Dropdown, DropdownItem, DropdownMenu, DropdownSection, DropdownTrigger, Modal, ModalBody, ModalContent, Progress, Spinner, Tooltip} from "@heroui/react";
@@ -52,8 +52,10 @@ function DetailBreadcrumbs({item}: { item: PlexMediaItem }) {
     return (
         <Breadcrumbs size="lg" className="mb-4" classNames={{list: "gap-1"}}>
             {crumbs.map((crumb, i) => (
-                <BreadcrumbItem key={i} href={crumb.href} isCurrent={!crumb.href} classNames={{item: "text-white/90 data-[current=true]:text-white data-[current=true]:font-bold"}}>
-                    {crumb.label}
+                <BreadcrumbItem key={i} isCurrent={!crumb.href} classNames={{item: "text-white/90 data-[current=true]:text-white data-[current=true]:font-bold"}}>
+                    {/* HeroUI renders `href` as a raw <a>, which bypasses the router and forces a full reload.
+                        A react-router Link keeps left-click client-side while middle-click still opens a new tab. */}
+                    {crumb.href ? <Link to={crumb.href} className="hover:underline">{crumb.label}</Link> : crumb.label}
                 </BreadcrumbItem>
             ))}
         </Breadcrumbs>
